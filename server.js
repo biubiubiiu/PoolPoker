@@ -1,9 +1,13 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const path = require('path');
-const fs = require('fs');
-const yaml = require('js-yaml');
+import express from 'express';
+import http from 'http';
+import { Server } from 'socket.io';
+import path from 'path';
+import fs from 'fs';
+import yaml from 'js-yaml';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = http.createServer(app);
@@ -30,8 +34,17 @@ if (fs.existsSync(configPath)) {
   }
 }
 
-// 托管 public 目录
-app.use(express.static(path.join(__dirname, 'public')));
+// 托管静态资源目录（优先托管打包出来的 dist 目录）
+const distDir = path.join(__dirname, 'dist');
+if (fs.existsSync(distDir)) {
+  app.use(express.static(distDir));
+  app.get('*', (req, res, next) => {
+    if (req.url.startsWith('/socket.io')) return next();
+    res.sendFile(path.join(distDir, 'index.html'));
+  });
+} else {
+  console.warn('⚠️ 注意: 未发现 dist 构建目录，请先运行 `npm run build` 进行项目构建。');
+}
 
 // 内存中维护所有房间数据
 const rooms = {};

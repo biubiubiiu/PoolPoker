@@ -3,16 +3,43 @@
   "version": "1.0.0",
   "description": "PoolPoker (球霸扑克) - 台球抽牌/卡牌对战 Web 应用",
   "main": "server.js",
+  "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "start": "npm run build && node server.js",
+    "dev:backend": "node --watch server.js",
+    "dev:frontend": "vite",
+    "dev": "concurrently -k -p \"[{name}]\" -n \"Backend,Frontend\" -c \"yellow,cyan\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build": "vue-tsc && vite build",
+    "preview": "vite preview"
   },
-  "keywords": ["billiards", "cards", "socket.io", "game"],
+  "keywords": [
+    "billiards",
+    "cards",
+    "socket.io",
+    "game"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@fortawesome/fontawesome-free": "^7.3.1",
+    "canvas-confetti": "^1.9.4",
     "express": "^4.19.2",
     "js-yaml": "^4.1.0",
-    "socket.io": "^4.7.5"
+    "socket.io": "^4.7.5",
+    "socket.io-client": "^4.8.3",
+    "vue": "^3.5.41"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/canvas-confetti": "^1.9.0",
+    "@types/node": "^26.2.0",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "autoprefixer": "^10.5.4",
+    "concurrently": "^10.0.5",
+    "postcss": "^8.5.26",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~5.4.5",
+    "vite": "^8.2.1",
+    "vue-tsc": "^2.2.12"
   }
 }
