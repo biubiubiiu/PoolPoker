@@ -263,6 +263,42 @@
           <span class="text-[10px] text-gray-400">牌库剩余 {{ room.deckCount }} 张扑克</span>
         </h3>
 
+        <!-- 当前击球者与顺序展示 -->
+        <div v-if="room.status === 'playing'" class="mb-3 bg-emerald-950/80 p-3 rounded-xl border border-emerald-500/40 shadow-inner space-y-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="text-2xl animate-bounce-short">{{ currentTurnPlayer ? currentTurnPlayer.avatar : '🎱' }}</span>
+              <div>
+                <div class="flex items-center space-x-1.5">
+                  <span class="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">当前击球者</span>
+                  <span v-if="isMyTurn" class="text-[9px] bg-amber-400 text-black font-black px-1.5 py-0.2 rounded animate-pulse">轮到你击球！</span>
+                </div>
+                <span class="font-extrabold text-sm text-white">{{ currentTurnPlayer ? currentTurnPlayer.name : '未知' }}</span>
+              </div>
+            </div>
+
+            <!-- Continue 提醒下一位击球按钮 -->
+            <button @click="nextTurn" 
+                    class="bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-black font-black text-xs px-3 py-1.5 rounded-lg shadow-md transition active:scale-95 flex items-center gap-1">
+              <span>Continue</span>
+              <i class="fa-solid fa-angles-right text-[10px]"></i>
+            </button>
+          </div>
+
+          <!-- 击球顺序链 -->
+          <div v-if="turnOrderPlayers.length > 0" class="pt-1.5 border-t border-emerald-800/60 flex items-center flex-wrap gap-1 text-[11px]">
+            <span class="text-gray-400 text-[10px] mr-1">击球顺序:</span>
+            <template v-for="(p, idx) in turnOrderPlayers" :key="p.userId">
+              <span :class="['px-1.5 py-0.5 rounded font-bold transition-all flex items-center gap-0.5',
+                             p.userId === room.currentTurnUserId ? 'bg-amber-400 text-black shadow' : 'bg-black/40 text-gray-300 border border-white/10']">
+                <span>{{ p.avatar }}</span>
+                <span>{{ p.name }}</span>
+              </span>
+              <i v-if="idx < turnOrderPlayers.length - 1" class="fa-solid fa-angle-right text-[9px] text-emerald-500/80"></i>
+            </template>
+          </div>
+        </div>
+
         <!-- 已打出的球号列表 (按点数 1~15 升序) -->
         <div class="mb-3 bg-black/40 p-2.5 rounded-xl border border-white/5">
           <div class="flex items-center justify-between text-[11px] mb-1.5">
@@ -289,14 +325,16 @@
         <div class="space-y-2">
           <div v-for="p in room.players" :key="p.userId" 
                :class="['p-2.5 rounded-xl border transition-all flex items-center justify-between',
-                        p.userId === userId ? 'bg-emerald-950/60 border-emerald-500/50' : 'bg-black/30 border-white/5']">
+                        p.userId === room.currentTurnUserId ? 'bg-emerald-900/70 border-amber-400 shadow-md ring-1 ring-amber-400/50' : 
+                        (p.userId === userId ? 'bg-emerald-950/60 border-emerald-500/50' : 'bg-black/30 border-white/5')]">
             
             <div class="flex items-center space-x-2.5">
               <span class="text-xl">{{ p.avatar }}</span>
               <div>
                 <div class="flex items-center space-x-1">
                   <span class="font-bold text-xs text-gray-100">{{ p.name }}</span>
-                  <span v-if="p.userId === userId" class="text-[9px] text-emerald-400 font-bold">(我)</span>
+                  <span v-if="p.userId === room.currentTurnUserId" class="text-[9px] bg-amber-400 text-black font-black px-1 rounded">🎯 击球中</span>
+                  <span v-else-if="p.userId === userId" class="text-[9px] text-emerald-400 font-bold">(我)</span>
                   <span v-if="!p.online" class="text-[9px] bg-red-950 text-red-300 border border-red-700/50 px-1 rounded animate-pulse">暂离中</span>
                 </div>
                 <div class="w-24 bg-gray-800 h-1.5 rounded-full mt-1 overflow-hidden">
