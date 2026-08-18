@@ -120,6 +120,11 @@ createApp({
     // 6. 销牌 / 确认进球（支持对应扑克卡片）
     const confirmPocketBall = (card) => {
       if (room.value.status !== 'playing') return;
+
+      if (isCardDimmed(card)) {
+        alert(`【${card.ballNumber}号球】已在场上被打进，你的卡片 [${card.suit}${card.rank}] 属于已进球免打卡，无需重复消去！`);
+        return;
+      }
       
       const confirmText = `确认已经打进 ${card.ballNumber} 号球，消去卡片 [${card.suit}${card.rank}] 吗？`;
       if (window.confirm(confirmText)) {
@@ -128,6 +133,46 @@ createApp({
           cardId: card.id
         });
       }
+    };
+
+    // 判断当前手牌点数是否已在场上打进 (手牌置灰)
+    const isCardDimmed = (card) => {
+      if (!room.value || !room.value.pocketedBallNumbers || !card) return false;
+      return room.value.pocketedBallNumbers.includes(card.ballNumber);
+    };
+
+    // 球号映射名称
+    const getBallName = (ballNum) => {
+      const map = {
+        1: '1号(A)',
+        2: '2号(2)',
+        3: '3号(3)',
+        4: '4号(4)',
+        5: '5号(5)',
+        6: '6号(6)',
+        7: '7号(7)',
+        8: '8号(8)',
+        9: '9号(9)',
+        10: '10号(10)',
+        11: '11号(J)',
+        12: '12号(Q)',
+        13: '13号(K)',
+        14: '14号(小王)',
+        15: '15号(大王)'
+      };
+      return map[ballNum] || `${ballNum}号球`;
+    };
+
+    // 获胜者名称格式化 (支持单人或多名玩家同时胜利)
+    const getWinnersNames = () => {
+      if (!room.value) return '';
+      const winners = room.value.winners || (room.value.winner ? [room.value.winner] : []);
+      if (winners.length === 0) return '';
+      if (winners.length === 1) {
+        return `恭喜 ${winners[0].name} 获胜！`;
+      }
+      const names = winners.map(w => w.name).join('、');
+      return `恭喜 ${names} 共同获胜！`;
     };
 
     // 7. 犯规罚牌
@@ -211,7 +256,10 @@ createApp({
       leaveRoom,
       getBallClass,
       getColorClass,
-      getCardProgressPercent
+      getCardProgressPercent,
+      isCardDimmed,
+      getBallName,
+      getWinnersNames
     };
   }
 }).mount('#app');

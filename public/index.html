@@ -187,7 +187,7 @@
           <div class="flex items-center space-x-2">
             <span class="text-xs font-bold text-amber-300">我的手上扑克手牌</span>
             <span class="text-[10px] bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-700/50">
-              剩余 {{ myInfo ? myInfo.cards.length : 0 }} 张
+              有效剩余 {{ myInfo ? myInfo.activeCardCount : 0 }} 张 / 共 {{ myInfo ? myInfo.cards.length : 0 }} 张
             </span>
           </div>
 
@@ -203,11 +203,12 @@
           
           <div v-for="card in myInfo.cards" :key="card.id" 
                @click="confirmPocketBall(card)"
-               class="privacy-card cursor-pointer group"
-               :class="{'is-hidden': isPrivacyHidden}">
+               :class="['privacy-card group',
+                        isPrivacyHidden ? 'is-hidden' : '',
+                        isCardDimmed(card) ? 'is-dimmed' : 'cursor-pointer']">
             
             <div class="privacy-card-inner w-full h-full">
-              <div class="card-front poker-card-frame">
+              <div class="card-front poker-card-frame relative">
                 <div class="card-corner" :class="getColorClass(card.color)">
                   <span>{{ card.rank }}</span>
                   <span class="text-sm leading-none">{{ card.suit }}</span>
@@ -219,6 +220,12 @@
 
                 <div class="text-[9px] text-center font-bold text-gray-700 leading-none">
                   {{ card.ballNumber }}号球
+                </div>
+
+                <!-- 若该球号已被打进，显示免打遮罩 -->
+                <div v-if="isCardDimmed(card)" class="absolute inset-0 bg-black/70 rounded-[9px] flex flex-col items-center justify-center z-10 border border-emerald-500/30">
+                  <span class="text-emerald-400 font-black text-xs drop-shadow">已进球</span>
+                  <span class="text-[9px] text-gray-300 font-bold scale-90">无需打出</span>
                 </div>
               </div>
 
@@ -255,6 +262,29 @@
           <span class="text-[10px] text-gray-400">牌库剩余 {{ room.deckCount }} 张扑克</span>
         </h3>
 
+        <!-- 已打出的球号列表 (按点数 1~15 升序) -->
+        <div class="mb-3 bg-black/40 p-2.5 rounded-xl border border-white/5">
+          <div class="flex items-center justify-between text-[11px] mb-1.5">
+            <span class="text-gray-300 font-bold flex items-center gap-1">
+              <i class="fa-solid fa-circle-check text-emerald-400"></i> 已打出球号
+            </span>
+            <span class="text-[10px] text-gray-400">共 {{ room.pocketedBallNumbers ? room.pocketedBallNumbers.length : 0 }} 个球号</span>
+          </div>
+
+          <div v-if="room.pocketedBallNumbers && room.pocketedBallNumbers.length > 0" class="flex flex-wrap gap-1.5 items-center">
+            <span v-for="ballNum in room.pocketedBallNumbers" :key="ballNum"
+                  class="inline-flex items-center justify-center text-xs font-black px-2 py-0.5 rounded-full bg-emerald-950/90 text-amber-300 border border-emerald-500/40 shadow-sm">
+              <span :class="['w-3.5 h-3.5 rounded-full mr-1 text-[9px] flex items-center justify-center font-bold text-white mini-ball shrink-0', getBallClass(ballNum)]">
+                <span class="relative z-10 leading-none text-[8px]">{{ ballNum }}</span>
+              </span>
+              {{ getBallName(ballNum) }}
+            </span>
+          </div>
+          <div v-else class="text-[10px] text-gray-500 italic">
+            暂无打出的球
+          </div>
+        </div>
+
         <div class="space-y-2">
           <div v-for="p in room.players" :key="p.id" 
                :class="['p-2.5 rounded-xl border transition-all flex items-center justify-between',
@@ -269,14 +299,14 @@
                 </div>
                 <div class="w-24 bg-gray-800 h-1.5 rounded-full mt-1 overflow-hidden">
                   <div class="bg-amber-400 h-full transition-all duration-300"
-                       :style="{ width: getCardProgressPercent(p.cardCount) + '%' }"></div>
+                       :style="{ width: getCardProgressPercent(p.activeCardCount !== undefined ? p.activeCardCount : p.cardCount) + '%' }"></div>
                 </div>
               </div>
             </div>
 
             <div class="text-right">
-              <span :class="['font-mono font-black text-sm', p.cardCount === 0 ? 'text-emerald-400 animate-bounce' : 'text-amber-300']">
-                {{ p.cardCount === 0 ? '🏆 胜出' : `还剩 ${p.cardCount} 张` }}
+              <span :class="['font-mono font-black text-sm', (p.isWinner || (p.activeCardCount !== undefined ? p.activeCardCount === 0 : p.cardCount === 0)) ? 'text-emerald-400 animate-bounce' : 'text-amber-300']">
+                {{ (p.isWinner || (p.activeCardCount !== undefined ? p.activeCardCount === 0 : p.cardCount === 0)) ? '🏆 胜出' : `还剩 ${p.activeCardCount !== undefined ? p.activeCardCount : p.cardCount} 张` }}
               </span>
               <p class="text-[9px] text-gray-400" v-if="p.pocketedCards && p.pocketedCards.length > 0">
                 已消: {{ p.pocketedCards.map(c => `${c.suit}${c.rank}`).join(' ') }}
@@ -303,13 +333,15 @@
     </div>
 
     <!-- 胜利弹窗 -->
-    <div v-if="room && room.winner" class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
+    <div v-if="room && (room.winners && room.winners.length > 0 || room.winner)" class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
       <div class="glass-panel rounded-3xl p-6 text-center max-w-xs w-full border-2 border-amber-400/60 shadow-2xl space-y-4 animate-bounce-short">
         <div class="text-6xl animate-pulse">🏆</div>
         <div>
           <h3 class="text-xs text-amber-300 font-bold uppercase tracking-widest">Victory</h3>
-          <h2 class="text-2xl font-black text-white mt-1">恭喜 {{ room.winner.name }} 获胜！</h2>
-          <p class="text-xs text-emerald-300 mt-1">率先消完所有手上扑克牌！</p>
+          <h2 class="text-xl font-black text-white mt-1 leading-snug">{{ getWinnersNames() }}</h2>
+          <p class="text-xs text-emerald-300 mt-1">
+            {{ room.winners && room.winners.length > 1 ? '多名玩家同时清空有效手牌！' : '率先消完所有手上扑克牌！' }}
+          </p>
         </div>
 
         <button v-if="isHost" @click="restartGame" 
