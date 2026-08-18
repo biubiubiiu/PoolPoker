@@ -159,8 +159,10 @@ function broadcastRoomState(roomCode) {
   for (const socketId of roomSockets) {
     const playerSocket = io.sockets.sockets.get(socketId);
     if (playerSocket) {
+      const currentPlayer = room.players.find(p => p.id === socketId);
       const clientRoom = {
         code: room.code,
+        hostUserId: room.hostUserId,
         hostSocketId: room.hostSocketId,
         settings: room.settings,
         status: room.status,
@@ -171,13 +173,15 @@ function broadcastRoomState(roomCode) {
         winners: room.winners || (room.winner ? [room.winner] : []),
         pocketedBallNumbers: pocketedBallNumbers,
         players: room.players.map(p => {
-          const isSelf = p.id === socketId;
+          const isSelf = currentPlayer && p.userId === currentPlayer.userId;
           const activeCardCount = (p.cards || []).filter(c => !pocketedSet.has(c.ballNumber)).length;
           return {
             id: p.id,
+            userId: p.userId,
             name: p.name,
             avatar: p.avatar,
-            isHost: p.id === room.hostSocketId,
+            isHost: p.userId === room.hostUserId,
+            online: p.online !== false,
             cardCount: p.cards.length,
             activeCardCount: activeCardCount,
             cards: isSelf ? p.cards : [],
@@ -192,6 +196,13 @@ function broadcastRoomState(roomCode) {
   }
 }
 
+// 检查某个 Socket ID 是否为房间房主
+function isRoomHost(room, socketId) {
+  if (!room) return false;
+  const player = room.players.find(p => p.id === socketId);
+  return player && player.userId === room.hostUserId;
+}
+
 // 日志记录 Helper
 function addLog(room, message) {
   const time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -202,12 +213,15 @@ io.on('connection', (socket) => {
   console.log(`[Socket Connected] ID: ${socket.id}`);
 
   // 1. 创建房间
-  socket.on('create_room', ({ name, avatar }) => {
+  socket.on('create_room', ({ userId, name, avatar }) => {
     const roomCode = generateRoomCode();
+    const uid = userId || ('u_' + Date.now() + Math.random().toString(36).substr(2, 5));
     const newPlayer = {
       id: socket.id,
+      userId: uid,
       name: name || '玩家1',
       avatar: avatar || '🎱',
+      online: true,
       cards: [],
       pocketedCards: [],
       score: 0,
@@ -218,6 +232,7 @@ io.on('connection', (socket) => {
 
     rooms[roomCode] = {
       code: roomCode,
+      hostUserId: uid,
       hostSocketId: socket.id,
       settings: {
         cardsPerPlayer: defaultCards
@@ -233,17 +248,37 @@ io.on('connection', (socket) => {
     socket.join(roomCode);
     addLog(rooms[roomCode], `${newPlayer.name} 创建了房间 ${roomCode}`);
     
-    socket.emit('room_created', { roomCode });
+    socket.emit('room_created', { roomCode, userId: uid });
     broadcastRoomState(roomCode);
   });
 
   // 2. 加入房间
-  socket.on('join_room', ({ roomCode, name, avatar }, callback) => {
+  socket.on('join_room', ({ roomCode, userId, name, avatar }, callback) => {
     const code = (roomCode || '').trim();
     const room = rooms[code];
 
     if (!room) {
       if (callback) callback({ success: false, message: '房间不存在或已解散' });
+      return;
+    }
+
+    const uid = userId || ('u_' + Date.now() + Math.random().toString(36).substr(2, 5));
+    const existingPlayer = room.players.find(p => p.userId === uid);
+
+    if (existingPlayer) {
+      if (existingPlayer.disconnectTimer) {
+        clearTimeout(existingPlayer.disconnectTimer);
+        existingPlayer.disconnectTimer = null;
+      }
+      existingPlayer.id = socket.id;
+      existingPlayer.online = true;
+      if (name) existingPlayer.name = name;
+      if (avatar) existingPlayer.avatar = avatar;
+
+      socket.join(code);
+      addLog(room, `⚡️ ${existingPlayer.name} 重新连入了房间`);
+      if (callback) callback({ success: true, roomCode: code, userId: uid });
+      broadcastRoomState(code);
       return;
     }
 
@@ -258,22 +293,51 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const existingPlayer = room.players.find(p => p.id === socket.id);
-    if (!existingPlayer) {
-      const newPlayer = {
-        id: socket.id,
-        name: name || `玩家${room.players.length + 1}`,
-        avatar: avatar || '🎯',
-        cards: [],
-        pocketedCards: [],
-        score: 0,
-        isWinner: false
-      };
-      room.players.push(newPlayer);
-      addLog(room, `${newPlayer.name} 加入了房间`);
-    }
+    const newPlayer = {
+      id: socket.id,
+      userId: uid,
+      name: name || `玩家${room.players.length + 1}`,
+      avatar: avatar || '🎯',
+      online: true,
+      cards: [],
+      pocketedCards: [],
+      score: 0,
+      isWinner: false
+    };
+    room.players.push(newPlayer);
+    addLog(room, `${newPlayer.name} 加入了房间`);
 
     socket.join(code);
+    if (callback) callback({ success: true, roomCode: code, userId: uid });
+    broadcastRoomState(code);
+  });
+
+  // 2.5 自动恢复断线加入
+  socket.on('rejoin_room', ({ roomCode, userId }, callback) => {
+    const code = (roomCode || '').trim();
+    const room = rooms[code];
+
+    if (!room) {
+      if (callback) callback({ success: false, message: '房间已被解散或不存在' });
+      return;
+    }
+
+    const player = room.players.find(p => p.userId === userId);
+    if (!player) {
+      if (callback) callback({ success: false, message: '玩家不在该房间中' });
+      return;
+    }
+
+    if (player.disconnectTimer) {
+      clearTimeout(player.disconnectTimer);
+      player.disconnectTimer = null;
+    }
+
+    player.id = socket.id;
+    player.online = true;
+    socket.join(code);
+
+    addLog(room, `⚡️ ${player.name} 成功断线重连恢复了对局`);
     if (callback) callback({ success: true, roomCode: code });
     broadcastRoomState(code);
   });
@@ -281,7 +345,7 @@ io.on('connection', (socket) => {
   // 3. 修改房间设置
   socket.on('update_settings', ({ roomCode, settings }) => {
     const room = rooms[roomCode];
-    if (!room || room.hostSocketId !== socket.id) return;
+    if (!room || !isRoomHost(room, socket.id)) return;
 
     if (settings.cardsPerPlayer) {
       room.settings.cardsPerPlayer = Math.max(1, Math.min(10, settings.cardsPerPlayer));
@@ -294,7 +358,7 @@ io.on('connection', (socket) => {
   // 4. 开始游戏 / 发牌
   socket.on('start_game', ({ roomCode }) => {
     const room = rooms[roomCode];
-    if (!room || room.hostSocketId !== socket.id) return;
+    if (!room || !isRoomHost(room, socket.id)) return;
 
     if (room.players.length < 1) return;
 
@@ -388,7 +452,7 @@ io.on('connection', (socket) => {
   // 7. 重新开始
   socket.on('restart_game', ({ roomCode }) => {
     const room = rooms[roomCode];
-    if (!room || room.hostSocketId !== socket.id) return;
+    if (!room || !isRoomHost(room, socket.id)) return;
 
     room.roundCount += 1;
     room.status = 'lobby';
@@ -404,38 +468,92 @@ io.on('connection', (socket) => {
     broadcastRoomState(roomCode);
   });
 
-  // 8. 离开房间
+  // 8. 离开房间 (主动退出)
   socket.on('leave_room', ({ roomCode }) => {
-    handlePlayerLeave(socket, roomCode);
+    handlePlayerExplicitLeave(socket, roomCode);
   });
 
+  // 9. 网络断开 (物理断线/暂离)
   socket.on('disconnect', () => {
     for (const code in rooms) {
       const room = rooms[code];
-      const playerIndex = room.players.findIndex(p => p.id === socket.id);
-      if (playerIndex !== -1) {
-        handlePlayerLeave(socket, code);
+      const player = room.players.find(p => p.id === socket.id);
+      if (player) {
+        handlePlayerDisconnect(socket, code, player);
       }
     }
   });
 });
 
-function handlePlayerLeave(socket, roomCode) {
+// 处理暂离断线：标记 offline 并开启 30 秒倒计时
+function handlePlayerDisconnect(socket, roomCode, player) {
+  const room = rooms[roomCode];
+  if (!room || !player) return;
+
+  player.online = false;
+  addLog(room, `⚠️ ${player.name} 暂离了网络，等待重连 (30s)...`);
+
+  if (player.disconnectTimer) {
+    clearTimeout(player.disconnectTimer);
+  }
+
+  player.disconnectTimer = setTimeout(() => {
+    handlePlayerPermanentLeave(roomCode, player.userId);
+  }, 30000);
+
+  broadcastRoomState(roomCode);
+}
+
+// 超过 30 秒仍未重连，真正移除玩家
+function handlePlayerPermanentLeave(roomCode, userId) {
   const room = rooms[roomCode];
   if (!room) return;
 
-  const player = room.players.find(p => p.id === socket.id);
-  if (player) {
-    room.players = room.players.filter(p => p.id !== socket.id);
+  const playerIndex = room.players.findIndex(p => p.userId === userId);
+  if (playerIndex !== -1) {
+    const player = room.players[playerIndex];
+    if (player.online) return; // 已恢复连线，跳过删除
+
+    room.players.splice(playerIndex, 1);
+    addLog(room, `⌛️ ${player.name} 暂离超时 (30s)，已被系统移出房间`);
+
+    if (room.players.length === 0) {
+      delete rooms[roomCode];
+    } else {
+      if (room.hostUserId === userId) {
+        const nextHost = room.players.find(p => p.online !== false) || room.players[0];
+        room.hostUserId = nextHost.userId;
+        room.hostSocketId = nextHost.id;
+        addLog(room, `👑 ${nextHost.name} 自动成为新房主`);
+      }
+      broadcastRoomState(roomCode);
+    }
+  }
+}
+
+// 玩家主动退出房间
+function handlePlayerExplicitLeave(socket, roomCode) {
+  const room = rooms[roomCode];
+  if (!room) return;
+
+  const playerIndex = room.players.findIndex(p => p.id === socket.id);
+  if (playerIndex !== -1) {
+    const player = room.players[playerIndex];
+    if (player.disconnectTimer) {
+      clearTimeout(player.disconnectTimer);
+    }
+    room.players.splice(playerIndex, 1);
     socket.leave(roomCode);
     addLog(room, `${player.name} 离开了房间`);
 
     if (room.players.length === 0) {
       delete rooms[roomCode];
     } else {
-      if (room.hostSocketId === socket.id) {
-        room.hostSocketId = room.players[0].id;
-        addLog(room, `👑 ${room.players[0].name} 自动成为新房主`);
+      if (room.hostUserId === player.userId) {
+        const nextHost = room.players.find(p => p.online !== false) || room.players[0];
+        room.hostUserId = nextHost.userId;
+        room.hostSocketId = nextHost.id;
+        addLog(room, `👑 ${nextHost.name} 自动成为新房主`);
       }
       broadcastRoomState(roomCode);
     }
