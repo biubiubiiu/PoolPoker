@@ -1,0 +1,10 @@
+# 应用名称与标题
+app_name: "PoolPoker · 球霸扑克"
+
+# 服务运行端口
+port: 3000
+
+# 游戏房间默认设置
+room:
+  default_cards_per_player: 5
+  max_players: 8
