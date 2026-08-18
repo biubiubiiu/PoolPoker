@@ -5,6 +5,14 @@ createApp({
     const socket = ref(null);
     const socketId = ref('');
     
+    // 玩家固定的唯一 userId (持久化存在 localStorage)
+    let savedUserId = localStorage.getItem('billiards_user_id');
+    if (!savedUserId) {
+      savedUserId = 'u_' + Math.random().toString(36).substr(2, 8) + Date.now();
+      localStorage.setItem('billiards_user_id', savedUserId);
+    }
+    const userId = ref(savedUserId);
+
     // 玩家个人设置
     const playerName = ref(localStorage.getItem('billiards_player_name') || '');
     const avatars = ['🎱', '🎯', '🔥', '⚡️', '🏆', '💎'];
@@ -24,10 +32,28 @@ createApp({
       socket.value.on('connect', () => {
         socketId.value = socket.value.id;
         console.log('[Socket] Connected, ID:', socketId.value);
+
+        // 自动断线重连尝试
+        const savedRoomCode = localStorage.getItem('billiards_room_code');
+        if (savedRoomCode) {
+          socket.value.emit('rejoin_room', {
+            roomCode: savedRoomCode,
+            userId: userId.value
+          }, (res) => {
+            if (!res.success) {
+              console.warn('[Rejoin Failed]', res.message);
+              localStorage.removeItem('billiards_room_code');
+              room.value = null;
+            }
+          });
+        }
       });
 
       socket.value.on('room_updated', (updatedRoom) => {
         room.value = updatedRoom;
+        if (updatedRoom && updatedRoom.code) {
+          localStorage.setItem('billiards_room_code', updatedRoom.code);
+        }
         
         if (updatedRoom.winner) {
           triggerConfetti();
@@ -36,6 +62,7 @@ createApp({
 
       socket.value.on('room_created', ({ roomCode }) => {
         joinCode.value = roomCode;
+        localStorage.setItem('billiards_room_code', roomCode);
       });
 
       socket.value.on('error_message', (msg) => {
@@ -51,12 +78,12 @@ createApp({
     });
 
     const isHost = computed(() => {
-      return room.value && room.value.hostSocketId === socketId.value;
+      return room.value && room.value.hostUserId === userId.value;
     });
 
     const myInfo = computed(() => {
       if (!room.value || !room.value.players) return null;
-      return room.value.players.find(p => p.id === socketId.value);
+      return room.value.players.find(p => p.userId === userId.value);
     });
 
     // 1. 创建房间
@@ -65,6 +92,7 @@ createApp({
         playerName.value = `球友${Math.floor(Math.random() * 900 + 100)}`;
       }
       socket.value.emit('create_room', {
+        userId: userId.value,
         name: playerName.value,
         avatar: selectedAvatar.value
       });
@@ -82,11 +110,14 @@ createApp({
 
       socket.value.emit('join_room', {
         roomCode: joinCode.value,
+        userId: userId.value,
         name: playerName.value,
         avatar: selectedAvatar.value
       }, (res) => {
         if (!res.success) {
           alert(res.message);
+        } else if (res.roomCode) {
+          localStorage.setItem('billiards_room_code', res.roomCode);
         }
       });
     };
@@ -195,6 +226,7 @@ createApp({
         if (room.value) {
           socket.value.emit('leave_room', { roomCode: room.value.code });
         }
+        localStorage.removeItem('billiards_room_code');
         room.value = null;
         joinCode.value = '';
       }
@@ -236,6 +268,7 @@ createApp({
 
     return {
       socketId,
+      userId,
       playerName,
       avatars,
       selectedAvatar,
