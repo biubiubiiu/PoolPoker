@@ -299,14 +299,14 @@
                 </div>
                 <div class="w-24 bg-gray-800 h-1.5 rounded-full mt-1 overflow-hidden">
                   <div class="bg-amber-400 h-full transition-all duration-300"
-                       :style="{ width: getCardProgressPercent(p.activeCardCount !== undefined ? p.activeCardCount : p.cardCount) + '%' }"></div>
+                       :style="{ width: getCardProgressPercent(p.cardCount) + '%' }"></div>
                 </div>
               </div>
             </div>
 
             <div class="text-right">
-              <span :class="['font-mono font-black text-sm', (p.isWinner || (p.activeCardCount !== undefined ? p.activeCardCount === 0 : p.cardCount === 0)) ? 'text-emerald-400 animate-bounce' : 'text-amber-300']">
-                {{ (p.isWinner || (p.activeCardCount !== undefined ? p.activeCardCount === 0 : p.cardCount === 0)) ? '🏆 胜出' : `还剩 ${p.activeCardCount !== undefined ? p.activeCardCount : p.cardCount} 张` }}
+              <span :class="['font-mono font-black text-sm', p.isWinner ? 'text-emerald-400 animate-bounce' : 'text-amber-300']">
+                {{ p.isWinner ? '🏆 胜出' : `还剩 ${p.cardCount} 张` }}
               </span>
               <p class="text-[9px] text-gray-400" v-if="p.pocketedCards && p.pocketedCards.length > 0">
                 已消: {{ p.pocketedCards.map(c => `${c.suit}${c.rank}`).join(' ') }}
