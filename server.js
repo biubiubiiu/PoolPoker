@@ -182,7 +182,6 @@ function broadcastRoomState(roomCode) {
 
   const pocketedBallNumbers = getPocketedBallNumbers(room);
   const pocketedSet = new Set(pocketedBallNumbers);
-  const currentTurnUserId = (room.turnOrder && room.turnOrder.length > 0) ? room.turnOrder[room.currentTurnIndex || 0] : null;
 
   for (const socketId of roomSockets) {
     const playerSocket = io.sockets.sockets.get(socketId);
@@ -201,7 +200,6 @@ function broadcastRoomState(roomCode) {
         winners: room.winners || (room.winner ? [room.winner] : []),
         pocketedBallNumbers: pocketedBallNumbers,
         turnOrder: room.turnOrder || [],
-        currentTurnUserId: currentTurnUserId,
         players: room.players.map(p => {
           const isSelf = currentPlayer && p.userId === currentPlayer.userId;
           const activeCardCount = (p.cards || []).filter(c => !pocketedSet.has(c.ballNumber)).length;
@@ -419,7 +417,6 @@ io.on('connection', (socket) => {
     // 计算击球顺序
     const order = computeTurnOrder(room);
     room.turnOrder = order;
-    room.currentTurnIndex = 0;
     room.lastTurnOrder = [...order];
 
     const turnNames = room.turnOrder.map(uid => {
@@ -470,20 +467,6 @@ io.on('connection', (socket) => {
 
       broadcastRoomState(roomCode);
     }
-  });
-
-  // 5.5 提醒下一位击球 (Continue)
-  socket.on('next_turn', ({ roomCode }) => {
-    const room = rooms[roomCode];
-    if (!room || room.status !== 'playing' || !room.turnOrder || room.turnOrder.length === 0) return;
-
-    room.currentTurnIndex = (room.currentTurnIndex + 1) % room.turnOrder.length;
-    const currentUserId = room.turnOrder[room.currentTurnIndex];
-    const currentPlayer = room.players.find(p => p.userId === currentUserId);
-    const name = currentPlayer ? currentPlayer.name : '下一位玩家';
-
-    addLog(room, `⏩ 提醒：轮到 ${name} 击球！`);
-    broadcastRoomState(roomCode);
   });
 
   // 6. 罚牌
@@ -579,9 +562,6 @@ function handlePlayerPermanentLeave(roomCode, userId) {
       const idx = room.turnOrder.indexOf(userId);
       if (idx !== -1) {
         room.turnOrder.splice(idx, 1);
-        if (room.currentTurnIndex >= room.turnOrder.length) {
-          room.currentTurnIndex = 0;
-        }
       }
     }
 
@@ -618,9 +598,6 @@ function handlePlayerExplicitLeave(socket, roomCode) {
       const idx = room.turnOrder.indexOf(player.userId);
       if (idx !== -1) {
         room.turnOrder.splice(idx, 1);
-        if (room.currentTurnIndex >= room.turnOrder.length) {
-          room.currentTurnIndex = 0;
-        }
       }
     }
 

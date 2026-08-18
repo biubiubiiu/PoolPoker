@@ -51,6 +51,7 @@ createApp({
 
       socket.value.on('room_updated', (updatedRoom) => {
         room.value = updatedRoom;
+        showRestartConfirm.value = false;
         if (updatedRoom && updatedRoom.code) {
           localStorage.setItem('billiards_room_code', updatedRoom.code);
         }
@@ -84,15 +85,6 @@ createApp({
     const myInfo = computed(() => {
       if (!room.value || !room.value.players) return null;
       return room.value.players.find(p => p.userId === userId.value);
-    });
-
-    const currentTurnPlayer = computed(() => {
-      if (!room.value || !room.value.players || !room.value.currentTurnUserId) return null;
-      return room.value.players.find(p => p.userId === room.value.currentTurnUserId);
-    });
-
-    const isMyTurn = computed(() => {
-      return room.value && room.value.currentTurnUserId === userId.value;
     });
 
     const turnOrderPlayers = computed(() => {
@@ -228,16 +220,26 @@ createApp({
       }
     };
 
-    // 7.5 提醒下一位击球
-    const nextTurn = () => {
-      if (!room.value || room.value.status !== 'playing') return;
-      socket.value.emit('next_turn', { roomCode: room.value.code });
+    // 8. 重新开始 / 下一局 (支持二次确认 modal)
+    const showRestartConfirm = ref(false);
+
+    const requestRestart = () => {
+      if (!isHost.value || !room.value) return;
+      showRestartConfirm.value = true;
     };
 
-    // 8. 重新开始 / 下一局
-    const restartGame = () => {
+    const confirmRestart = () => {
+      showRestartConfirm.value = false;
       if (!isHost.value || !room.value) return;
       socket.value.emit('restart_game', { roomCode: room.value.code });
+    };
+
+    const cancelRestart = () => {
+      showRestartConfirm.value = false;
+    };
+
+    const restartGame = () => {
+      requestRestart();
     };
 
     // 9. 离开房间
@@ -249,6 +251,7 @@ createApp({
         localStorage.removeItem('billiards_room_code');
         room.value = null;
         joinCode.value = '';
+        showRestartConfirm.value = false;
       }
     };
 
@@ -298,8 +301,6 @@ createApp({
       isPrivacyHidden,
       isHost,
       myInfo,
-      currentTurnPlayer,
-      isMyTurn,
       turnOrderPlayers,
       createRoom,
       joinRoom,
@@ -308,8 +309,11 @@ createApp({
       startGame,
       confirmPocketBall,
       drawPenalty,
-      nextTurn,
       restartGame,
+      showRestartConfirm,
+      requestRestart,
+      confirmRestart,
+      cancelRestart,
       leaveRoom,
       getBallClass,
       getColorClass,
