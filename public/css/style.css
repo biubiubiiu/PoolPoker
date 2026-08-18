@@ -24,6 +24,7 @@ body {
   position: relative;
   overflow: hidden;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  flex-shrink: 0;
 }
 
 @media (min-width: 640px) {
@@ -134,72 +135,22 @@ body {
   overflow: hidden;
 }
 
-/* 3D 防窥卡片与翻面控制 */
-.privacy-card {
-  perspective: 1000px;
-  width: 76px;
-  height: 104px;
-  flex-shrink: 0;
-}
-
-@media (min-width: 640px) {
-  .privacy-card {
-    width: 88px;
-    height: 120px;
-  }
-}
-
-.privacy-card-inner {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  transition: transform 0.4s ease;
-  transform-style: preserve-3d;
-}
-
-.privacy-card.is-hidden .privacy-card-inner {
-  transform: rotateY(180deg);
-}
-
-/* 已进球手牌置灰样式 (不使用 filter / backdrop-filter，防止 3D 转换下 WebKit 渲染图层产生白色大块 BUG) */
-.privacy-card.is-dimmed {
+/* 已进球手牌置灰样式 */
+.poker-card-frame.is-dimmed {
   opacity: 0.6;
   cursor: not-allowed !important;
-}
-
-.privacy-card.is-dimmed:hover {
-  transform: none !important;
-  box-shadow: none !important;
-}
-
-.privacy-card.is-dimmed .poker-card-frame {
   background: linear-gradient(145deg, #4a4a4a 0%, #2b2b2b 100%);
   border: 1px solid #555;
   box-shadow: none;
 }
 
-.privacy-card.is-dimmed .billiard-ball {
+.poker-card-frame.is-dimmed:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.poker-card-frame.is-dimmed .billiard-ball {
   opacity: 0.5;
-}
-
-.card-front, .card-back {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  border-radius: 10px;
-}
-
-.card-back {
-  background: linear-gradient(135deg, #1b4332 0%, #081c15 100%);
-  border: 2px solid #2d6a4f;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  transform: rotateY(180deg);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
 }
 
 /* 玻璃流光面板 */

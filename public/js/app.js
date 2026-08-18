@@ -22,9 +22,7 @@ createApp({
     const tab = ref('join');
     const joinCode = ref('');
 
-    // 房间全景数据
     const room = ref(null);
-    const isPrivacyHidden = ref(false); // 手牌防窥
 
     onMounted(() => {
       socket.value = io();
@@ -343,7 +341,6 @@ createApp({
       tab,
       joinCode,
       room,
-      isPrivacyHidden,
       isHost,
       myInfo,
       turnOrderPlayers,
