@@ -120,6 +120,7 @@ function create54PokerDeck() {
 function getPocketedBallNumbers(room) {
   if (!room || !room.players) return [];
   const set = new Set();
+  (room.accidentalBalls || []).forEach(b => set.add(b));
   room.players.forEach(p => {
     (p.pocketedCards || []).forEach(c => {
       set.add(c.ballNumber);
@@ -269,6 +270,7 @@ io.on('connection', (socket) => {
       roundCount: 1,
       players: [newPlayer],
       deck: [],
+      accidentalBalls: [],
       winner: null,
       logs: []
     };
@@ -401,6 +403,7 @@ io.on('connection', (socket) => {
 
     room.winner = null;
     room.winners = null;
+    room.accidentalBalls = [];
     room.players.forEach(p => {
       p.cards = [];
       p.pocketedCards = [];
@@ -490,6 +493,60 @@ io.on('connection', (socket) => {
     broadcastRoomState(roomCode);
   });
 
+  // 6.5 意外进球 (打进手牌没有的球，当作犯规处理：罚抽1张牌，全员该球号自动标记已进球)
+  socket.on('accidental_pocket', ({ roomCode, ballNumber }) => {
+    const room = rooms[roomCode];
+    if (!room || room.status !== 'playing') return;
+
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player) return;
+
+    const ball = parseInt(ballNumber, 10);
+    if (isNaN(ball) || ball < 1 || ball > 15) return;
+
+    if (!room.accidentalBalls) room.accidentalBalls = [];
+    if (!room.accidentalBalls.includes(ball)) {
+      room.accidentalBalls.push(ball);
+    }
+
+    let drewCard = false;
+    if (room.deck.length > 0) {
+      const newCard = room.deck.pop();
+      player.cards.push(newCard);
+      player.cards.sort((a, b) => a.ballNumber - b.ballNumber);
+      drewCard = true;
+    }
+
+    const ballName = `${ball}号球`;
+    if (drewCard) {
+      addLog(room, `🚨 ${player.name} 意外打进了手牌没有的 [${ballName}]！触发犯规罚抽一张牌，全员 ${ballName} 判定为已进球！`);
+    } else {
+      addLog(room, `🚨 ${player.name} 意外打进了手牌没有的 [${ballName}]！触发犯规（牌库已空无牌可抽），全员 ${ballName} 判定为已进球！`);
+    }
+
+    const winners = checkGameWinners(room);
+    if (winners.length > 0) {
+      room.status = 'finished';
+      room.winners = winners.map(w => ({
+        name: w.name,
+        avatar: w.avatar,
+        id: w.id,
+        userId: w.userId
+      }));
+      room.winner = room.winners[0];
+      room.lastWinnerUserId = winners[0].userId;
+
+      if (winners.length === 1) {
+        addLog(room, `🏆 恭喜 ${winners[0].name} 清空有效手牌，夺得本局胜利！🎉`);
+      } else {
+        const names = winners.map(w => w.name).join('、');
+        addLog(room, `🏆 恭喜 ${names} 共同清空有效手牌，同时夺得本局胜利！🎉`);
+      }
+    }
+
+    broadcastRoomState(roomCode);
+  });
+
   // 7. 重新开始
   socket.on('restart_game', ({ roomCode }) => {
     const room = rooms[roomCode];
@@ -499,6 +556,7 @@ io.on('connection', (socket) => {
     room.status = 'lobby';
     room.winner = null;
     room.winners = null;
+    room.accidentalBalls = [];
     room.players.forEach(p => {
       p.cards = [];
       p.pocketedCards = [];
