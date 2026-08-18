@@ -72,7 +72,12 @@ createApp({
     });
 
     watch(playerName, (val) => {
-      localStorage.setItem('billiards_player_name', val);
+      const trimmed = val.trim();
+      if (trimmed) {
+        localStorage.setItem('billiards_player_name', trimmed);
+      } else {
+        localStorage.removeItem('billiards_player_name');
+      }
     });
     watch(selectedAvatar, (val) => {
       localStorage.setItem('billiards_player_avatar', val);
@@ -94,12 +99,13 @@ createApp({
 
     // 1. 创建房间
     const createRoom = () => {
-      if (!playerName.value.trim()) {
-        playerName.value = `球友${Math.floor(Math.random() * 900 + 100)}`;
+      const finalName = playerName.value.trim() || `球友${Math.floor(Math.random() * 900 + 100)}`;
+      if (playerName.value.trim()) {
+        localStorage.setItem('billiards_player_name', playerName.value.trim());
       }
       socket.value.emit('create_room', {
         userId: userId.value,
-        name: playerName.value,
+        name: finalName,
         avatar: selectedAvatar.value
       });
     };
@@ -110,14 +116,15 @@ createApp({
         alert('请输入4位房间码');
         return;
       }
-      if (!playerName.value.trim()) {
-        playerName.value = `球友${Math.floor(Math.random() * 900 + 100)}`;
+      const finalName = playerName.value.trim() || `球友${Math.floor(Math.random() * 900 + 100)}`;
+      if (playerName.value.trim()) {
+        localStorage.setItem('billiards_player_name', playerName.value.trim());
       }
 
       socket.value.emit('join_room', {
         roomCode: joinCode.value,
         userId: userId.value,
-        name: playerName.value,
+        name: finalName,
         avatar: selectedAvatar.value
       }, (res) => {
         if (!res.success) {
