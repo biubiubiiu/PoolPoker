@@ -116,6 +116,35 @@ function create54PokerDeck() {
   return deck;
 }
 
+// 获取当前房间所有已消除的球号列表 (1 ~ 15，按数字大小升序)
+function getPocketedBallNumbers(room) {
+  if (!room || !room.players) return [];
+  const set = new Set();
+  room.players.forEach(p => {
+    (p.pocketedCards || []).forEach(c => {
+      set.add(c.ballNumber);
+    });
+  });
+  return Array.from(set).sort((a, b) => a - b);
+}
+
+// 检查是否有玩家满足胜利条件（手牌中未被打进的有效卡牌数为 0）
+function checkGameWinners(room) {
+  if (!room || room.status !== 'playing') return [];
+  const pocketedSet = new Set(getPocketedBallNumbers(room));
+  const winners = [];
+
+  room.players.forEach(p => {
+    const activeCards = (p.cards || []).filter(c => !pocketedSet.has(c.ballNumber));
+    if (activeCards.length === 0) {
+      p.isWinner = true;
+      winners.push(p);
+    }
+  });
+
+  return winners;
+}
+
 // 给房间全员广播渲染数据
 function broadcastRoomState(roomCode) {
   const room = rooms[roomCode];
@@ -123,6 +152,9 @@ function broadcastRoomState(roomCode) {
 
   const roomSockets = io.sockets.adapter.rooms.get(roomCode);
   if (!roomSockets) return;
+
+  const pocketedBallNumbers = getPocketedBallNumbers(room);
+  const pocketedSet = new Set(pocketedBallNumbers);
 
   for (const socketId of roomSockets) {
     const playerSocket = io.sockets.sockets.get(socketId);
@@ -136,14 +168,18 @@ function broadcastRoomState(roomCode) {
         deckCount: room.deck.length,
         logs: room.logs.slice(-15),
         winner: room.winner,
+        winners: room.winners || (room.winner ? [room.winner] : []),
+        pocketedBallNumbers: pocketedBallNumbers,
         players: room.players.map(p => {
           const isSelf = p.id === socketId;
+          const activeCardCount = (p.cards || []).filter(c => !pocketedSet.has(c.ballNumber)).length;
           return {
             id: p.id,
             name: p.name,
             avatar: p.avatar,
             isHost: p.id === room.hostSocketId,
             cardCount: p.cards.length,
+            activeCardCount: activeCardCount,
             cards: isSelf ? p.cards : [],
             pocketedCards: p.pocketedCards,
             score: p.score,
@@ -272,6 +308,7 @@ io.on('connection', (socket) => {
     const shuffledDeck = shuffle(fullDeck);
 
     room.winner = null;
+    room.winners = null;
     room.players.forEach(p => {
       p.cards = [];
       p.pocketedCards = [];
@@ -303,17 +340,24 @@ io.on('connection', (socket) => {
       player.pocketedCards.push(removedCard);
       player.score += 1;
 
-      addLog(room, `🎱 ${player.name} 打进并消除了手牌 [${removedCard.suit}${removedCard.rank} -> ${removedCard.ballNumber}号球]！(还剩 ${player.cards.length} 张)`);
+      addLog(room, `🎱 ${player.name} 打进并消除了手牌 [${removedCard.suit}${removedCard.rank} -> ${removedCard.ballNumber}号球]！`);
 
-      if (player.cards.length === 0) {
-        player.isWinner = true;
+      const winners = checkGameWinners(room);
+      if (winners.length > 0) {
         room.status = 'finished';
-        room.winner = {
-          name: player.name,
-          avatar: player.avatar,
-          id: player.id
-        };
-        addLog(room, `🏆 恭喜 ${player.name} 先清空手牌，夺得本局胜利！🎉`);
+        room.winners = winners.map(w => ({
+          name: w.name,
+          avatar: w.avatar,
+          id: w.id
+        }));
+        room.winner = room.winners[0];
+
+        if (winners.length === 1) {
+          addLog(room, `🏆 恭喜 ${winners[0].name} 清空有效手牌，夺得本局胜利！🎉`);
+        } else {
+          const names = winners.map(w => w.name).join('、');
+          addLog(room, `🏆 恭喜 ${names} 共同清空有效手牌，同时夺得本局胜利！🎉`);
+        }
       }
 
       broadcastRoomState(roomCode);
@@ -349,6 +393,7 @@ io.on('connection', (socket) => {
     room.roundCount += 1;
     room.status = 'lobby';
     room.winner = null;
+    room.winners = null;
     room.players.forEach(p => {
       p.cards = [];
       p.pocketedCards = [];
