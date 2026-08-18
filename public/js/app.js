@@ -86,6 +86,20 @@ createApp({
       return room.value.players.find(p => p.userId === userId.value);
     });
 
+    const currentTurnPlayer = computed(() => {
+      if (!room.value || !room.value.players || !room.value.currentTurnUserId) return null;
+      return room.value.players.find(p => p.userId === room.value.currentTurnUserId);
+    });
+
+    const isMyTurn = computed(() => {
+      return room.value && room.value.currentTurnUserId === userId.value;
+    });
+
+    const turnOrderPlayers = computed(() => {
+      if (!room.value || !room.value.players || !room.value.turnOrder) return [];
+      return room.value.turnOrder.map(uid => room.value.players.find(p => p.userId === uid)).filter(Boolean);
+    });
+
     // 1. 创建房间
     const createRoom = () => {
       if (!playerName.value.trim()) {
@@ -214,6 +228,12 @@ createApp({
       }
     };
 
+    // 7.5 提醒下一位击球
+    const nextTurn = () => {
+      if (!room.value || room.value.status !== 'playing') return;
+      socket.value.emit('next_turn', { roomCode: room.value.code });
+    };
+
     // 8. 重新开始 / 下一局
     const restartGame = () => {
       if (!isHost.value || !room.value) return;
@@ -278,6 +298,9 @@ createApp({
       isPrivacyHidden,
       isHost,
       myInfo,
+      currentTurnPlayer,
+      isMyTurn,
+      turnOrderPlayers,
       createRoom,
       joinRoom,
       adjustCardsCount,
@@ -285,6 +308,7 @@ createApp({
       startGame,
       confirmPocketBall,
       drawPenalty,
+      nextTurn,
       restartGame,
       leaveRoom,
       getBallClass,

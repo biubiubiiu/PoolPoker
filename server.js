@@ -145,6 +145,33 @@ function checkGameWinners(room) {
   return winners;
 }
 
+// 计算每局击球顺序
+function computeTurnOrder(room) {
+  if (!room || !room.players || room.players.length === 0) return [];
+  const currentP = room.players.map(p => p.userId);
+  if (!room.lastTurnOrder || room.lastTurnOrder.length === 0 || !room.lastWinnerUserId || !currentP.includes(room.lastWinnerUserId)) {
+    // 初始局或没有上一局胜利者信息，随机打乱
+    return shuffle(currentP);
+  }
+
+  // 1. 保留上一局在场玩家，并补全中途加入的玩家
+  let validPrev = room.lastTurnOrder.filter(id => currentP.includes(id));
+  currentP.forEach(id => {
+    if (!validPrev.includes(id)) {
+      validPrev.push(id);
+    }
+  });
+
+  // 2. 顺序反转
+  let reversed = [...validPrev].reverse();
+
+  // 3. 胜者优先
+  let winnerIdx = reversed.indexOf(room.lastWinnerUserId);
+  if (winnerIdx === -1) winnerIdx = 0;
+
+  return [...reversed.slice(winnerIdx), ...reversed.slice(0, winnerIdx)];
+}
+
 // 给房间全员广播渲染数据
 function broadcastRoomState(roomCode) {
   const room = rooms[roomCode];
@@ -155,6 +182,7 @@ function broadcastRoomState(roomCode) {
 
   const pocketedBallNumbers = getPocketedBallNumbers(room);
   const pocketedSet = new Set(pocketedBallNumbers);
+  const currentTurnUserId = (room.turnOrder && room.turnOrder.length > 0) ? room.turnOrder[room.currentTurnIndex || 0] : null;
 
   for (const socketId of roomSockets) {
     const playerSocket = io.sockets.sockets.get(socketId);
@@ -172,6 +200,8 @@ function broadcastRoomState(roomCode) {
         winner: room.winner,
         winners: room.winners || (room.winner ? [room.winner] : []),
         pocketedBallNumbers: pocketedBallNumbers,
+        turnOrder: room.turnOrder || [],
+        currentTurnUserId: currentTurnUserId,
         players: room.players.map(p => {
           const isSelf = currentPlayer && p.userId === currentPlayer.userId;
           const activeCardCount = (p.cards || []).filter(c => !pocketedSet.has(c.ballNumber)).length;
@@ -386,7 +416,19 @@ io.on('connection', (socket) => {
     room.deck = shuffledDeck;
     room.status = 'playing';
 
+    // 计算击球顺序
+    const order = computeTurnOrder(room);
+    room.turnOrder = order;
+    room.currentTurnIndex = 0;
+    room.lastTurnOrder = [...order];
+
+    const turnNames = room.turnOrder.map(uid => {
+      const p = room.players.find(pl => pl.userId === uid);
+      return p ? p.name : uid;
+    });
+
     addLog(room, `🃏 第 ${room.roundCount} 局对局开始！54张扑克已发给全员`);
+    addLog(room, `🎯 本局击球顺序：${turnNames.join(' ➔ ')}`);
     broadcastRoomState(roomCode);
   });
 
@@ -412,9 +454,11 @@ io.on('connection', (socket) => {
         room.winners = winners.map(w => ({
           name: w.name,
           avatar: w.avatar,
-          id: w.id
+          id: w.id,
+          userId: w.userId
         }));
         room.winner = room.winners[0];
+        room.lastWinnerUserId = winners[0].userId;
 
         if (winners.length === 1) {
           addLog(room, `🏆 恭喜 ${winners[0].name} 清空有效手牌，夺得本局胜利！🎉`);
@@ -426,6 +470,20 @@ io.on('connection', (socket) => {
 
       broadcastRoomState(roomCode);
     }
+  });
+
+  // 5.5 提醒下一位击球 (Continue)
+  socket.on('next_turn', ({ roomCode }) => {
+    const room = rooms[roomCode];
+    if (!room || room.status !== 'playing' || !room.turnOrder || room.turnOrder.length === 0) return;
+
+    room.currentTurnIndex = (room.currentTurnIndex + 1) % room.turnOrder.length;
+    const currentUserId = room.turnOrder[room.currentTurnIndex];
+    const currentPlayer = room.players.find(p => p.userId === currentUserId);
+    const name = currentPlayer ? currentPlayer.name : '下一位玩家';
+
+    addLog(room, `⏩ 提醒：轮到 ${name} 击球！`);
+    broadcastRoomState(roomCode);
   });
 
   // 6. 罚牌
@@ -517,6 +575,16 @@ function handlePlayerPermanentLeave(roomCode, userId) {
     room.players.splice(playerIndex, 1);
     addLog(room, `⌛️ ${player.name} 暂离超时 (30s)，已被系统移出房间`);
 
+    if (room.turnOrder) {
+      const idx = room.turnOrder.indexOf(userId);
+      if (idx !== -1) {
+        room.turnOrder.splice(idx, 1);
+        if (room.currentTurnIndex >= room.turnOrder.length) {
+          room.currentTurnIndex = 0;
+        }
+      }
+    }
+
     if (room.players.length === 0) {
       delete rooms[roomCode];
     } else {
@@ -545,6 +613,16 @@ function handlePlayerExplicitLeave(socket, roomCode) {
     room.players.splice(playerIndex, 1);
     socket.leave(roomCode);
     addLog(room, `${player.name} 离开了房间`);
+
+    if (room.turnOrder) {
+      const idx = room.turnOrder.indexOf(player.userId);
+      if (idx !== -1) {
+        room.turnOrder.splice(idx, 1);
+        if (room.currentTurnIndex >= room.turnOrder.length) {
+          room.currentTurnIndex = 0;
+        }
+      }
+    }
 
     if (room.players.length === 0) {
       delete rooms[roomCode];
