@@ -248,10 +248,16 @@
         <div class="mt-3 pt-2 border-t border-white/10 flex justify-between items-center text-xs">
           <span class="text-gray-400 text-[10px]">打进球后点击对应扑克卡片进行销牌</span>
           
-          <button @click="drawPenalty" :disabled="room.deckCount === 0"
-                  class="bg-red-950/80 hover:bg-red-900 text-red-200 border border-red-700/50 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 active:scale-95 disabled:opacity-40 text-xs">
-            <i class="fa-solid fa-triangle-exclamation text-amber-400"></i> 犯规抽卡
-          </button>
+          <div class="flex items-center space-x-2">
+            <button @click="openAccidentalModal"
+                    class="bg-amber-950/80 hover:bg-amber-900 text-amber-200 border border-amber-700/50 px-2 py-1 rounded-lg font-bold flex items-center gap-1 active:scale-95 text-xs">
+              <i class="fa-solid fa-bullseye text-amber-400"></i> 意外进球
+            </button>
+            <button @click="drawPenalty" :disabled="room.deckCount === 0"
+                    class="bg-red-950/80 hover:bg-red-900 text-red-200 border border-red-700/50 px-2 py-1 rounded-lg font-bold flex items-center gap-1 active:scale-95 disabled:opacity-40 text-xs">
+              <i class="fa-solid fa-triangle-exclamation text-amber-400"></i> 犯规抽卡
+            </button>
+          </div>
         </div>
 
       </div>
@@ -392,6 +398,62 @@
           <button @click="confirmRestart" 
                   class="flex-1 py-2.5 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-xs font-black text-white rounded-xl shadow-lg transition active:scale-95">
             确认重开
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 意外进球选择弹窗 -->
+    <div v-if="showAccidentalModal" class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
+      <div class="glass-panel rounded-3xl p-5 text-center max-w-sm w-full border border-amber-500/40 shadow-2xl space-y-4">
+        <div class="flex items-center justify-between border-b border-white/10 pb-2">
+          <h3 class="text-sm font-black text-amber-300 flex items-center gap-1.5">
+            <i class="fa-solid fa-bullseye text-amber-400"></i> 意外进球 (犯规处理)
+          </h3>
+          <button @click="closeAccidentalModal" class="text-gray-400 hover:text-white text-xs px-2 py-1">
+            <i class="fa-solid fa-xmark text-base"></i>
+          </button>
+        </div>
+
+        <p class="text-xs text-gray-300 text-left leading-relaxed">
+          请选择打进了手牌中没有的球号（将判定为犯规<b>罚抽1张牌</b>，并更新全员该球号状态）：
+        </p>
+
+        <!-- 1-15号球选择网格 -->
+        <div class="grid grid-cols-5 gap-2 py-1">
+          <button v-for="b in 15" :key="b"
+                  @click="selectAccidentalBall(b)"
+                  :disabled="isBallPocketed(b) || isBallInMyHand(b)"
+                  :class="['p-1.5 rounded-xl border flex flex-col items-center justify-center transition-all relative',
+                           selectedAccidentalBall === b ? 'bg-amber-400/20 border-amber-400 ring-2 ring-amber-400 scale-105' : 'bg-black/40 border-white/10 hover:border-white/30',
+                           (isBallPocketed(b) || isBallInMyHand(b)) ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer']">
+            <div :class="['w-7 h-7 rounded-full text-xs flex items-center justify-center font-bold text-white mini-ball shadow', getBallClass(b)]">
+              <span class="relative z-10 leading-none text-[9px]">{{ b }}</span>
+            </div>
+            <span class="text-[9px] font-bold mt-1 text-gray-200">{{ b }}号</span>
+
+            <!-- 状态角标 -->
+            <span v-if="isBallPocketed(b)" class="absolute -top-1 -right-1 text-[8px] bg-red-950 text-red-300 border border-red-700/60 px-1 rounded-full scale-75">已打进</span>
+            <span v-else-if="isBallInMyHand(b)" class="absolute -top-1 -right-1 text-[8px] bg-emerald-950 text-emerald-300 border border-emerald-700/60 px-1 rounded-full scale-75">手上已有</span>
+          </button>
+        </div>
+
+        <div v-if="selectedAccidentalBall" class="bg-amber-950/40 p-2.5 rounded-xl border border-amber-500/30 text-xs text-amber-200">
+          已选择：<span class="font-black text-amber-300 text-sm">{{ getBallName(selectedAccidentalBall) }}</span>
+          <p class="text-[10px] text-gray-300 mt-0.5">确认后该球将被判定为已打进，并且你将被罚抽 1 张扑克牌。</p>
+        </div>
+        <div v-else class="text-[11px] text-gray-400 italic">
+          请在上方点击选择打进的球号
+        </div>
+
+        <div class="flex space-x-2 pt-1">
+          <button @click="closeAccidentalModal"
+                  class="flex-1 py-2.5 bg-gray-800/80 hover:bg-gray-700 text-xs font-bold text-gray-300 rounded-xl border border-white/10 transition active:scale-95">
+            取消
+          </button>
+          <button @click="confirmAccidentalPocket" :disabled="!selectedAccidentalBall"
+                  class="flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-xs font-black text-black rounded-xl shadow-lg transition active:scale-95 disabled:opacity-40">
+            确认进球 (罚抽)
           </button>
         </div>
       </div>

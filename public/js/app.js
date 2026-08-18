@@ -220,6 +220,44 @@ createApp({
       }
     };
 
+    // 7.5 意外进球 (打进手牌没有的球)
+    const showAccidentalModal = ref(false);
+    const selectedAccidentalBall = ref(null);
+
+    const openAccidentalModal = () => {
+      if (room.value.status !== 'playing') return;
+      selectedAccidentalBall.value = null;
+      showAccidentalModal.value = true;
+    };
+
+    const closeAccidentalModal = () => {
+      showAccidentalModal.value = false;
+      selectedAccidentalBall.value = null;
+    };
+
+    const selectAccidentalBall = (b) => {
+      if (isBallPocketed(b) || isBallInMyHand(b)) return;
+      selectedAccidentalBall.value = b;
+    };
+
+    const isBallPocketed = (b) => {
+      return room.value && room.value.pocketedBallNumbers && room.value.pocketedBallNumbers.includes(b);
+    };
+
+    const isBallInMyHand = (b) => {
+      return myInfo.value && myInfo.value.cards && myInfo.value.cards.some(c => c.ballNumber === b);
+    };
+
+    const confirmAccidentalPocket = () => {
+      if (!room.value || room.value.status !== 'playing' || !selectedAccidentalBall.value) return;
+      socket.value.emit('accidental_pocket', {
+        roomCode: room.value.code,
+        ballNumber: selectedAccidentalBall.value
+      });
+      showAccidentalModal.value = false;
+      selectedAccidentalBall.value = null;
+    };
+
     // 8. 重新开始 / 下一局 (支持二次确认 modal)
     const showRestartConfirm = ref(false);
 
@@ -309,6 +347,14 @@ createApp({
       startGame,
       confirmPocketBall,
       drawPenalty,
+      showAccidentalModal,
+      selectedAccidentalBall,
+      openAccidentalModal,
+      closeAccidentalModal,
+      selectAccidentalBall,
+      isBallPocketed,
+      isBallInMyHand,
+      confirmAccidentalPocket,
       restartGame,
       showRestartConfirm,
       requestRestart,
