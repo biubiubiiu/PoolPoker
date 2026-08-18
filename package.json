@@ -1,0 +1,18 @@
+{
+  "name": "poolpoker",
+  "version": "1.0.0",
+  "description": "PoolPoker (球霸扑克) - 台球抽牌/卡牌对战 Web 应用",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": ["billiards", "cards", "socket.io", "game"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.19.2",
+    "js-yaml": "^4.1.0",
+    "socket.io": "^4.7.5"
+  }
+}
