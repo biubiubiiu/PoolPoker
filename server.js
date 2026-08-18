@@ -526,13 +526,17 @@ io.on('connection', (socket) => {
   });
 });
 
-// 处理暂离断线：标记 offline 并开启 30 秒倒计时
+// 处理暂离断线：标记 offline 并开启 1 小时倒计时
 function handlePlayerDisconnect(socket, roomCode, player) {
   const room = rooms[roomCode];
   if (!room || !player) return;
 
+  const timeoutMs = (config.room && config.room.disconnect_timeout_ms) || 3600000;
+  const minutes = Math.round(timeoutMs / 60000);
+  const timeDesc = minutes >= 60 ? `${(minutes / 60).toFixed(minutes % 60 === 0 ? 0 : 1)}小时` : `${minutes}分钟`;
+
   player.online = false;
-  addLog(room, `⚠️ ${player.name} 暂离了网络，等待重连 (30s)...`);
+  addLog(room, `⚠️ ${player.name} 暂离了网络，等待重连 (${timeDesc})...`);
 
   if (player.disconnectTimer) {
     clearTimeout(player.disconnectTimer);
@@ -540,15 +544,19 @@ function handlePlayerDisconnect(socket, roomCode, player) {
 
   player.disconnectTimer = setTimeout(() => {
     handlePlayerPermanentLeave(roomCode, player.userId);
-  }, 30000);
+  }, timeoutMs);
 
   broadcastRoomState(roomCode);
 }
 
-// 超过 30 秒仍未重连，真正移除玩家
+// 超过限时仍未重连，真正移除玩家
 function handlePlayerPermanentLeave(roomCode, userId) {
   const room = rooms[roomCode];
   if (!room) return;
+
+  const timeoutMs = (config.room && config.room.disconnect_timeout_ms) || 3600000;
+  const minutes = Math.round(timeoutMs / 60000);
+  const timeDesc = minutes >= 60 ? `${(minutes / 60).toFixed(minutes % 60 === 0 ? 0 : 1)}小时` : `${minutes}分钟`;
 
   const playerIndex = room.players.findIndex(p => p.userId === userId);
   if (playerIndex !== -1) {
@@ -556,7 +564,7 @@ function handlePlayerPermanentLeave(roomCode, userId) {
     if (player.online) return; // 已恢复连线，跳过删除
 
     room.players.splice(playerIndex, 1);
-    addLog(room, `⌛️ ${player.name} 暂离超时 (30s)，已被系统移出房间`);
+    addLog(room, `⌛️ ${player.name} 暂离超时 (${timeDesc})，已被系统移出房间`);
 
     if (room.turnOrder) {
       const idx = room.turnOrder.indexOf(userId);

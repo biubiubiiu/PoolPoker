@@ -8,3 +8,5 @@ port: 3000
 room:
   default_cards_per_player: 5
   max_players: 8
+  disconnect_timeout_ms: 3600000 # 断线重连等待限时 (毫秒, 默认1小时)
+
