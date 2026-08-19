@@ -249,7 +249,6 @@ function broadcastRoomState(roomCode) {
         turnOrder: room.turnOrder || [],
         players: room.players.map(p => {
           const isSelf = currentPlayer && p.userId === currentPlayer.userId;
-          const activeCardCount = (p.cards || []).filter(c => !pocketedSet.has(c.ballNumber)).length;
           return {
             id: p.id,
             userId: p.userId,
@@ -258,8 +257,8 @@ function broadcastRoomState(roomCode) {
             isHost: p.userId === room.hostUserId,
             online: p.online !== false,
             cardCount: p.cards.length,
-            activeCardCount: activeCardCount,
-            cards: isSelf ? p.cards : [],
+            activeCardCount: p.cards.length,
+            cards: (isSelf || room.status === 'finished') ? p.cards : [],
             pocketedCards: p.pocketedCards,
             score: p.score,
             isWinner: p.isWinner
@@ -545,7 +544,7 @@ io.on('connection', (socket) => {
     broadcastRoomState(roomCode);
   });
 
-  // 6.5 意外进球 (打进手牌没有的球，当作犯规处理：罚抽1张牌，全员该球号自动标记已进球)
+  // 6.5 意外进球 (全员该球号自动标记已进球，罚牌由玩家手动点击犯规触发)
   socket.on('accidental_pocket', ({ roomCode, ballNumber }) => {
     const room = rooms[roomCode];
     if (!room || room.status !== 'playing') return;
@@ -561,20 +560,8 @@ io.on('connection', (socket) => {
       room.accidentalBalls.push(ball);
     }
 
-    let drewCard = false;
-    if (room.deck.length > 0) {
-      const newCard = room.deck.pop();
-      player.cards.push(newCard);
-      player.cards.sort((a, b) => a.ballNumber - b.ballNumber);
-      drewCard = true;
-    }
-
     const ballName = `${ball}号球`;
-    if (drewCard) {
-      addLog(room, `🚨 ${player.name} 意外打进了手牌没有的 [${ballName}]！触发犯规罚抽一张牌，全员 ${ballName} 判定为已进球！`);
-    } else {
-      addLog(room, `🚨 ${player.name} 意外打进了手牌没有的 [${ballName}]！触发犯规（牌库已空无牌可抽），全员 ${ballName} 判定为已进球！`);
-    }
+    addLog(room, `🎱 ${player.name} 意外打进了 [${ballName}]，全员 ${ballName} 判定为已进球！`);
 
     const winners = checkGameWinners(room);
     if (winners.length > 0) {
@@ -596,6 +583,26 @@ io.on('connection', (socket) => {
       }
     }
 
+    broadcastRoomState(roomCode);
+  });
+
+  // 6.6 撤回进球 (将自己本局已打进的一张牌撤回到手牌)
+  socket.on('retract_ball', ({ roomCode, cardId }) => {
+    const room = rooms[roomCode];
+    if (!room || room.status !== 'playing') return;
+
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player) return;
+
+    const cardIndex = player.pocketedCards.findIndex(c => c.id === cardId);
+    if (cardIndex === -1) return;
+
+    const card = player.pocketedCards.splice(cardIndex, 1)[0];
+    player.cards.push(card);
+    player.cards.sort((a, b) => a.ballNumber - b.ballNumber);
+    player.score = Math.max(0, player.score - 1);
+
+    addLog(room, `↩️ ${player.name} 撤回了已打进的手牌 [${card.suit}${card.rank} -> ${card.ballNumber}号球]，该牌返回手牌中。`);
     broadcastRoomState(roomCode);
   });
 
