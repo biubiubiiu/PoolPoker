@@ -40,7 +40,7 @@ const getBallName = (ballNum: number) => {
 };
 
 const selectBall = (ballNum: number) => {
-  if (isBallPocketed(ballNum) || isBallInMyHand(ballNum)) return;
+  if (isBallPocketed(ballNum)) return;
   selectedBall.value = ballNum;
 };
 
@@ -57,7 +57,7 @@ const onConfirm = () => {
     <div class="glass-panel rounded-3xl p-5 text-center max-w-sm w-full border border-amber-500/40 shadow-2xl space-y-4">
       <div class="flex items-center justify-between border-b border-white/10 pb-2">
         <h3 class="text-sm font-black text-amber-300 flex items-center gap-1.5">
-          <i class="fa-solid fa-bullseye text-amber-400"></i> 意外进球 (犯规处理)
+          <i class="fa-solid fa-bullseye text-amber-400"></i> 意外进球
         </h3>
         <button @click="emit('close')" class="text-gray-400 hover:text-white text-xs px-2 py-1 cursor-pointer">
           <i class="fa-solid fa-xmark text-base"></i>
@@ -65,17 +65,17 @@ const onConfirm = () => {
       </div>
 
       <p class="text-xs text-gray-300 text-left leading-relaxed">
-        请选择打进了手牌中没有的球号（将判定为犯规<b>罚抽1张牌</b>，并更新全员该球号状态）：
+        请选择意外打进的球号（全员该球号将判定为已进球，如需罚牌请手动点击<b>犯规</b>）：
       </p>
 
       <!-- 1-15号球选择网格 -->
       <div class="grid grid-cols-5 gap-2 py-1">
         <button v-for="b in 15" :key="b"
                 @click="selectBall(b)"
-                :disabled="isBallPocketed(b) || isBallInMyHand(b)"
+                :disabled="isBallPocketed(b)"
                 :class="['p-1.5 rounded-xl border flex flex-col items-center justify-center transition-all relative',
                          selectedBall === b ? 'bg-amber-400/20 border-amber-400 ring-2 ring-amber-400 scale-105' : 'bg-black/40 border-white/10 hover:border-white/30',
-                         (isBallPocketed(b) || isBallInMyHand(b)) ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer']">
+                         isBallPocketed(b) ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer']">
           <div :class="['w-7 h-7 rounded-full text-xs flex items-center justify-center font-bold text-white mini-ball shadow', getBallClass(b)]">
             <span class="relative z-10 leading-none text-[9px]">{{ b }}</span>
           </div>
@@ -83,13 +83,13 @@ const onConfirm = () => {
 
           <!-- 状态角标 -->
           <span v-if="isBallPocketed(b)" class="absolute -top-1 -right-1 text-[8px] bg-red-950 text-red-300 border border-red-700/60 px-1 rounded-full scale-75">已打进</span>
-          <span v-else-if="isBallInMyHand(b)" class="absolute -top-1 -right-1 text-[8px] bg-emerald-950 text-emerald-300 border border-emerald-700/60 px-1 rounded-full scale-75">手上已有</span>
+          <span v-else-if="isBallInMyHand(b)" class="absolute -top-1 -right-1 text-[8px] bg-blue-950 text-blue-300 border border-blue-700/60 px-1 rounded-full scale-75">我持有</span>
         </button>
       </div>
 
       <div v-if="selectedBall !== null" class="bg-amber-950/40 p-2.5 rounded-xl border border-amber-500/30 text-xs text-amber-200">
         已选择：<span class="font-black text-amber-300 text-sm">{{ getBallName(selectedBall) }}</span>
-        <p class="text-[10px] text-gray-300 mt-0.5">确认后该球将被判定为已打进，并且你将被罚抽 1 张扑克牌。</p>
+        <p class="text-[10px] text-gray-300 mt-0.5">确认后该球将被判定为已打进，全员该球号状态更新。</p>
       </div>
       <div v-else class="text-[11px] text-gray-400 italic">
         请在上方点击选择打进的球号
@@ -102,7 +102,7 @@ const onConfirm = () => {
         </button>
         <button @click="onConfirm" :disabled="selectedBall === null"
                 class="flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-xs font-black text-black rounded-xl shadow-lg transition active:scale-95 disabled:opacity-40 cursor-pointer">
-          确认进球 (罚抽)
+          确认进球
         </button>
       </div>
     </div>
