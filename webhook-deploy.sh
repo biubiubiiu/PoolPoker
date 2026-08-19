@@ -3,10 +3,18 @@
 # 收到 POST 请求后，执行 git pull，然后在 tmux 里重启 npm 服务
 
 # ─── 配置 ─────────────────────────────────────────────────
-PORT=3000
-TMUX_SESSION="app"
+PORT=9999
+TMUX_SESSION="PollPoker"
 APP_DIR="$(cd "$(dirname "$0")" && pwd)"   # 默认为脚本所在目录，可手动修改
+TMUX_SOCKET="default"                       # tmux socket 名称（tmux -L 的值）
+# 显式锚定 tmux server：保证 webhook 后台进程与交互式 shell 连到同一个 server
+TMUX_BIN="$(command -v tmux)"
 # ──────────────────────────────────────────────────────────
+
+# tmux 包装函数：固定 socket，避免后台进程因环境差异连到不同的 server
+tm() {
+    "$TMUX_BIN" -L "$TMUX_SOCKET" "$@"
+}
 
 # 内部调用：带 --deploy 参数时执行部署逻辑
 if [[ "$1" == "--deploy" ]]; then
@@ -15,6 +23,11 @@ if [[ "$1" == "--deploy" ]]; then
 
     echo ""
     echo "=== 部署开始 $(date '+%Y-%m-%d %H:%M:%S') ==="
+    echo "环境：USER=$USER HOME=$HOME TMUX_BIN=$TMUX_BIN SOCKET=$TMUX_SOCKET"
+
+    if [[ -z "$TMUX_BIN" ]]; then
+        echo "错误：找不到 tmux 可执行文件（PATH=$PATH）"; exit 1
+    fi
 
     cd "$APP_DIR" || { echo "错误：无法进入目录 $APP_DIR"; exit 1; }
 
@@ -23,19 +36,30 @@ if [[ "$1" == "--deploy" ]]; then
     git pull || { echo "错误：git pull 失败"; exit 1; }
 
     # 2. 检查 tmux 会话是否存在
-    echo "[2/3] 重启 tmux 会话 '$TMUX_SESSION' 中的进程 ..."
-    if tmux has-session -t "$TMUX_SESSION" 2>/dev/null; then
-        # 会话已存在，发送 Ctrl+C 中断当前进程
-        tmux send-keys -t "$TMUX_SESSION" C-c ""
+    echo "[2/3] 准备 tmux 会话 '$TMUX_SESSION' ..."
+    if tm has-session -t "$TMUX_SESSION" 2>/dev/null; then
+        echo "  会话已存在，发送 Ctrl+C 中断当前进程"
+        tm send-keys -t "$TMUX_SESSION" C-c
         sleep 1
     else
-        # 会话不存在，新建一个后台会话
-        tmux new-session -d -s "$TMUX_SESSION"
+        echo "  会话不存在，新建后台会话（工作目录：$APP_DIR）"
+        if ! tm new-session -d -s "$TMUX_SESSION" -c "$APP_DIR"; then
+            echo "错误：tmux new-session 失败"; exit 1
+        fi
+        # 等待新会话内的 shell 初始化完成，避免 send-keys 丢失
+        sleep 1
     fi
 
-    # 3. 在 tmux 会话里执行 npm install && npm start，服务常驻后台
-    echo "[3/3] npm install && npm start ..."
-    tmux send-keys -t "$TMUX_SESSION" "cd $APP_DIR && npm install && npm start" ENTER
+    # 再次确认会话确实存在
+    if ! tm has-session -t "$TMUX_SESSION" 2>/dev/null; then
+        echo "错误：tmux 会话 '$TMUX_SESSION' 创建/查找失败，当前会话列表："
+        tm ls 2>&1 || echo "  （无法列出会话，tmux server 可能未运行）"
+        exit 1
+    fi
+
+    # 3. 在 tmux 会话里执行 npm install && npm build && npm start，服务常驻后台
+    echo "[3/3] npm install && npm build && npm start ..."
+    tm send-keys -t "$TMUX_SESSION" "cd $APP_DIR && npm install && npm build && npm start" ENTER
 
     echo "=== 部署完成 $(date '+%Y-%m-%d %H:%M:%S') ==="
     exit 0
@@ -43,7 +67,7 @@ fi
 
 # ─── 主流程：启动 HTTP Webhook 监听服务器 ─────────────────
 SCRIPT_PATH="$(realpath "$0")"
-export PORT APP_DIR TMUX_SESSION SCRIPT_PATH
+export PORT APP_DIR TMUX_SESSION TMUX_SOCKET SCRIPT_PATH HOME
 
 echo "Webhook 服务器启动中..."
 echo "  项目目录：$APP_DIR"
