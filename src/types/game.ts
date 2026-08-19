@@ -26,6 +26,7 @@ export interface RoomSettings {
   cardsPerPlayer: number;
   maxPlayers: number;
   includeBlackEight: boolean;
+  ballConfigKey: string;
 }
 
 export interface GameLog {

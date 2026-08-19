@@ -34,12 +34,45 @@ if (fs.existsSync(configPath)) {
   }
 }
 
+const ballConfigPath = path.join(__dirname, 'ball_configs.json');
+if (!fs.existsSync(ballConfigPath)) {
+  console.error('❌ 缺少 ball_configs.json，服务启动失败。');
+  process.exit(1);
+}
+
+let ballConfigs;
+try {
+  const parsed = JSON.parse(fs.readFileSync(ballConfigPath, 'utf8'));
+  if (!parsed || typeof parsed !== 'object' || Object.keys(parsed).length === 0) {
+    throw new Error('配置内容为空或格式非法');
+  }
+  if (!parsed.default) {
+    throw new Error('缺少 default 配置');
+  }
+  ballConfigs = parsed;
+  console.log(`🎨 成功读取 ball_configs.json 配置文件 (配置数: ${Object.keys(ballConfigs).length})`);
+} catch (e) {
+  console.error(`❌ 读取 ball_configs.json 失败: ${e.message}`);
+  process.exit(1);
+}
+
+function isValidBallConfigKey(key) {
+  return !!(key && ballConfigs[key]);
+}
+
+app.get('/api/ball-configs', (req, res) => {
+  res.json({
+    defaultKey: 'default',
+    configs: ballConfigs
+  });
+});
+
 // 托管静态资源目录（优先托管打包出来的 dist 目录）
 const distDir = path.join(__dirname, 'dist');
 if (fs.existsSync(distDir)) {
   app.use(express.static(distDir));
   app.get('*', (req, res, next) => {
-    if (req.url.startsWith('/socket.io')) return next();
+    if (req.url.startsWith('/socket.io') || req.url.startsWith('/api/')) return next();
     res.sendFile(path.join(distDir, 'index.html'));
   });
 } else {
@@ -255,7 +288,7 @@ io.on('connection', (socket) => {
   console.log(`[Socket Connected] ID: ${socket.id}`);
 
   // 1. 创建房间
-  socket.on('create_room', ({ userId, name, avatar }) => {
+  socket.on('create_room', ({ userId, name, avatar, ballConfigKey }) => {
     const roomCode = generateRoomCode();
     const uid = userId || ('u_' + Date.now() + Math.random().toString(36).substr(2, 5));
     const newPlayer = {
@@ -271,13 +304,19 @@ io.on('connection', (socket) => {
     };
 
     const defaultCards = (config.room && config.room.default_cards_per_player) || 5;
+    if (!isValidBallConfigKey(ballConfigKey)) {
+      socket.emit('error_message', `球色配置无效: ${ballConfigKey}`);
+      return;
+    }
+    const selectedBallConfigKey = ballConfigKey;
 
     rooms[roomCode] = {
       code: roomCode,
       hostUserId: uid,
       hostSocketId: socket.id,
       settings: {
-        cardsPerPlayer: defaultCards
+        cardsPerPlayer: defaultCards,
+        ballConfigKey: selectedBallConfigKey
       },
       status: 'lobby',
       roundCount: 1,
