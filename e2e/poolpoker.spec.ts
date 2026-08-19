@@ -1,0 +1,183 @@
+import { test, expect } from '@playwright/test';
+
+test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', () => {
+
+  test('1. Player Profile & LocalStorage Persistence (usePlayerProfile)', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForTimeout(500);
+
+    // 设置玩家姓名 (<=10字符)、选择头像
+    const nameInput = page.locator('input[placeholder*="请输入你的大名/外号"]');
+    await nameInput.fill('Alice');
+
+    // 选中第二个头像 🎯
+    const avatarBtns = page.locator('.glass-panel button');
+    await avatarBtns.nth(1).click();
+
+    // 验证 LocalStorage 持久化
+    const savedName = await page.evaluate(() => localStorage.getItem('billiards_player_name'));
+    const savedAvatar = await page.evaluate(() => localStorage.getItem('billiards_player_avatar'));
+    expect(savedName).toBe('Alice');
+    expect(savedAvatar).toBeTruthy();
+
+    // 刷新页面，验证配置保存生效
+    await page.reload();
+    await page.waitForTimeout(500);
+    await expect(nameInput).toHaveValue('Alice');
+  });
+
+  test('2. Multi-player Lobby Sync & Rules Adjustment (useGameRoom + Socket.io)', async ({ browser }) => {
+    const hostContext = await browser.newContext();
+    const guestContext = await browser.newContext();
+
+    const hostPage = await hostContext.newPage();
+    const guestPage = await guestContext.newPage();
+
+    hostPage.on('dialog', d => d.accept());
+    guestPage.on('dialog', d => d.accept());
+
+    // Host 创建房间
+    await hostPage.goto('/');
+    await hostPage.waitForTimeout(500);
+    await hostPage.locator('input[placeholder*="请输入你的大名/外号"]').fill('HostUser');
+    await hostPage.click('button:has-text("创建新房间")');
+    await hostPage.click('button:has-text("一键创建数字房间")');
+
+    await hostPage.waitForSelector('text=已加入玩家');
+    const roomCodeElement = hostPage.locator('header span.font-mono').first();
+    const roomCode = (await roomCodeElement.innerText()).trim();
+
+    // Guest 加入房间
+    await guestPage.goto('/');
+    await guestPage.waitForTimeout(500);
+    await guestPage.locator('input[placeholder*="请输入你的大名/外号"]').fill('GuestUser');
+    await guestPage.click('button:has-text("加入朋友房间")');
+    await guestPage.locator('input[placeholder*="输入 4 位数字房间码"]').fill(roomCode);
+    await guestPage.click('button:has-text("进入球局")');
+
+    // 验证双向房间玩家列表同步
+    await expect(hostPage.locator('text=HostUser')).toBeVisible({ timeout: 5000 });
+    await expect(hostPage.locator('text=GuestUser')).toBeVisible({ timeout: 5000 });
+    await expect(guestPage.locator('text=HostUser')).toBeVisible({ timeout: 5000 });
+    await expect(guestPage.locator('text=GuestUser')).toBeVisible({ timeout: 5000 });
+
+    // 房主加减发牌数，验证 Guest 页面实时收到 WebSocket 规则更新
+    const cardCountDisplay = guestPage.locator('span.text-amber-300');
+    const initialCountText = await cardCountDisplay.innerText();
+
+    await hostPage.click('button:has-text("+")');
+    await expect(cardCountDisplay).not.toHaveText(initialCountText, { timeout: 5000 });
+
+    await hostContext.close();
+    await guestContext.close();
+  });
+
+  test('3. Game Playback, Card Dimming, Accidental Pocket, Retract, Penalty & Restart Flow', async ({ browser }) => {
+    const hostContext = await browser.newContext();
+    const guestContext = await browser.newContext();
+
+    const hostPage = await hostContext.newPage();
+    const guestPage = await guestContext.newPage();
+
+    hostPage.on('dialog', d => d.accept());
+    guestPage.on('dialog', d => d.accept());
+
+    // --- 初始化房间与开始对局 ---
+    await hostPage.goto('/');
+    await hostPage.waitForTimeout(500);
+    await hostPage.locator('input[placeholder*="请输入你的大名/外号"]').fill('HostP1');
+    await hostPage.click('button:has-text("创建新房间")');
+    await hostPage.click('button:has-text("一键创建数字房间")');
+
+    await hostPage.waitForSelector('text=已加入玩家');
+    const roomCodeElement = hostPage.locator('header span.font-mono').first();
+    const roomCode = (await roomCodeElement.innerText()).trim();
+
+    await guestPage.goto('/');
+    await guestPage.waitForTimeout(500);
+    await guestPage.locator('input[placeholder*="请输入你的大名/外号"]').fill('GuestP2');
+    await guestPage.click('button:has-text("加入朋友房间")');
+    await guestPage.locator('input[placeholder*="输入 4 位数字房间码"]').fill(roomCode);
+    await guestPage.click('button:has-text("进入球局")');
+
+    await expect(hostPage.locator('text=GuestP2')).toBeVisible({ timeout: 5000 });
+
+    // 房主点击开始发牌对局
+    await hostPage.click('button:has-text("开始扑克发牌")');
+
+    await hostPage.waitForSelector('text=我的手上扑克手牌', { timeout: 5000 });
+    await guestPage.waitForSelector('text=我的手上扑克手牌', { timeout: 5000 });
+
+    // --- 3.1 测试【犯规抽卡 (Draw Penalty)】---
+    const initialHandCardsCount = await hostPage.locator('.poker-card-frame').count();
+    await hostPage.click('button:has-text("犯规抽卡")');
+    await hostPage.waitForTimeout(500);
+    const afterPenaltyHandCardsCount = await hostPage.locator('.poker-card-frame').count();
+    expect(afterPenaltyHandCardsCount).toBe(initialHandCardsCount + 1);
+
+    // --- 3.2 测试【意外进球 (Accidental Pocket)】及牌面免打置灰 (isCardDimmed) ---
+    await hostPage.click('button:has-text("意外进球")');
+    await expect(hostPage.locator('text=请选择意外打进的球号')).toBeVisible();
+
+    // 找到未打进的球号按钮（例如 8 号球）并点击提交
+    const ball8Btn = hostPage.locator('.fixed button:has-text("8号")').first();
+    if (await ball8Btn.isVisible()) {
+      await ball8Btn.click();
+      await hostPage.click('.fixed button:has-text("确认进球")');
+      await expect(hostPage.locator('text=请选择意外打进的球号')).toBeHidden();
+
+      // 验证全场对局日志（GameLogs）记录了判定事件
+      await expect(hostPage.locator('text=判定为已进球')).toBeVisible({ timeout: 5000 });
+    }
+
+    // --- 3.3 测试【打卡销牌 (Confirm Pocket)】---
+    const cardToPocket = hostPage.locator('.poker-card-frame:not(.is-dimmed)').first();
+    if (await cardToPocket.isVisible()) {
+      await cardToPocket.click(); // 自动接受 window.confirm
+      await hostPage.waitForTimeout(500);
+
+      // --- 3.4 测试【撤回进球 (Retract Ball Modal)】确认撤回功能 ---
+      await hostPage.click('button:has-text("撤回")');
+      await expect(hostPage.locator('text=撤回进球')).toBeVisible();
+
+      // 选中已打进的卡片并点击确认撤回
+      const pocketedCardInModal = hostPage.locator('.fixed button:has-text("号")').first();
+      if (await pocketedCardInModal.isVisible()) {
+        await pocketedCardInModal.click();
+        await hostPage.click('.fixed button:has-text("确认撤回")');
+        await expect(hostPage.locator('text=撤回进球')).toBeHidden();
+
+        // 验证日志显示了撤回记录
+        await expect(hostPage.locator('text=撤回了已打进的手牌')).toBeVisible({ timeout: 5000 });
+      } else {
+        await hostPage.click('.fixed button:has-text("取消")');
+      }
+    }
+
+    // --- 3.5 测试【重置局况 (Restart Modal)】---
+    const restartHeaderBtn = hostPage.locator('header button').first();
+    await restartHeaderBtn.click();
+    await expect(hostPage.locator('text=确认重开本局？')).toBeVisible();
+
+    await hostPage.click('.fixed button:has-text("确认重开")');
+
+    // 验证双侧玩家同时回到等待阶段
+    await expect(hostPage.locator('text=开始扑克发牌')).toBeVisible({ timeout: 5000 });
+    await expect(guestPage.locator('text=等待房主开始游戏')).toBeVisible({ timeout: 5000 });
+
+    // --- 3.6 测试【离开房间 (Leave Room)】与缓存清理 ---
+    const leaveBtn = hostPage.locator('header button').last();
+    await leaveBtn.click();
+
+    // 验证房主返回登录大厅
+    await expect(hostPage.locator('button:has-text("创建新房间")')).toBeVisible();
+
+    // 验证 localStorage billiards_room_code 已被清理
+    const savedRoomCode = await hostPage.evaluate(() => localStorage.getItem('billiards_room_code'));
+    expect(savedRoomCode).toBeNull();
+
+    await hostContext.close();
+    await guestContext.close();
+  });
+
+});

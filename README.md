@@ -50,6 +50,12 @@ npm start
 npm run dev
 ```
 
+### 4. 自动化 E2E 集成测试 (Playwright)
+使用 Playwright 自动化测试完整的多人双窗口对局流程：
+```bash
+npm run test:e2e
+```
+
 启动完成后，用浏览器或手机访问控制台提示的地址（默认 `http://localhost:3000`）即可开始游戏！
 
 ---

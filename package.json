@@ -10,7 +10,8 @@
     "dev:frontend": "vite",
     "dev": "concurrently -k -p \"[{name}]\" -n \"Backend,Frontend\" -c \"yellow,cyan\" \"npm run dev:backend\" \"npm run dev:frontend\"",
     "build": "vue-tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:e2e": "playwright test"
   },
   "keywords": [
     "billiards",
@@ -30,6 +31,7 @@
     "vue": "^3.5.41"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@tailwindcss/vite": "^4.3.3",
     "@types/canvas-confetti": "^1.9.0",
