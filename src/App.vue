@@ -10,6 +10,7 @@ import PokerCard from './components/PokerCard.vue';
 import BilliardsTable from './components/BilliardsTable.vue';
 import GameLogs from './components/GameLogs.vue';
 import AccidentalPocketModal from './components/AccidentalPocketModal.vue';
+import RetractBallModal from './components/RetractBallModal.vue';
 import VictoryModal from './components/VictoryModal.vue';
 import RestartModal from './components/RestartModal.vue';
 
@@ -42,6 +43,7 @@ interface BallConfigResponse {
 const room = ref<Room | null>(null);
 const showRestartConfirm = ref<boolean>(false);
 const showAccidentalModal = ref<boolean>(false);
+const showRetractModal = ref<boolean>(false);
 const ballConfigs = ref<Record<string, BallConfigItem>>({});
 const selectedBallConfigKey = ref<string>(localStorage.getItem('billiards_ball_config_key') || 'default');
 
@@ -265,6 +267,16 @@ const handleAccidentalConfirm = (ballNum: number) => {
   showAccidentalModal.value = false;
 };
 
+// 8. 撤回进球确认
+const handleRetractConfirm = (cardId: string) => {
+  if (!room.value) return;
+  socket.value?.emit('retract_ball', {
+    roomCode: room.value.code,
+    cardId
+  });
+  showRetractModal.value = false;
+};
+
 // 8. 重置房间
 const handleConfirmRestart = () => {
   if (!isHost.value || !room.value) return;
@@ -338,9 +350,13 @@ const handleLeaveRoom = () => {
         </div>
 
         <div class="mt-3 pt-2 border-t border-white/10 flex justify-between items-center text-xs">
-          <span class="text-gray-400 text-[10px]">打进球后点击对应扑克卡片进行销牌</span>
+          <span class="text-gray-400 text-[10px] shrink-0 mr-2">打进球后点击<br>对应扑克卡片销牌</span>
           
           <div class="flex items-center space-x-2">
+            <button @click="showRetractModal = true"
+                    class="bg-blue-950/80 hover:bg-blue-900 text-blue-200 border border-blue-700/50 px-2 py-1 rounded-lg font-bold flex items-center gap-1 active:scale-95 text-xs cursor-pointer">
+              <i class="fa-solid fa-rotate-left text-blue-400"></i> 撤回
+            </button>
             <button @click="showAccidentalModal = true"
                     class="bg-amber-950/80 hover:bg-amber-900 text-amber-200 border border-amber-700/50 px-2 py-1 rounded-lg font-bold flex items-center gap-1 active:scale-95 text-xs cursor-pointer">
               <i class="fa-solid fa-bullseye text-amber-400"></i> 意外进球
@@ -368,6 +384,11 @@ const handleLeaveRoom = () => {
                            :myCards="myInfo?.cards || []"
                            @close="showAccidentalModal = false"
                            @confirm="handleAccidentalConfirm" />
+
+    <RetractBallModal :show="showRetractModal"
+                      :myPocketedCards="myInfo?.pocketedCards || []"
+                      @close="showRetractModal = false"
+                      @confirm="handleRetractConfirm" />
 
     <VictoryModal :winner="room?.winner || null"
                   :isHost="isHost"
