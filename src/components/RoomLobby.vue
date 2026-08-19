@@ -9,11 +9,13 @@ const props = defineProps<{
   playerName: string;
   selectedAvatar: string;
   avatars: string[];
+  selectedBallConfigKey: string;
+  ballConfigOptions: Array<{ key: string; name: string }>;
 }>();
-
 const emit = defineEmits<{
   (e: 'update:playerName', name: string): void;
   (e: 'update:selectedAvatar', avatar: string): void;
+  (e: 'update:selectedBallConfigKey', key: string): void;
   (e: 'join-room', code: string): void;
   (e: 'create-room'): void;
   (e: 'adjust-cards', delta: number): void;
@@ -65,6 +67,17 @@ const onJoin = () => {
             {{ av }}
           </button>
         </div>
+      </div>
+
+      <div>
+        <label class="block text-xs text-gray-300 mb-1.5 font-semibold">球桌球色配置</label>
+        <select
+          :value="selectedBallConfigKey"
+          @change="emit('update:selectedBallConfigKey', ($event.target as HTMLSelectElement).value)"
+          class="w-full bg-black/40 border border-emerald-600/40 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-amber-400"
+        >
+          <option v-for="cfg in ballConfigOptions" :key="cfg.key" :value="cfg.key">{{ cfg.name }}</option>
+        </select>
       </div>
     </div>
 

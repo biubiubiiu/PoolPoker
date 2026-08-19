@@ -29,11 +29,33 @@ const playerName = ref<string>(localStorage.getItem('billiards_player_name') || 
 const avatars = ['🎱', '🎯', '🔥', '⚡️', '🏆', '💎'];
 const selectedAvatar = ref<string>(localStorage.getItem('billiards_player_avatar') || '🎱');
 
+interface BallConfigItem {
+  name: string;
+  colors: Record<string, [string, string, string]>;
+}
+
+interface BallConfigResponse {
+  defaultKey: string;
+  configs: Record<string, BallConfigItem>;
+}
+
 const room = ref<Room | null>(null);
 const showRestartConfirm = ref<boolean>(false);
 const showAccidentalModal = ref<boolean>(false);
+const ballConfigs = ref<Record<string, BallConfigItem>>({});
+const selectedBallConfigKey = ref<string>(localStorage.getItem('billiards_ball_config_key') || 'default');
 
-onMounted(() => {
+onMounted(async () => {
+  const response = await fetch('/api/ball-configs');
+  if (!response.ok) {
+    throw new Error(`获取球色配置失败: ${response.status}`);
+  }
+  const data: BallConfigResponse = await response.json();
+  ballConfigs.value = data.configs;
+  if (!ballConfigs.value[selectedBallConfigKey.value]) {
+    selectedBallConfigKey.value = data.defaultKey;
+  }
+
   socket.value = io();
 
   socket.value.on('connect', () => {
@@ -90,6 +112,10 @@ watch(selectedAvatar, (val) => {
   localStorage.setItem('billiards_player_avatar', val);
 });
 
+watch(selectedBallConfigKey, (val) => {
+  localStorage.setItem('billiards_ball_config_key', val);
+});
+
 const isHost = computed(() => {
   return !!(room.value && room.value.hostUserId === userId.value);
 });
@@ -104,6 +130,35 @@ const turnOrderPlayers = computed<Player[]>(() => {
   return room.value.turnOrder
     .map(uid => room.value!.players.find(p => p.userId === uid))
     .filter((p): p is Player => !!p);
+});
+
+const ballConfigOptions = computed(() => {
+  return Object.entries(ballConfigs.value).map(([key, item]) => ({
+    key,
+    name: item.name
+  }));
+});
+
+const activeBallConfigKey = computed(() => {
+  if (room.value && room.value.settings && ballConfigs.value[room.value.settings.ballConfigKey]) {
+    return room.value.settings.ballConfigKey;
+  }
+  if (ballConfigs.value[selectedBallConfigKey.value]) {
+    return selectedBallConfigKey.value;
+  }
+  throw new Error(`当前球色配置不存在: ${selectedBallConfigKey.value}`);
+});
+
+const ballColorStyle = computed<Record<string, string>>(() => {
+  const colors = ballConfigs.value[activeBallConfigKey.value].colors;
+  const style: Record<string, string> = {};
+  for (let i = 1; i <= 15; i++) {
+    const [hi, mid, lo] = colors[String(i)];
+    style[`--ball-${i}-hi`] = hi;
+    style[`--ball-${i}-mid`] = mid;
+    style[`--ball-${i}-lo`] = lo;
+  }
+  return style;
 });
 
 const isCardDimmed = (card: Card) => {
@@ -128,7 +183,8 @@ const handleCreateRoom = () => {
   socket.value?.emit('create_room', {
     userId: userId.value,
     name: finalName,
-    avatar: selectedAvatar.value
+    avatar: selectedAvatar.value,
+    ballConfigKey: selectedBallConfigKey.value
   });
 };
 
@@ -229,7 +285,7 @@ const handleLeaveRoom = () => {
 </script>
 
 <template>
-  <div class="flex-1 flex flex-col max-w-md mx-auto w-full px-4 py-3 relative min-h-screen">
+  <div class="flex-1 flex flex-col max-w-md mx-auto w-full px-4 py-3 relative min-h-screen" :style="ballColorStyle">
     
     <!-- 顶部状态栏 -->
     <GameHeader v-if="room"
@@ -245,7 +301,9 @@ const handleLeaveRoom = () => {
                :isHost="isHost"
                v-model:playerName="playerName"
                v-model:selectedAvatar="selectedAvatar"
+               v-model:selectedBallConfigKey="selectedBallConfigKey"
                :avatars="avatars"
+               :ballConfigOptions="ballConfigOptions"
                @create-room="handleCreateRoom"
                @join-room="handleJoinRoom"
                @adjust-cards="handleAdjustCards"
