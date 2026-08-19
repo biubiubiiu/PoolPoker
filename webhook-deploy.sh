@@ -57,9 +57,9 @@ if [[ "$1" == "--deploy" ]]; then
         exit 1
     fi
 
-    # 3. 在 tmux 会话里执行 npm install && npm build && npm start，服务常驻后台
-    echo "[3/3] npm install && npm build && npm start ..."
-    tm send-keys -t "$TMUX_SESSION" "cd $APP_DIR && npm install && npm build && npm start" ENTER
+    # 3. 在 tmux 会话里执行 npm install && npm run build && npm start，服务常驻后台
+    echo "[3/3] npm install && npm run build && npm start ..."
+    tm send-keys -t "$TMUX_SESSION" "cd $APP_DIR && npm install && npm run build && npm start" ENTER
 
     echo "=== 部署完成 $(date '+%Y-%m-%d %H:%M:%S') ==="
     exit 0
