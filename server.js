@@ -599,6 +599,26 @@ io.on('connection', (socket) => {
     broadcastRoomState(roomCode);
   });
 
+  // 6.6 撤回进球 (将自己本局已打进的一张牌撤回到手牌)
+  socket.on('retract_ball', ({ roomCode, cardId }) => {
+    const room = rooms[roomCode];
+    if (!room || room.status !== 'playing') return;
+
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player) return;
+
+    const cardIndex = player.pocketedCards.findIndex(c => c.id === cardId);
+    if (cardIndex === -1) return;
+
+    const card = player.pocketedCards.splice(cardIndex, 1)[0];
+    player.cards.push(card);
+    player.cards.sort((a, b) => a.ballNumber - b.ballNumber);
+    player.score = Math.max(0, player.score - 1);
+
+    addLog(room, `↩️ ${player.name} 撤回了已打进的手牌 [${card.suit}${card.rank} -> ${card.ballNumber}号球]，该牌返回手牌中。`);
+    broadcastRoomState(roomCode);
+  });
+
   // 7. 重新开始
   socket.on('restart_game', ({ roomCode }) => {
     const room = rooms[roomCode];
