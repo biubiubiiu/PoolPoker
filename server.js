@@ -249,7 +249,6 @@ function broadcastRoomState(roomCode) {
         turnOrder: room.turnOrder || [],
         players: room.players.map(p => {
           const isSelf = currentPlayer && p.userId === currentPlayer.userId;
-          const activeCardCount = (p.cards || []).filter(c => !pocketedSet.has(c.ballNumber)).length;
           return {
             id: p.id,
             userId: p.userId,
@@ -258,7 +257,7 @@ function broadcastRoomState(roomCode) {
             isHost: p.userId === room.hostUserId,
             online: p.online !== false,
             cardCount: p.cards.length,
-            activeCardCount: activeCardCount,
+            activeCardCount: p.cards.length,
             cards: (isSelf || room.status === 'finished') ? p.cards : [],
             pocketedCards: p.pocketedCards,
             score: p.score,
