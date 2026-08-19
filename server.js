@@ -79,8 +79,9 @@ if (fs.existsSync(distDir)) {
   console.warn('⚠️ 注意: 未发现 dist 构建目录，请先运行 `npm run build` 进行项目构建。');
 }
 
-// 内存中维护所有房间数据
+// 内存中维护所有房间数据及 Socket 反向索引 (socket.id -> { roomCode, userId })
 const rooms = {};
+const socketIndex = new Map();
 
 // 生成 4 位纯数字房间码 (1000 ~ 9999)
 function generateRoomCode() {
@@ -327,6 +328,7 @@ io.on('connection', (socket) => {
     };
 
     socket.join(roomCode);
+    socketIndex.set(socket.id, { roomCode, userId: uid });
     addLog(rooms[roomCode], `${newPlayer.name} 创建了房间 ${roomCode}`);
     
     socket.emit('room_created', { roomCode, userId: uid });
@@ -347,6 +349,9 @@ io.on('connection', (socket) => {
     const existingPlayer = room.players.find(p => p.userId === uid);
 
     if (existingPlayer) {
+      if (existingPlayer.id && existingPlayer.id !== socket.id) {
+        socketIndex.delete(existingPlayer.id);
+      }
       if (existingPlayer.disconnectTimer) {
         clearTimeout(existingPlayer.disconnectTimer);
         existingPlayer.disconnectTimer = null;
@@ -355,6 +360,8 @@ io.on('connection', (socket) => {
       existingPlayer.online = true;
       if (name) existingPlayer.name = name;
       if (avatar) existingPlayer.avatar = avatar;
+
+      socketIndex.set(socket.id, { roomCode: code, userId: uid });
 
       socket.join(code);
       addLog(room, `⚡️ ${existingPlayer.name} 重新连入了房间`);
@@ -386,6 +393,7 @@ io.on('connection', (socket) => {
       isWinner: false
     };
     room.players.push(newPlayer);
+    socketIndex.set(socket.id, { roomCode: code, userId: uid });
     addLog(room, `${newPlayer.name} 加入了房间`);
 
     socket.join(code);
@@ -409,6 +417,10 @@ io.on('connection', (socket) => {
       return;
     }
 
+    if (player.id && player.id !== socket.id) {
+      socketIndex.delete(player.id);
+    }
+
     if (player.disconnectTimer) {
       clearTimeout(player.disconnectTimer);
       player.disconnectTimer = null;
@@ -416,6 +428,7 @@ io.on('connection', (socket) => {
 
     player.id = socket.id;
     player.online = true;
+    socketIndex.set(socket.id, { roomCode: code, userId });
     socket.join(code);
 
     addLog(room, `⚡️ ${player.name} 成功断线重连恢复了对局`);
@@ -633,11 +646,16 @@ io.on('connection', (socket) => {
 
   // 9. 网络断开 (物理断线/暂离)
   socket.on('disconnect', () => {
-    for (const code in rooms) {
-      const room = rooms[code];
-      const player = room.players.find(p => p.id === socket.id);
-      if (player) {
-        handlePlayerDisconnect(socket, code, player);
+    const info = socketIndex.get(socket.id);
+    if (info) {
+      const { roomCode, userId } = info;
+      socketIndex.delete(socket.id);
+      const room = rooms[roomCode];
+      if (room) {
+        const player = room.players.find(p => p.userId === userId || p.id === socket.id);
+        if (player) {
+          handlePlayerDisconnect(socket, roomCode, player);
+        }
       }
     }
   });
@@ -680,6 +698,9 @@ function handlePlayerPermanentLeave(roomCode, userId) {
     const player = room.players[playerIndex];
     if (player.online) return; // 已恢复连线，跳过删除
 
+    if (player.id) {
+      socketIndex.delete(player.id);
+    }
     room.players.splice(playerIndex, 1);
     addLog(room, `⌛️ ${player.name} 暂离超时 (${timeDesc})，已被系统移出房间`);
 
@@ -714,6 +735,10 @@ function handlePlayerExplicitLeave(socket, roomCode) {
     const player = room.players[playerIndex];
     if (player.disconnectTimer) {
       clearTimeout(player.disconnectTimer);
+    }
+    socketIndex.delete(socket.id);
+    if (player.id) {
+      socketIndex.delete(player.id);
     }
     room.players.splice(playerIndex, 1);
     socket.leave(roomCode);
