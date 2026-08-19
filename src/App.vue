@@ -371,6 +371,8 @@ const handleLeaveRoom = () => {
 
     <VictoryModal :winner="room?.winner || null"
                   :isHost="isHost"
+                  :players="room?.players || []"
+                  :pocketedBallNumbers="room?.pocketedBallNumbers || []"
                   @restart="handleConfirmRestart" />
 
     <RestartModal :show="showRestartConfirm"

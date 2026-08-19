@@ -259,7 +259,7 @@ function broadcastRoomState(roomCode) {
             online: p.online !== false,
             cardCount: p.cards.length,
             activeCardCount: activeCardCount,
-            cards: isSelf ? p.cards : [],
+            cards: (isSelf || room.status === 'finished') ? p.cards : [],
             pocketedCards: p.pocketedCards,
             score: p.score,
             isWinner: p.isWinner
