@@ -18,7 +18,7 @@ export interface Player {
   activeCardCount: number;
   cards: Card[];
   pocketedCards: Card[];
-  score: number;
+  wins: number;
   isWinner: boolean;
 }
 

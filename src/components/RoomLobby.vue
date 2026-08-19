@@ -137,6 +137,9 @@ const onJoin = () => {
                 <span class="font-bold text-sm text-gray-100">{{ p.name }}</span>
                 <span v-if="p.userId === room.hostUserId" class="text-[10px] bg-amber-400 text-black font-black px-1.5 py-0.2 rounded">房主</span>
                 <span v-if="p.userId === userId" class="text-[10px] bg-emerald-600 text-white px-1.5 py-0.2 rounded">我</span>
+                <span class="text-[10px] bg-amber-950/80 text-amber-300 border border-amber-600/40 px-1 rounded font-bold">
+                  {{ p.wins }}胜
+                </span>
               </div>
             </div>
           </div>

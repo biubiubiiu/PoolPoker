@@ -97,6 +97,9 @@ const isPlayerWinner = (player: Player) => {
             <div class="flex items-center space-x-1">
               <span class="font-bold text-xs text-gray-100">{{ p.name }}</span>
               <span v-if="p.userId === userId" class="text-[9px] text-emerald-400 font-bold">(我)</span>
+              <span class="text-[9px] bg-amber-950/80 text-amber-300 border border-amber-600/40 px-1 rounded font-bold">
+                {{ p.wins }}胜
+              </span>
               <span v-if="p.online === false" class="text-[9px] bg-red-950 text-red-300 border border-red-700/50 px-1 rounded animate-pulse">暂离中</span>
             </div>
             <div class="w-24 bg-gray-800 h-1.5 rounded-full mt-1 overflow-hidden">

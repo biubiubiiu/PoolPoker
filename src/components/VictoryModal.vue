@@ -65,7 +65,13 @@ const isWinner = (player: Player) => {
             <span class="text-xl">{{ player.avatar }}</span>
             <span class="font-bold text-sm text-gray-100">{{ player.name }}</span>
             <span v-if="isWinner(player)" class="text-[9px] bg-amber-400 text-black font-black px-1.5 py-0.5 rounded-full">🏆 胜出</span>
-            <span v-if="player.online === false" class="text-[9px] bg-red-950 text-red-300 border border-red-700/50 px-1 rounded ml-auto">暂离</span>
+            <span v-if="player.online === false" class="text-[9px] bg-red-950 text-red-300 border border-red-700/50 px-1 rounded">暂离</span>
+
+            <!-- 累计得分战报 -->
+            <span class="ml-auto text-xs font-black text-amber-300 bg-amber-950/90 border border-amber-500/40 px-2 py-0.5 rounded-lg flex items-center gap-1 shadow-sm">
+              <i class="fa-solid fa-trophy text-amber-400 text-[10px]"></i>
+              <span>累计得分: {{ player.wins }}胜</span>
+            </span>
           </div>
 
           <!-- 三类牌展示 -->

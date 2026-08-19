@@ -261,7 +261,7 @@ function broadcastRoomState(roomCode) {
             activeCardCount: p.cards.length,
             cards: (isSelf || room.status === 'finished') ? p.cards : [],
             pocketedCards: p.pocketedCards,
-            score: p.score,
+            wins: p.wins || 0,
             isWinner: p.isWinner
           };
         })
@@ -299,7 +299,7 @@ io.on('connection', (socket) => {
       online: true,
       cards: [],
       pocketedCards: [],
-      score: 0,
+      wins: 0,
       isWinner: false
     };
 
@@ -389,7 +389,7 @@ io.on('connection', (socket) => {
       online: true,
       cards: [],
       pocketedCards: [],
-      score: 0,
+      wins: 0,
       isWinner: false
     };
     room.players.push(newPlayer);
@@ -508,26 +508,29 @@ io.on('connection', (socket) => {
     if (cardIndex !== -1) {
       const removedCard = player.cards.splice(cardIndex, 1)[0];
       player.pocketedCards.push(removedCard);
-      player.score += 1;
 
       addLog(room, `🎱 ${player.name} 打进并消除了手牌 [${removedCard.suit}${removedCard.rank} -> ${removedCard.ballNumber}号球]！`);
 
       const winners = checkGameWinners(room);
       if (winners.length > 0) {
         room.status = 'finished';
+        winners.forEach(w => {
+          w.wins = (w.wins || 0) + 1;
+        });
         room.winners = winners.map(w => ({
           name: w.name,
           avatar: w.avatar,
           id: w.id,
-          userId: w.userId
+          userId: w.userId,
+          wins: w.wins
         }));
         room.winner = room.winners[0];
         room.lastWinnerUserId = winners[0].userId;
 
         if (winners.length === 1) {
-          addLog(room, `🏆 恭喜 ${winners[0].name} 清空有效手牌，夺得本局胜利！🎉`);
+          addLog(room, `🏆 恭喜 ${winners[0].name} 清空有效手牌，夺得本局胜利！(累计胜利 ${winners[0].wins} 次) 🎉`);
         } else {
-          const names = winners.map(w => w.name).join('、');
+          const names = winners.map(w => `${w.name}(累计${w.wins}胜)`).join('、');
           addLog(room, `🏆 恭喜 ${names} 共同清空有效手牌，同时夺得本局胜利！🎉`);
         }
       }
@@ -579,19 +582,23 @@ io.on('connection', (socket) => {
     const winners = checkGameWinners(room);
     if (winners.length > 0) {
       room.status = 'finished';
+      winners.forEach(w => {
+        w.wins = (w.wins || 0) + 1;
+      });
       room.winners = winners.map(w => ({
         name: w.name,
         avatar: w.avatar,
         id: w.id,
-        userId: w.userId
+        userId: w.userId,
+        wins: w.wins
       }));
       room.winner = room.winners[0];
       room.lastWinnerUserId = winners[0].userId;
 
       if (winners.length === 1) {
-        addLog(room, `🏆 恭喜 ${winners[0].name} 清空有效手牌，夺得本局胜利！🎉`);
+        addLog(room, `🏆 恭喜 ${winners[0].name} 清空有效手牌，夺得本局胜利！(累计胜利 ${winners[0].wins} 次) 🎉`);
       } else {
-        const names = winners.map(w => w.name).join('、');
+        const names = winners.map(w => `${w.name}(累计${w.wins}胜)`).join('、');
         addLog(room, `🏆 恭喜 ${names} 共同清空有效手牌，同时夺得本局胜利！🎉`);
       }
     }
@@ -613,7 +620,6 @@ io.on('connection', (socket) => {
     const card = player.pocketedCards.splice(cardIndex, 1)[0];
     player.cards.push(card);
     player.cards.sort((a, b) => a.ballNumber - b.ballNumber);
-    player.score = Math.max(0, player.score - 1);
 
     addLog(room, `↩️ ${player.name} 撤回了已打进的手牌 [${card.suit}${card.rank} -> ${card.ballNumber}号球]，该牌返回手牌中。`);
     broadcastRoomState(roomCode);

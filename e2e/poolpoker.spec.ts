@@ -62,7 +62,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await expect(guestPage.locator('text=GuestUser')).toBeVisible({ timeout: 5000 });
 
     // 房主加减发牌数，验证 Guest 页面实时收到 WebSocket 规则更新
-    const cardCountDisplay = guestPage.locator('span.text-amber-300');
+    const cardCountDisplay = guestPage.locator('span.font-mono.text-amber-300');
     const initialCountText = await cardCountDisplay.innerText();
 
     await hostPage.click('button:has-text("+")');
@@ -180,4 +180,52 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await guestContext.close();
   });
 
+  test('4. Cumulative Score & Victory Count Tracking Across Rounds', async ({ page }) => {
+    page.on('dialog', d => d.accept());
+
+    // 1. 创建房间
+    await page.goto('/');
+    await page.waitForTimeout(500);
+    await page.locator('input[placeholder*="请输入你的大名/外号"]').fill('ScoreTester');
+    await page.click('button:has-text("创建新房间")');
+    await page.click('button:has-text("一键创建数字房间")');
+
+    await page.waitForSelector('text=已加入玩家');
+
+    // 调整规则为每人 1 张牌以快速触发胜利
+    const cardMinusBtn = page.locator('button:has-text("-")');
+    for (let i = 0; i < 4; i++) {
+      await cardMinusBtn.click();
+    }
+    await page.waitForTimeout(300);
+
+    // 开始第 1 局
+    await page.click('button:has-text("开始扑克发牌")');
+    await page.waitForSelector('text=我的手上扑克手牌', { timeout: 5000 });
+
+    // 打掉唯一下的卡牌
+    const cardToPocket = page.locator('.poker-card-frame').first();
+    await cardToPocket.click();
+
+    // 验证弹出 VictoryModal，并展示累计得分 1 胜
+    await expect(page.locator('text=率先消完所有手上扑克牌')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=累计得分: 1胜')).toBeVisible({ timeout: 5000 });
+
+    // 开启第 2 局
+    await page.click('button:has-text("再来一局")');
+    await page.waitForSelector('text=开始扑克发牌', { timeout: 5000 });
+    await page.click('button:has-text("开始扑克发牌")');
+
+    await page.waitForSelector('text=我的手上扑克手牌', { timeout: 5000 });
+
+    // 再次打掉手牌，获得第 2 胜
+    const secondCardToPocket = page.locator('.poker-card-frame').first();
+    await secondCardToPocket.click();
+
+    // 验证 VictoryModal 展示累计得分 2 胜
+    await expect(page.locator('text=率先消完所有手上扑克牌')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=累计得分: 2胜')).toBeVisible({ timeout: 5000 });
+  });
+
 });
+
