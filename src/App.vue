@@ -10,6 +10,8 @@ import BilliardsTable from './components/BilliardsTable.vue';
 import GameLogs from './components/GameLogs.vue';
 import AccidentalPocketModal from './components/AccidentalPocketModal.vue';
 import RetractBallModal from './components/RetractBallModal.vue';
+import RefereePocketModal from './components/RefereePocketModal.vue';
+import RefereeFoulModal from './components/RefereeFoulModal.vue';
 import VictoryModal from './components/VictoryModal.vue';
 import RestartModal from './components/RestartModal.vue';
 
@@ -29,6 +31,9 @@ const {
   showRestartConfirm,
   showAccidentalModal,
   showRetractModal,
+  showRefereePocketModal,
+  showRefereeFoulModal,
+  refereeTargetUserId,
   ballConfigOptions,
   ballColorStyle,
   isHost,
@@ -43,6 +48,10 @@ const {
   handleDrawPenalty,
   handleAccidentalConfirm,
   handleRetractConfirm,
+  openRefereePocket,
+  openRefereeFoul,
+  handleRefereePocketConfirm,
+  handleRefereeFoulConfirm,
   handleConfirmRestart,
   handleLeaveRoom
 } = useGameRoom({
@@ -127,10 +136,31 @@ const {
           </div>
         </div>
 
+        <!-- 代记模式入口 -->
+        <div class="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between">
+          <span class="text-[10px] text-amber-300/90 font-bold flex items-center gap-1">
+            <i class="fa-solid fa-gavel text-amber-400"></i> 代记模式
+          </span>
+          <div class="flex items-center space-x-2">
+            <button @click="openRefereePocket()"
+                    class="bg-amber-950/90 hover:bg-amber-900 text-amber-200 border border-amber-500/40 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 active:scale-95 text-xs cursor-pointer shadow">
+              <i class="fa-solid fa-gavel text-amber-400"></i> 代记进球
+            </button>
+            <button @click="openRefereeFoul()"
+                    class="bg-red-950/90 hover:bg-red-900 text-red-200 border border-red-500/40 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 active:scale-95 text-xs cursor-pointer shadow">
+              <i class="fa-solid fa-triangle-exclamation text-amber-400"></i> 代记犯规
+            </button>
+          </div>
+        </div>
+
       </div>
 
       <!-- 局况对比与球盘表格 -->
-      <BilliardsTable :room="room" :userId="userId" :turnOrderPlayers="turnOrderPlayers" />
+      <BilliardsTable :room="room"
+                      :userId="userId"
+                      :turnOrderPlayers="turnOrderPlayers"
+                      @open-referee-pocket="openRefereePocket"
+                      @open-referee-foul="openRefereeFoul" />
 
       <!-- 对局实况日志 -->
       <GameLogs :logs="room.logs || []" />
@@ -148,6 +178,19 @@ const {
                       :myPocketedCards="myInfo?.pocketedCards || []"
                       @close="showRetractModal = false"
                       @confirm="handleRetractConfirm" />
+
+    <RefereePocketModal :show="showRefereePocketModal"
+                        :players="room?.players || []"
+                        :pocketedBallNumbers="room?.pocketedBallNumbers || []"
+                        :defaultUserId="refereeTargetUserId"
+                        @close="showRefereePocketModal = false"
+                        @confirm="handleRefereePocketConfirm" />
+
+    <RefereeFoulModal :show="showRefereeFoulModal"
+                      :players="room?.players || []"
+                      :defaultUserId="refereeTargetUserId"
+                      @close="showRefereeFoulModal = false"
+                      @confirm="handleRefereeFoulConfirm" />
 
     <VictoryModal :winners="room?.winners || []"
                   :isHost="isHost"

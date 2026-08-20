@@ -571,6 +571,86 @@ io.on('connection', (socket) => {
     broadcastRoomState(roomCode);
   });
 
+  // 6.1 代记进球
+  socket.on('referee_pocket_ball', ({ roomCode, targetUserId, ballNumber }) => {
+    const room = rooms[roomCode];
+    if (!room || room.status !== 'playing') return;
+
+    const refereePlayer = room.players.find(p => p.id === socket.id);
+    if (!refereePlayer) return;
+
+    const targetPlayer = room.players.find(p => p.userId === targetUserId);
+    if (!targetPlayer) {
+      socket.emit('error_message', '目标玩家不存在');
+      return;
+    }
+
+    const ball = parseInt(ballNumber, 10);
+    if (isNaN(ball) || ball < 1 || ball > 15) return;
+
+    const cardIndex = targetPlayer.cards.findIndex(c => c.ballNumber === ball);
+    if (cardIndex !== -1) {
+      const removedCard = targetPlayer.cards.splice(cardIndex, 1)[0];
+      targetPlayer.pocketedCards.push(removedCard);
+
+      if (refereePlayer.userId === targetPlayer.userId) {
+        addLog(room, `🎱 ${targetPlayer.name} 打进并消除了手牌 [${removedCard.suit}${removedCard.rank} -> ${removedCard.ballNumber}号球]！`);
+      } else {
+        addLog(room, `⚖️ [代记] ${refereePlayer.name} 为 ${targetPlayer.name} 记录打进并消除了手牌 [${removedCard.suit}${removedCard.rank} -> ${removedCard.ballNumber}号球]！`);
+      }
+    } else {
+      if (!room.accidentalBalls) room.accidentalBalls = [];
+      if (!room.accidentalBalls.includes(ball)) {
+        room.accidentalBalls.push(ball);
+      }
+
+      if (refereePlayer.userId === targetPlayer.userId) {
+        addLog(room, `🎱 ${targetPlayer.name} 打进了 [${ball}号球]！`);
+      } else {
+        addLog(room, `⚖️ [代记] ${refereePlayer.name} 记录 ${targetPlayer.name} 打进了 [${ball}号球]（全员该球号生效）！`);
+      }
+    }
+
+    const winners = checkGameWinners(room);
+    if (winners.length > 0) {
+      handleGameFinished(room, winners, targetPlayer);
+    }
+
+    broadcastRoomState(roomCode);
+  });
+
+  // 6.2 代记犯规
+  socket.on('referee_draw_penalty', ({ roomCode, targetUserId }) => {
+    const room = rooms[roomCode];
+    if (!room || room.status !== 'playing') return;
+
+    const refereePlayer = room.players.find(p => p.id === socket.id);
+    if (!refereePlayer) return;
+
+    const targetPlayer = room.players.find(p => p.userId === targetUserId);
+    if (!targetPlayer) {
+      socket.emit('error_message', '目标玩家不存在');
+      return;
+    }
+
+    if (room.deck.length === 0) {
+      socket.emit('error_message', '牌库扑克已耗尽，无法补牌！');
+      return;
+    }
+
+    const newCard = room.deck.pop();
+    targetPlayer.cards.push(newCard);
+    targetPlayer.cards.sort((a, b) => a.ballNumber - b.ballNumber);
+
+    if (refereePlayer.userId === targetPlayer.userId) {
+      addLog(room, `⚠️ ${targetPlayer.name} 触发犯规，从牌库罚抽了一张扑克牌！`);
+    } else {
+      addLog(room, `⚖️ [代记] ${refereePlayer.name} 记录 ${targetPlayer.name} 犯规，从牌库罚抽了一张扑克牌！`);
+    }
+
+    broadcastRoomState(roomCode);
+  });
+
   // 6.5 意外进球 (全员该球号自动标记已进球，罚牌由玩家手动点击犯规触发)
   socket.on('accidental_pocket', ({ roomCode, ballNumber }) => {
     const room = rooms[roomCode];

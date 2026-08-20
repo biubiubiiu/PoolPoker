@@ -37,6 +37,9 @@ export function useGameRoom(options: UseGameRoomOptions) {
   const showRestartConfirm = ref<boolean>(false);
   const showAccidentalModal = ref<boolean>(false);
   const showRetractModal = ref<boolean>(false);
+  const showRefereePocketModal = ref<boolean>(false);
+  const showRefereeFoulModal = ref<boolean>(false);
+  const refereeTargetUserId = ref<string>('');
   const ballConfigs = ref<Record<string, BallConfigItem>>({});
 
   const triggerConfetti = () => {
@@ -269,6 +272,36 @@ export function useGameRoom(options: UseGameRoomOptions) {
     showRetractModal.value = false;
   };
 
+  // 8.5 代记模式打开与确认
+  const openRefereePocket = (targetUserId?: string) => {
+    refereeTargetUserId.value = targetUserId || '';
+    showRefereePocketModal.value = true;
+  };
+
+  const openRefereeFoul = (targetUserId?: string) => {
+    refereeTargetUserId.value = targetUserId || '';
+    showRefereeFoulModal.value = true;
+  };
+
+  const handleRefereePocketConfirm = (targetUserId: string, ballNum: number) => {
+    if (!room.value) return;
+    socket.value?.emit('referee_pocket_ball', {
+      roomCode: room.value.code,
+      targetUserId,
+      ballNumber: ballNum
+    });
+    showRefereePocketModal.value = false;
+  };
+
+  const handleRefereeFoulConfirm = (targetUserId: string) => {
+    if (!room.value) return;
+    socket.value?.emit('referee_draw_penalty', {
+      roomCode: room.value.code,
+      targetUserId
+    });
+    showRefereeFoulModal.value = false;
+  };
+
   // 9. 重置房间
   const handleConfirmRestart = () => {
     if (!isHost.value || !room.value) return;
@@ -292,6 +325,9 @@ export function useGameRoom(options: UseGameRoomOptions) {
     showRestartConfirm,
     showAccidentalModal,
     showRetractModal,
+    showRefereePocketModal,
+    showRefereeFoulModal,
+    refereeTargetUserId,
     ballConfigs,
     ballConfigOptions,
     activeBallConfigKey,
@@ -308,6 +344,10 @@ export function useGameRoom(options: UseGameRoomOptions) {
     handleDrawPenalty,
     handleAccidentalConfirm,
     handleRetractConfirm,
+    openRefereePocket,
+    openRefereeFoul,
+    handleRefereePocketConfirm,
+    handleRefereeFoulConfirm,
     handleConfirmRestart,
     handleLeaveRoom
   };

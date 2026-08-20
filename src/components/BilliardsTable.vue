@@ -34,6 +34,11 @@ const isPlayerWinner = (player: Player) => {
   if (props.room.winners && props.room.winners.some(w => w.userId === player.userId)) return true;
   return false;
 };
+
+const emit = defineEmits<{
+  (e: 'open-referee-pocket', userId: string): void;
+  (e: 'open-referee-foul', userId: string): void;
+}>();
 </script>
 
 <template>
@@ -108,11 +113,27 @@ const isPlayerWinner = (player: Player) => {
           </div>
         </div>
 
-        <div class="text-right">
-          <span :class="['font-mono font-black text-sm', isPlayerWinner(p) ? 'text-emerald-400 animate-bounce' : 'text-amber-300']">
-            {{ isPlayerWinner(p) ? '🏆 胜出' : `还剩 ${p.activeCardCount !== undefined ? p.activeCardCount : (p.cards ? p.cards.length : p.cardCount)} 张` }}
-          </span>
-          <p class="text-[9px] text-gray-400" v-if="p.pocketedCards && p.pocketedCards.length > 0">
+        <div class="text-right flex flex-col items-end">
+          <div class="flex items-center space-x-1.5">
+            <span :class="['font-mono font-black text-sm', isPlayerWinner(p) ? 'text-emerald-400 animate-bounce' : 'text-amber-300']">
+              {{ isPlayerWinner(p) ? '🏆 胜出' : `还剩 ${p.activeCardCount !== undefined ? p.activeCardCount : (p.cards ? p.cards.length : p.cardCount)} 张` }}
+            </span>
+
+            <!-- 代记快捷入口按钮 -->
+            <div v-if="room.status === 'playing'" class="flex items-center space-x-1 ml-1">
+              <button @click="emit('open-referee-pocket', p.userId)"
+                      title="代记该玩家进球"
+                      class="bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-600/50 px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-0.5 active:scale-95 cursor-pointer">
+                <i class="fa-solid fa-gavel"></i> 代记
+              </button>
+              <button @click="emit('open-referee-foul', p.userId)"
+                      title="代记该玩家犯规"
+                      class="bg-red-950/80 hover:bg-red-900 text-red-300 border border-red-700/50 px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-0.5 active:scale-95 cursor-pointer">
+                <i class="fa-solid fa-triangle-exclamation text-amber-400"></i> 罚牌
+              </button>
+            </div>
+          </div>
+          <p class="text-[9px] text-gray-400 mt-0.5" v-if="p.pocketedCards && p.pocketedCards.length > 0">
             已消: {{ p.pocketedCards.map(c => `${c.suit}${c.rank}`).join(' ') }}
           </p>
         </div>
