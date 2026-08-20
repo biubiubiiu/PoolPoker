@@ -6,7 +6,14 @@ export function useSocket() {
   const socketId = ref<string>('');
 
   onMounted(() => {
+    const savedName = localStorage.getItem('billiards_player_name') || '';
+    const savedUserId = localStorage.getItem('billiards_user_id') || '';
+
     socket.value = io({
+      auth: {
+        name: savedName,
+        userId: savedUserId,
+      },
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 300,

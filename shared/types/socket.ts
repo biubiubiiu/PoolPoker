@@ -75,6 +75,11 @@ export interface LeaveRoomPayload {
   userId: string;
 }
 
+export interface SocketData {
+  userName?: string;
+  userId?: string;
+}
+
 export interface SocketCallbackResponse {
   success: boolean;
   message?: string;

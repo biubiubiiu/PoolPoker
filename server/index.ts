@@ -5,6 +5,7 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '../shared/types/socket';
 import { appConfig, ballConfigs, rootDir } from './config';
+import { logSocketConnect } from './logger';
 import { getClientRoomState } from './roomManager';
 import { registerSocketHandlers } from './socketHandlers';
 
@@ -52,7 +53,7 @@ if (fs.existsSync(distDir)) {
 }
 
 io.on('connection', (socket: any) => {
-  console.log(`[Socket Connected] ID: ${socket.id}`);
+  logSocketConnect(socket);
   registerSocketHandlers(io as any, socket as any);
 });
 

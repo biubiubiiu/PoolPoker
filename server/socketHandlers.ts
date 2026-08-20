@@ -19,6 +19,7 @@ import type {
 } from '../shared/types/socket';
 import { isValidBallConfigKey } from './config';
 import { addLog, checkGameWinners, computeTurnOrder, handleGameFinished } from './gameEngine';
+import { logSocketDisconnect } from './logger';
 import { create54PokerDeck, shuffle } from './pokerDeck';
 import { broadcastRoomState, generateRoomCode, rooms, socketIndex } from './roomManager';
 
@@ -30,6 +31,9 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       if (callback) callback({ success: false, message: '用户信息不完整' });
       return;
     }
+
+    socket.data.userName = name;
+    socket.data.userId = userId;
 
     const roomCode = generateRoomCode();
 
@@ -84,6 +88,8 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   // 2. 加入房间
   socket.on('join_room', (data: JoinRoomPayload, callback?: (res: any) => void) => {
     const { roomCode, userId, name, avatar } = data;
+    if (name) socket.data.userName = name;
+    if (userId) socket.data.userId = userId;
     const room = rooms[roomCode];
 
     if (!room) {
@@ -156,6 +162,9 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       if (callback) callback({ success: false, message: '你不在此房间成员列表中' });
       return;
     }
+
+    if (player.name) socket.data.userName = player.name;
+    if (userId) socket.data.userId = userId;
 
     player.id = socket.id;
     player.online = true;
@@ -480,7 +489,9 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   });
 
   // 14. 断开连接处理
-  socket.on('disconnect', () => {
+  socket.on('disconnect', (reason?: string) => {
+    logSocketDisconnect(socket, reason);
+
     const session = socketIndex.get(socket.id);
     if (session) {
       const { roomCode, userId } = session;
