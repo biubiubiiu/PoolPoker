@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import type { Player } from '@shared/types/game';
 import { computed, ref, watch } from 'vue';
-import type { Player } from '@/types/game';
 
 const props = defineProps<{
   show: boolean;

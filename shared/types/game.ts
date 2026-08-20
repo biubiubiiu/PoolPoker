@@ -35,6 +35,14 @@ export interface GameLog {
   text: string;
 }
 
+export interface WinnerInfo {
+  name: string;
+  avatar: string;
+  id: string;
+  userId: string;
+  wins: number;
+}
+
 export interface Room {
   code: string;
   hostUserId: string;
@@ -46,7 +54,29 @@ export interface Room {
   pocketedBallNumbers: number[];
   roundCount: number;
   deckCount: number;
-  winners: Player[];
+  winners: WinnerInfo[] | Player[];
   settings: RoomSettings;
   logs: GameLog[];
+}
+
+export interface ServerRoom {
+  code: string;
+  hostUserId: string;
+  hostSocketId: string;
+  status: 'waiting' | 'playing' | 'ended' | 'finished' | 'lobby';
+  players: Player[];
+  deck: Card[];
+  accidentalBalls: number[];
+  winners: WinnerInfo[];
+  lastWinnerUserId?: string;
+  lastTurnOrder?: string[];
+  turnOrder: string[];
+  roundCount: number;
+  settings: RoomSettings;
+  logs: GameLog[];
+}
+
+export interface BallConfig {
+  name: string;
+  colors: Record<string, [string, string, string]>;
 }

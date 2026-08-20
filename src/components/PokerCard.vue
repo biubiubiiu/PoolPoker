@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Card } from '@/types/game';
+import type { Card } from '@shared/types/game';
 
 const props = defineProps<{
   card: Card;

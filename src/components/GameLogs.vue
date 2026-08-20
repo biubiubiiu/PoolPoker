@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { GameLog } from '@/types/game';
+import type { GameLog } from '@shared/types/game';
 
 defineProps<{
   logs: GameLog[];

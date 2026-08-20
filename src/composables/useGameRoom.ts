@@ -1,8 +1,8 @@
+import type { Card, Player, Room } from '@shared/types/game';
+import type { SocketCallbackResponse } from '@shared/types/socket';
 import confetti from 'canvas-confetti';
 import type { Socket } from 'socket.io-client';
 import { computed, onMounted, type Ref, ref, watch } from 'vue';
-import type { Card, Player, Room } from '@/types/game';
-import type { SocketCallbackResponse } from '@/types/socket';
 
 export interface BallConfigItem {
   name: string;

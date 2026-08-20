@@ -1,9 +1,9 @@
 <script setup lang="ts">
+import type { Card, Player, WinnerInfo } from '@shared/types/game';
 import { computed } from 'vue';
-import type { Card, Player } from '@/types/game';
 
 const props = defineProps<{
-  winners: Player[];
+  winners: WinnerInfo[] | Player[];
   isHost: boolean;
   players: Player[];
   pocketedBallNumbers: number[];
@@ -31,7 +31,7 @@ const isWinner = (player: Player) => {
   return props.winners.some((w) => w.userId === player.userId) || player.isWinner;
 };
 
-const winningPlayers = computed<Player[]>(() => {
+const winningPlayers = computed<Array<WinnerInfo | Player>>(() => {
   return props.winners.length > 0 ? props.winners : props.players.filter((p) => isWinner(p));
 });
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Room } from '@/types/game';
+import type { Room } from '@shared/types/game';
 
 defineProps<{
   room: Room;

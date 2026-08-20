@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import type { Card } from '@shared/types/game';
 import { ref } from 'vue';
-import type { Card } from '@/types/game';
 
 const props = defineProps<{
   show: boolean;

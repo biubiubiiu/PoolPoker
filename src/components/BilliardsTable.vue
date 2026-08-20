@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Player, Room } from '@/types/game';
+import type { Player, Room } from '@shared/types/game';
 
 const props = defineProps<{
   room: Room;

@@ -40,6 +40,6 @@ echo "🌐 本地访问地址:  http://localhost:$PORT"
 echo "📱 局域网/手机访问: http://${LOCAL_IP}:$PORT"
 echo "========================================================="
 echo ""
-echo "🚀 正在启动后台服务 (node server.js)..."
+echo "🚀 正在启动后台服务 (npx tsx server/index.ts)..."
 
-exec node server.js
+exec npx tsx server/index.ts
