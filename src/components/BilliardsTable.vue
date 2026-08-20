@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Room, Player } from '../types/game';
+import type { Player, Room } from '@/types/game';
 
 const props = defineProps<{
   room: Room;
@@ -16,22 +16,35 @@ const getBallClass = (ballNum: number) => {
 
 const getBallName = (ballNum: number) => {
   const map: Record<number, string> = {
-    1: '1号(A)', 2: '2号(2)', 3: '3号(3)', 4: '4号(4)', 5: '5号(5)',
-    6: '6号(6)', 7: '7号(7)', 8: '8号(8)', 9: '9号(9)', 10: '10号(10)',
-    11: '11号(J)', 12: '12号(Q)', 13: '13号(K)', 14: '14号(小王)', 15: '15号(大王)'
+    1: '1号(A)',
+    2: '2号(2)',
+    3: '3号(3)',
+    4: '4号(4)',
+    5: '5号(5)',
+    6: '6号(6)',
+    7: '7号(7)',
+    8: '8号(8)',
+    9: '9号(9)',
+    10: '10号(10)',
+    11: '11号(J)',
+    12: '12号(Q)',
+    13: '13号(K)',
+    14: '14号(小王)',
+    15: '15号(大王)',
   };
   return map[ballNum] || `${ballNum}号`;
 };
 
 const getCardProgressPercent = (player: Player) => {
   const total = props.room.settings?.cardsPerPlayer || 5;
-  const activeCount = player.activeCardCount !== undefined ? player.activeCardCount : (player.cards ? player.cards.length : 0);
+  const activeCount =
+    player.activeCardCount !== undefined ? player.activeCardCount : player.cards ? player.cards.length : 0;
   return Math.max(0, Math.min(100, Math.round((activeCount / total) * 100)));
 };
 
 const isPlayerWinner = (player: Player) => {
   if (player.isWinner) return true;
-  if (props.room.winners && props.room.winners.some(w => w.userId === player.userId)) return true;
+  if (props.room.winners?.some((w) => w.userId === player.userId)) return true;
   return false;
 };
 

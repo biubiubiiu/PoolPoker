@@ -11,7 +11,15 @@
     "dev": "concurrently -k -p \"[{name}]\" -n \"Backend,Frontend\" -c \"yellow,cyan\" \"npm run dev:backend\" \"npm run dev:frontend\"",
     "build": "vue-tsc && vite build",
     "preview": "vite preview",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,js,vue,json}": [
+      "biome check --write --no-errors-on-unmatched"
+    ]
   },
   "keywords": [
     "billiards",
@@ -31,6 +39,7 @@
     "vue": "^3.5.41"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.9",
     "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@tailwindcss/vite": "^4.3.3",
@@ -39,6 +48,8 @@
     "@vitejs/plugin-vue": "^6.0.8",
     "autoprefixer": "^10.5.4",
     "concurrently": "^10.0.5",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
     "postcss": "^8.5.26",
     "tailwindcss": "^4.3.3",
     "typescript": "~5.4.5",

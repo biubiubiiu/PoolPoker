@@ -1,4 +1,4 @@
-import { Room, RoomSettings } from './game';
+import type { RoomSettings } from '@/types/game';
 
 export interface CreateRoomPayload {
   userId: string;

@@ -1,7 +1,6 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', () => {
-
   test('1. Player Profile & LocalStorage Persistence (usePlayerProfile)', async ({ page }) => {
     await page.goto('/');
     await page.waitForTimeout(500);
@@ -33,8 +32,8 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     const hostPage = await hostContext.newPage();
     const guestPage = await guestContext.newPage();
 
-    hostPage.on('dialog', d => d.accept());
-    guestPage.on('dialog', d => d.accept());
+    hostPage.on('dialog', (d) => d.accept());
+    guestPage.on('dialog', (d) => d.accept());
 
     // Host 创建房间
     await hostPage.goto('/');
@@ -56,17 +55,27 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await guestPage.click('button:has-text("进入球局")');
 
     // 验证双向房间玩家列表同步
-    await expect(hostPage.locator('text=HostUser')).toBeVisible({ timeout: 5000 });
-    await expect(hostPage.locator('text=GuestUser')).toBeVisible({ timeout: 5000 });
-    await expect(guestPage.locator('text=HostUser')).toBeVisible({ timeout: 5000 });
-    await expect(guestPage.locator('text=GuestUser')).toBeVisible({ timeout: 5000 });
+    await expect(hostPage.locator('text=HostUser')).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(hostPage.locator('text=GuestUser')).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(guestPage.locator('text=HostUser')).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(guestPage.locator('text=GuestUser')).toBeVisible({
+      timeout: 5000,
+    });
 
     // 房主加减发牌数，验证 Guest 页面实时收到 WebSocket 规则更新
     const cardCountDisplay = guestPage.locator('span.font-mono.text-amber-300');
     const initialCountText = await cardCountDisplay.innerText();
 
     await hostPage.click('button:has-text("+")');
-    await expect(cardCountDisplay).not.toHaveText(initialCountText, { timeout: 5000 });
+    await expect(cardCountDisplay).not.toHaveText(initialCountText, {
+      timeout: 5000,
+    });
 
     await hostContext.close();
     await guestContext.close();
@@ -79,8 +88,8 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     const hostPage = await hostContext.newPage();
     const guestPage = await guestContext.newPage();
 
-    hostPage.on('dialog', d => d.accept());
-    guestPage.on('dialog', d => d.accept());
+    hostPage.on('dialog', (d) => d.accept());
+    guestPage.on('dialog', (d) => d.accept());
 
     // --- 初始化房间与开始对局 ---
     await hostPage.goto('/');
@@ -100,7 +109,9 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await guestPage.locator('input[placeholder*="输入 4 位数字房间码"]').fill(roomCode);
     await guestPage.click('button:has-text("进入球局")');
 
-    await expect(hostPage.locator('text=GuestP2')).toBeVisible({ timeout: 5000 });
+    await expect(hostPage.locator('text=GuestP2')).toBeVisible({
+      timeout: 5000,
+    });
 
     // 房主点击开始发牌对局
     await hostPage.click('button:has-text("开始扑克发牌")');
@@ -127,7 +138,9 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
       await expect(hostPage.locator('text=请选择意外打进的球号')).toBeHidden();
 
       // 验证全场对局日志（GameLogs）记录了判定事件
-      await expect(hostPage.locator('text=判定为已进球')).toBeVisible({ timeout: 5000 });
+      await expect(hostPage.locator('text=判定为已进球')).toBeVisible({
+        timeout: 5000,
+      });
     }
 
     // --- 3.3 测试【打卡销牌 (Confirm Pocket)】---
@@ -148,7 +161,9 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
         await expect(hostPage.locator('text=撤回进球')).toBeHidden();
 
         // 验证日志显示了撤回记录
-        await expect(hostPage.locator('text=撤回了已打进的手牌')).toBeVisible({ timeout: 5000 });
+        await expect(hostPage.locator('text=撤回了已打进的手牌')).toBeVisible({
+          timeout: 5000,
+        });
       } else {
         await hostPage.click('.fixed button:has-text("取消")');
       }
@@ -162,8 +177,12 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await hostPage.click('.fixed button:has-text("确认重开")');
 
     // 验证双侧玩家同时回到等待阶段
-    await expect(hostPage.locator('text=开始扑克发牌')).toBeVisible({ timeout: 5000 });
-    await expect(guestPage.locator('text=等待房主开始游戏')).toBeVisible({ timeout: 5000 });
+    await expect(hostPage.locator('text=开始扑克发牌')).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(guestPage.locator('text=等待房主开始游戏')).toBeVisible({
+      timeout: 5000,
+    });
 
     // --- 3.6 测试【离开房间 (Leave Room)】与缓存清理 ---
     const leaveBtn = hostPage.locator('header button').last();
@@ -181,7 +200,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
   });
 
   test('4. Cumulative Score & Victory Count Tracking Across Rounds', async ({ page }) => {
-    page.on('dialog', d => d.accept());
+    page.on('dialog', (d) => d.accept());
 
     // 1. 创建房间
     await page.goto('/');
@@ -208,8 +227,12 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await cardToPocket.click();
 
     // 验证弹出 VictoryModal，并展示累计得分 1 胜
-    await expect(page.locator('text=率先消完所有手上扑克牌')).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('text=累计得分: 1胜')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=率先消完所有手上扑克牌')).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(page.locator('text=累计得分: 1胜')).toBeVisible({
+      timeout: 5000,
+    });
 
     // 开启第 2 局
     await page.click('button:has-text("再来一局")');
@@ -223,8 +246,12 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await secondCardToPocket.click();
 
     // 验证 VictoryModal 展示累计得分 2 胜
-    await expect(page.locator('text=率先消完所有手上扑克牌')).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('text=累计得分: 2胜')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=率先消完所有手上扑克牌')).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(page.locator('text=累计得分: 2胜')).toBeVisible({
+      timeout: 5000,
+    });
   });
 
   test('5. Multi-Player Simultaneous Victory Settlement & Next-Round First Player Priority', async ({ browser }) => {
@@ -234,8 +261,8 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     const hostPage = await hostContext.newPage();
     const guestPage = await guestContext.newPage();
 
-    hostPage.on('dialog', d => d.accept());
-    guestPage.on('dialog', d => d.accept());
+    hostPage.on('dialog', (d) => d.accept());
+    guestPage.on('dialog', (d) => d.accept());
 
     // Host 创建房间
     await hostPage.goto('/');
@@ -257,7 +284,9 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await guestPage.locator('input[placeholder*="输入 4 位数字房间码"]').fill(roomCode);
     await guestPage.click('button:has-text("进入球局")');
 
-    await expect(hostPage.locator('text=GuestWin')).toBeVisible({ timeout: 5000 });
+    await expect(hostPage.locator('text=GuestWin')).toBeVisible({
+      timeout: 5000,
+    });
 
     // 开始第 1 局（使用默认每人 5 张牌）
     await hostPage.click('button:has-text("开始扑克发牌")');
@@ -277,10 +306,10 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
 
     let hostBalls = await getUnpocketedBallList(hostPage);
     let guestBalls = await getUnpocketedBallList(guestPage);
-    
+
     // 找到在 Guest 手牌中只出现 1 次且 Host 也持有的球号
     const findSharedBall = (hBalls: number[], gBalls: number[]) => {
-      return hBalls.find(b => gBalls.filter(gb => gb === b).length === 1);
+      return hBalls.find((b) => gBalls.filter((gb) => gb === b).length === 1);
     };
 
     let sharedBall = findSharedBall(hostBalls, guestBalls);
@@ -295,7 +324,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     }
 
     // 房主通过“意外进球”将所有非 sharedBall 的球打进
-    const nonSharedBalls = Array.from(new Set([...hostBalls, ...guestBalls])).filter(b => b !== sharedBall);
+    const nonSharedBalls = Array.from(new Set([...hostBalls, ...guestBalls])).filter((b) => b !== sharedBall);
     for (const ballNum of nonSharedBalls) {
       await hostPage.click('button:has-text("意外进球")');
       await hostPage.waitForSelector('text=请选择意外打进的球号');
@@ -311,7 +340,11 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     }
 
     // 若当前未触发胜利弹窗，且 Host 手上有多张牌，打进剩余手牌直到结算
-    const isVictoryOpen = await hostPage.locator('.glass-panel h2').first().isVisible().catch(() => false);
+    const isVictoryOpen = await hostPage
+      .locator('.glass-panel h2')
+      .first()
+      .isVisible()
+      .catch(() => false);
     if (!isVictoryOpen) {
       let remainingHostCards = hostPage.locator('.poker-card-frame:not(.is-dimmed)');
       while ((await remainingHostCards.count()) > 1) {
@@ -325,8 +358,12 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     }
 
     // 验证多名玩家同时胜利结算弹窗 display
-    await expect(hostPage.locator('text=共同清空有效手牌，赢得本局胜利！').or(hostPage.locator('text=率先消完所有手上扑克牌！'))).toBeVisible({ timeout: 5000 });
-    await expect(guestPage.locator('text=共同清空有效手牌，赢得本局胜利！').or(guestPage.locator('text=率先消完所有手上扑克牌！'))).toBeVisible({ timeout: 5000 });
+    await expect(
+      hostPage.locator('text=共同清空有效手牌，赢得本局胜利！').or(hostPage.locator('text=率先消完所有手上扑克牌！'))
+    ).toBeVisible({ timeout: 5000 });
+    await expect(
+      guestPage.locator('text=共同清空有效手牌，赢得本局胜利！').or(guestPage.locator('text=率先消完所有手上扑克牌！'))
+    ).toBeVisible({ timeout: 5000 });
 
     // 验证打出手牌的 HostWin 放在首位
     const victoryTitleText = await hostPage.locator('.glass-panel h2').first().innerText();
@@ -341,7 +378,9 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await hostPage.click('button:has-text("开始扑克发牌")');
 
     // 验证下一局 HostWin 优先作为第一位击球
-    await expect(hostPage.locator('text=本局击球顺序').first()).toBeVisible({ timeout: 5000 });
+    await expect(hostPage.locator('text=本局击球顺序').first()).toBeVisible({
+      timeout: 5000,
+    });
     const logText = await hostPage.locator('.glass-panel').filter({ hasText: '本局击球顺序' }).first().innerText();
     expect(logText).toMatch(/HostWin[\s\S]*GuestWin/);
 
@@ -356,8 +395,8 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     const hostPage = await hostContext.newPage();
     const guestPage = await guestContext.newPage();
 
-    hostPage.on('dialog', d => d.accept());
-    guestPage.on('dialog', d => d.accept());
+    hostPage.on('dialog', (d) => d.accept());
+    guestPage.on('dialog', (d) => d.accept());
 
     // Host 创建房间
     await hostPage.goto('/');
@@ -378,7 +417,9 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await guestPage.locator('input[placeholder*="输入 4 位数字房间码"]').fill(roomCode);
     await guestPage.click('button:has-text("进入球局")');
 
-    await expect(hostPage.locator('text=RefereeP2').first()).toBeVisible({ timeout: 5000 });
+    await expect(hostPage.locator('text=RefereeP2').first()).toBeVisible({
+      timeout: 5000,
+    });
 
     // 开始对局
     await hostPage.click('button:has-text("开始扑克发牌")');
@@ -388,7 +429,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     // 1. Guest (RefereeP2) 为 Host (RefereeP1) 代记进球
     await guestPage.locator('button:has-text("代记进球")').first().click();
     await guestPage.waitForSelector('text=代记进球');
-    
+
     // 选择 RefereeP1
     await guestPage.click('.fixed button:has-text("RefereeP1")');
     // 选择 1号球
@@ -396,8 +437,12 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await guestPage.click('.fixed button:has-text("确认代记进球")');
 
     // 验证日志中包含代记记录
-    await expect(hostPage.locator('text=代记').first()).toBeVisible({ timeout: 5000 });
-    await expect(hostPage.locator('text=RefereeP2').first()).toBeVisible({ timeout: 5000 });
+    await expect(hostPage.locator('text=代记').first()).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(hostPage.locator('text=RefereeP2').first()).toBeVisible({
+      timeout: 5000,
+    });
 
     // 2. Guest (RefereeP2) 为 Host (RefereeP1) 代记犯规
     await guestPage.locator('button:has-text("代记犯规")').first().click();
@@ -406,12 +451,11 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await guestPage.click('.fixed button:has-text("确认代记犯规")');
 
     // 验证日志记录犯规
-    await expect(hostPage.locator('text=触发犯规').or(hostPage.locator('text=犯规')).first()).toBeVisible({ timeout: 5000 });
+    await expect(hostPage.locator('text=触发犯规').or(hostPage.locator('text=犯规')).first()).toBeVisible({
+      timeout: 5000,
+    });
 
     await hostContext.close();
     await guestContext.close();
   });
-
 });
-
-

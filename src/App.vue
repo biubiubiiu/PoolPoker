@@ -1,28 +1,20 @@
 <script setup lang="ts">
-import { usePlayerProfile } from './composables/usePlayerProfile';
-import { useSocket } from './composables/useSocket';
-import { useGameRoom } from './composables/useGameRoom';
+import AccidentalPocketModal from '@/components/AccidentalPocketModal.vue';
+import BilliardsTable from '@/components/BilliardsTable.vue';
+import GameHeader from '@/components/GameHeader.vue';
+import GameLogs from '@/components/GameLogs.vue';
+import PokerCard from '@/components/PokerCard.vue';
+import RefereeFoulModal from '@/components/RefereeFoulModal.vue';
+import RefereePocketModal from '@/components/RefereePocketModal.vue';
+import RestartModal from '@/components/RestartModal.vue';
+import RetractBallModal from '@/components/RetractBallModal.vue';
+import RoomLobby from '@/components/RoomLobby.vue';
+import VictoryModal from '@/components/VictoryModal.vue';
+import { useGameRoom } from '@/composables/useGameRoom';
+import { usePlayerProfile } from '@/composables/usePlayerProfile';
+import { useSocket } from '@/composables/useSocket';
 
-import GameHeader from './components/GameHeader.vue';
-import RoomLobby from './components/RoomLobby.vue';
-import PokerCard from './components/PokerCard.vue';
-import BilliardsTable from './components/BilliardsTable.vue';
-import GameLogs from './components/GameLogs.vue';
-import AccidentalPocketModal from './components/AccidentalPocketModal.vue';
-import RetractBallModal from './components/RetractBallModal.vue';
-import RefereePocketModal from './components/RefereePocketModal.vue';
-import RefereeFoulModal from './components/RefereeFoulModal.vue';
-import VictoryModal from './components/VictoryModal.vue';
-import RestartModal from './components/RestartModal.vue';
-
-const {
-  userId,
-  playerName,
-  avatars,
-  selectedAvatar,
-  selectedBallConfigKey,
-  getFinalPlayerName
-} = usePlayerProfile();
+const { userId, playerName, avatars, selectedAvatar, selectedBallConfigKey, getFinalPlayerName } = usePlayerProfile();
 
 const { socket } = useSocket();
 
@@ -53,14 +45,14 @@ const {
   handleRefereePocketConfirm,
   handleRefereeFoulConfirm,
   handleConfirmRestart,
-  handleLeaveRoom
+  handleLeaveRoom,
 } = useGameRoom({
   socket,
   userId,
   playerName,
   selectedAvatar,
   selectedBallConfigKey,
-  getFinalPlayerName
+  getFinalPlayerName,
 });
 </script>
 

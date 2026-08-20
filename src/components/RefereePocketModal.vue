@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue';
-import type { Player } from '../types/game';
+import { computed, ref, watch } from 'vue';
+import type { Player } from '@/types/game';
 
 const props = defineProps<{
   show: boolean;
@@ -17,23 +17,27 @@ const emit = defineEmits<{
 const selectedUserId = ref<string>('');
 const selectedBall = ref<number | null>(null);
 
-watch(() => props.show, (newVal) => {
-  if (newVal) {
-    if (props.defaultUserId && props.players.some(p => p.userId === props.defaultUserId)) {
-      selectedUserId.value = props.defaultUserId;
-    } else if (props.players.length > 0) {
-      selectedUserId.value = props.players[0].userId;
+watch(
+  () => props.show,
+  (newVal) => {
+    if (newVal) {
+      if (props.defaultUserId && props.players.some((p) => p.userId === props.defaultUserId)) {
+        selectedUserId.value = props.defaultUserId;
+      } else if (props.players.length > 0) {
+        selectedUserId.value = props.players[0].userId;
+      }
+      selectedBall.value = null;
     }
-    selectedBall.value = null;
-  }
-}, { immediate: true });
+  },
+  { immediate: true }
+);
 
 const targetPlayer = computed(() => {
-  return props.players.find(p => p.userId === selectedUserId.value) || null;
+  return props.players.find((p) => p.userId === selectedUserId.value) || null;
 });
 
 const availableBalls = computed(() => {
-  return Array.from({ length: 15 }, (_, i) => i + 1).filter(b => !props.pocketedBallNumbers.includes(b));
+  return Array.from({ length: 15 }, (_, i) => i + 1).filter((b) => !props.pocketedBallNumbers.includes(b));
 });
 
 const getBallClass = (ballNum: number) => {
@@ -45,9 +49,21 @@ const getBallClass = (ballNum: number) => {
 
 const getBallName = (ballNum: number) => {
   const map: Record<number, string> = {
-    1: '1号(A)', 2: '2号(2)', 3: '3号(3)', 4: '4号(4)', 5: '5号(5)',
-    6: '6号(6)', 7: '7号(7)', 8: '8号(8)', 9: '9号(9)', 10: '10号(10)',
-    11: '11号(J)', 12: '12号(Q)', 13: '13号(K)', 14: '14号(小王)', 15: '15号(大王)'
+    1: '1号(A)',
+    2: '2号(2)',
+    3: '3号(3)',
+    4: '4号(4)',
+    5: '5号(5)',
+    6: '6号(6)',
+    7: '7号(7)',
+    8: '8号(8)',
+    9: '9号(9)',
+    10: '10号(10)',
+    11: '11号(J)',
+    12: '12号(Q)',
+    13: '13号(K)',
+    14: '14号(小王)',
+    15: '15号(大王)',
   };
   return map[ballNum] || `${ballNum}号`;
 };

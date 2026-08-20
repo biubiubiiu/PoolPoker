@@ -4,7 +4,7 @@ export function usePlayerProfile() {
   // 玩家固定的唯一 userId (持久化存在 localStorage)
   let savedUserId = localStorage.getItem('billiards_user_id');
   if (!savedUserId) {
-    savedUserId = 'u_' + Math.random().toString(36).substring(2, 10) + Date.now();
+    savedUserId = `u_${Math.random().toString(36).substring(2, 10)}${Date.now()}`;
     localStorage.setItem('billiards_user_id', savedUserId);
   }
   const userId = ref<string>(savedUserId);
@@ -47,6 +47,6 @@ export function usePlayerProfile() {
     avatars,
     selectedAvatar,
     selectedBallConfigKey,
-    getFinalPlayerName
+    getFinalPlayerName,
   };
 }

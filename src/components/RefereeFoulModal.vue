@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue';
-import type { Player } from '../types/game';
+import { computed, ref, watch } from 'vue';
+import type { Player } from '@/types/game';
 
 const props = defineProps<{
   show: boolean;
@@ -15,18 +15,22 @@ const emit = defineEmits<{
 
 const selectedUserId = ref<string>('');
 
-watch(() => props.show, (newVal) => {
-  if (newVal) {
-    if (props.defaultUserId && props.players.some(p => p.userId === props.defaultUserId)) {
-      selectedUserId.value = props.defaultUserId;
-    } else if (props.players.length > 0) {
-      selectedUserId.value = props.players[0].userId;
+watch(
+  () => props.show,
+  (newVal) => {
+    if (newVal) {
+      if (props.defaultUserId && props.players.some((p) => p.userId === props.defaultUserId)) {
+        selectedUserId.value = props.defaultUserId;
+      } else if (props.players.length > 0) {
+        selectedUserId.value = props.players[0].userId;
+      }
     }
-  }
-}, { immediate: true });
+  },
+  { immediate: true }
+);
 
 const targetPlayer = computed(() => {
-  return props.players.find(p => p.userId === selectedUserId.value) || null;
+  return props.players.find((p) => p.userId === selectedUserId.value) || null;
 });
 
 const onConfirm = () => {

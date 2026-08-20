@@ -1,5 +1,5 @@
-import { shallowRef, ref, onMounted, onUnmounted } from 'vue';
-import { io, Socket } from 'socket.io-client';
+import { io, type Socket } from 'socket.io-client';
+import { onMounted, onUnmounted, ref, shallowRef } from 'vue';
 
 export function useSocket() {
   const socket = shallowRef<Socket | null>(null);
@@ -44,6 +44,6 @@ export function useSocket() {
     socketId,
     on,
     off,
-    emit
+    emit,
   };
 }

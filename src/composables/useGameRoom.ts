@@ -1,8 +1,8 @@
-import { ref, computed, onMounted, watch, type Ref } from 'vue';
-import type { Socket } from 'socket.io-client';
 import confetti from 'canvas-confetti';
-import type { Room, Card, Player } from '../types/game';
-import type { SocketCallbackResponse } from '../types/socket';
+import type { Socket } from 'socket.io-client';
+import { computed, onMounted, type Ref, ref, watch } from 'vue';
+import type { Card, Player, Room } from '@/types/game';
+import type { SocketCallbackResponse } from '@/types/socket';
 
 export interface BallConfigItem {
   name: string;
@@ -24,14 +24,7 @@ export interface UseGameRoomOptions {
 }
 
 export function useGameRoom(options: UseGameRoomOptions) {
-  const {
-    socket,
-    userId,
-    playerName,
-    selectedAvatar,
-    selectedBallConfigKey,
-    getFinalPlayerName
-  } = options;
+  const { socket, userId, playerName, selectedAvatar, selectedBallConfigKey, getFinalPlayerName } = options;
 
   const room = ref<Room | null>(null);
   const showRestartConfirm = ref<boolean>(false);
@@ -46,7 +39,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
     confetti({
       particleCount: 100,
       spread: 70,
-      origin: { y: 0.6 }
+      origin: { y: 0.6 },
     });
   };
 
@@ -72,16 +65,20 @@ export function useGameRoom(options: UseGameRoomOptions) {
 
       const savedRoomCode = localStorage.getItem('billiards_room_code');
       if (savedRoomCode) {
-        s.emit('rejoin_room', {
-          roomCode: savedRoomCode,
-          userId: userId.value
-        }, (res: SocketCallbackResponse) => {
-          if (!res.success) {
-            console.warn('[Rejoin Failed]', res.message);
-            localStorage.removeItem('billiards_room_code');
-            room.value = null;
+        s.emit(
+          'rejoin_room',
+          {
+            roomCode: savedRoomCode,
+            userId: userId.value,
+          },
+          (res: SocketCallbackResponse) => {
+            if (!res.success) {
+              console.warn('[Rejoin Failed]', res.message);
+              localStorage.removeItem('billiards_room_code');
+              room.value = null;
+            }
           }
-        });
+        );
       }
     };
 
@@ -94,11 +91,11 @@ export function useGameRoom(options: UseGameRoomOptions) {
     s.on('room_updated', (updatedRoom: Room) => {
       room.value = updatedRoom;
       showRestartConfirm.value = false;
-      if (updatedRoom && updatedRoom.code) {
+      if (updatedRoom?.code) {
         localStorage.setItem('billiards_room_code', updatedRoom.code);
       }
 
-      if (updatedRoom && updatedRoom.winners && updatedRoom.winners.length > 0) {
+      if (updatedRoom?.winners && updatedRoom.winners.length > 0) {
         triggerConfetti();
       }
     });
@@ -112,43 +109,47 @@ export function useGameRoom(options: UseGameRoomOptions) {
     });
   };
 
-  watch(socket, (newSocket, oldSocket) => {
-    if (oldSocket) {
-      oldSocket.off('connect');
-      oldSocket.off('room_updated');
-      oldSocket.off('room_created');
-      oldSocket.off('error_message');
-    }
-    if (newSocket) {
-      setupSocketListeners(newSocket);
-    }
-  }, { immediate: true });
+  watch(
+    socket,
+    (newSocket, oldSocket) => {
+      if (oldSocket) {
+        oldSocket.off('connect');
+        oldSocket.off('room_updated');
+        oldSocket.off('room_created');
+        oldSocket.off('error_message');
+      }
+      if (newSocket) {
+        setupSocketListeners(newSocket);
+      }
+    },
+    { immediate: true }
+  );
 
   const isHost = computed(() => {
     return !!(room.value && room.value.hostUserId === userId.value);
   });
 
   const myInfo = computed<Player | null>(() => {
-    if (!room.value || !room.value.players) return null;
-    return room.value.players.find(p => p.userId === userId.value) || null;
+    if (!room.value?.players) return null;
+    return room.value.players.find((p) => p.userId === userId.value) || null;
   });
 
   const turnOrderPlayers = computed<Player[]>(() => {
-    if (!room.value || !room.value.players || !room.value.turnOrder) return [];
+    if (!room.value?.players || !room.value.turnOrder) return [];
     return room.value.turnOrder
-      .map(uid => room.value!.players.find(p => p.userId === uid))
+      .map((uid) => room.value?.players.find((p) => p.userId === uid))
       .filter((p): p is Player => !!p);
   });
 
   const ballConfigOptions = computed(() => {
     return Object.entries(ballConfigs.value).map(([key, item]) => ({
       key,
-      name: item.name
+      name: item.name,
     }));
   });
 
   const activeBallConfigKey = computed(() => {
-    if (room.value && room.value.settings && ballConfigs.value[room.value.settings.ballConfigKey]) {
+    if (room.value?.settings && ballConfigs.value[room.value.settings.ballConfigKey]) {
       return room.value.settings.ballConfigKey;
     }
     if (ballConfigs.value[selectedBallConfigKey.value]) {
@@ -159,7 +160,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
 
   const ballColorStyle = computed<Record<string, string>>(() => {
     const currentConfig = ballConfigs.value[activeBallConfigKey.value];
-    if (!currentConfig || !currentConfig.colors) return {};
+    if (!currentConfig?.colors) return {};
     const style: Record<string, string> = {};
     for (let i = 1; i <= 15; i++) {
       const colorTuple = currentConfig.colors[String(i)];
@@ -174,7 +175,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
   });
 
   const isCardDimmed = (card: Card) => {
-    if (!room.value || !room.value.pocketedBallNumbers || !card) return false;
+    if (!room.value?.pocketedBallNumbers || !card) return false;
     return room.value.pocketedBallNumbers.includes(card.ballNumber);
   };
 
@@ -185,25 +186,29 @@ export function useGameRoom(options: UseGameRoomOptions) {
       userId: userId.value,
       name: finalName,
       avatar: selectedAvatar.value,
-      ballConfigKey: selectedBallConfigKey.value
+      ballConfigKey: selectedBallConfigKey.value,
     });
   };
 
   // 2. 加入房间
   const handleJoinRoom = (code: string) => {
     const finalName = getFinalPlayerName();
-    socket.value?.emit('join_room', {
-      roomCode: code,
-      userId: userId.value,
-      name: finalName,
-      avatar: selectedAvatar.value
-    }, (res: SocketCallbackResponse) => {
-      if (!res.success) {
-        alert(res.message || '加入房间失败');
-      } else if (res.roomCode) {
-        localStorage.setItem('billiards_room_code', res.roomCode);
+    socket.value?.emit(
+      'join_room',
+      {
+        roomCode: code,
+        userId: userId.value,
+        name: finalName,
+        avatar: selectedAvatar.value,
+      },
+      (res: SocketCallbackResponse) => {
+        if (!res.success) {
+          alert(res.message || '加入房间失败');
+        } else if (res.roomCode) {
+          localStorage.setItem('billiards_room_code', res.roomCode);
+        }
       }
-    });
+    );
   };
 
   // 3. 房主调整发牌张数
@@ -214,7 +219,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
     if (newCount < 1 || newCount > 10) return;
     socket.value?.emit('update_settings', {
       roomCode: room.value.code,
-      settings: { cardsPerPlayer: newCount }
+      settings: { cardsPerPlayer: newCount },
     });
   };
 
@@ -226,10 +231,12 @@ export function useGameRoom(options: UseGameRoomOptions) {
 
   // 5. 销牌 / 确认进球
   const handleConfirmPocket = (card: Card) => {
-    if (!room.value || room.value.status !== 'playing') return;
+    if (room.value?.status !== 'playing') return;
 
     if (isCardDimmed(card)) {
-      alert(`【${card.ballNumber}号球】已在场上被打进，你的卡片 [${card.suit}${card.rank}] 属于已进球免打卡，无需重复消去！`);
+      alert(
+        `【${card.ballNumber}号球】已在场上被打进，你的卡片 [${card.suit}${card.rank}] 属于已进球免打卡，无需重复消去！`
+      );
       return;
     }
 
@@ -237,17 +244,17 @@ export function useGameRoom(options: UseGameRoomOptions) {
     if (window.confirm(confirmText)) {
       socket.value?.emit('pocket_ball', {
         roomCode: room.value.code,
-        cardId: card.id
+        cardId: card.id,
       });
     }
   };
 
   // 6. 犯规抽卡
   const handleDrawPenalty = () => {
-    if (!room.value || room.value.status !== 'playing') return;
+    if (room.value?.status !== 'playing') return;
     if (window.confirm('确认要执行犯规罚抽 1 张扑克牌吗？')) {
       socket.value?.emit('draw_penalty', {
-        roomCode: room.value.code
+        roomCode: room.value.code,
       });
     }
   };
@@ -257,7 +264,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
     if (!room.value) return;
     socket.value?.emit('accidental_pocket', {
       roomCode: room.value.code,
-      ballNumber: ballNum
+      ballNumber: ballNum,
     });
     showAccidentalModal.value = false;
   };
@@ -267,7 +274,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
     if (!room.value) return;
     socket.value?.emit('retract_ball', {
       roomCode: room.value.code,
-      cardId
+      cardId,
     });
     showRetractModal.value = false;
   };
@@ -288,7 +295,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
     socket.value?.emit('referee_pocket_ball', {
       roomCode: room.value.code,
       targetUserId,
-      ballNumber: ballNum
+      ballNumber: ballNum,
     });
     showRefereePocketModal.value = false;
   };
@@ -297,7 +304,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
     if (!room.value) return;
     socket.value?.emit('referee_draw_penalty', {
       roomCode: room.value.code,
-      targetUserId
+      targetUserId,
     });
     showRefereeFoulModal.value = false;
   };
@@ -313,7 +320,10 @@ export function useGameRoom(options: UseGameRoomOptions) {
   const handleLeaveRoom = () => {
     if (window.confirm('确认离开房间吗？')) {
       if (room.value) {
-        socket.value?.emit('leave_room', { roomCode: room.value.code, userId: userId.value });
+        socket.value?.emit('leave_room', {
+          roomCode: room.value.code,
+          userId: userId.value,
+        });
       }
       localStorage.removeItem('billiards_room_code');
       room.value = null;
@@ -349,6 +359,6 @@ export function useGameRoom(options: UseGameRoomOptions) {
     handleRefereePocketConfirm,
     handleRefereeFoulConfirm,
     handleConfirmRestart,
-    handleLeaveRoom
+    handleLeaveRoom,
   };
 }

@@ -1,10 +1,10 @@
+import fs from 'node:fs';
+import http from 'node:http';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import express from 'express';
-import http from 'http';
-import { Server } from 'socket.io';
-import path from 'path';
-import fs from 'fs';
 import yaml from 'js-yaml';
-import { fileURLToPath } from 'url';
+import { Server } from 'socket.io';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,9 +13,9 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
+    origin: '*',
+    methods: ['GET', 'POST'],
+  },
 });
 
 // 读取 config.yaml 配置文件
@@ -60,10 +60,10 @@ function isValidBallConfigKey(key) {
   return !!(key && ballConfigs[key]);
 }
 
-app.get('/api/ball-configs', (req, res) => {
+app.get('/api/ball-configs', (_req, res) => {
   res.json({
     defaultKey: 'default',
-    configs: ballConfigs
+    configs: ballConfigs,
   });
 });
 
@@ -108,7 +108,7 @@ function create54PokerDeck() {
     { symbol: '♠', type: 'spade', color: 'black' },
     { symbol: '♥', type: 'heart', color: 'red' },
     { symbol: '♣', type: 'club', color: 'black' },
-    { symbol: '♦', type: 'diamond', color: 'red' }
+    { symbol: '♦', type: 'diamond', color: 'red' },
   ];
   const ranks = [
     { rank: 'A', ball: 1 },
@@ -123,21 +123,21 @@ function create54PokerDeck() {
     { rank: '10', ball: 10 },
     { rank: 'J', ball: 11 },
     { rank: 'Q', ball: 12 },
-    { rank: 'K', ball: 13 }
+    { rank: 'K', ball: 13 },
   ];
 
-  let deck = [];
+  const deck = [];
   let cardId = 1;
 
-  suits.forEach(s => {
-    ranks.forEach(r => {
+  suits.forEach((s) => {
+    ranks.forEach((r) => {
       deck.push({
         id: `c_${cardId++}`,
         suit: s.symbol,
         suitType: s.type,
         color: s.color,
         rank: r.rank,
-        ballNumber: r.ball
+        ballNumber: r.ball,
       });
     });
   });
@@ -148,7 +148,7 @@ function create54PokerDeck() {
     suitType: 'joker-small',
     color: 'gray',
     rank: '小王',
-    ballNumber: 14
+    ballNumber: 14,
   });
 
   deck.push({
@@ -157,7 +157,7 @@ function create54PokerDeck() {
     suitType: 'joker-big',
     color: 'gold',
     rank: '大王',
-    ballNumber: 15
+    ballNumber: 15,
   });
 
   return deck;
@@ -165,11 +165,13 @@ function create54PokerDeck() {
 
 // 获取当前房间所有已消除的球号列表 (1 ~ 15，按数字大小升序)
 function getPocketedBallNumbers(room) {
-  if (!room || !room.players) return [];
+  if (!room?.players) return [];
   const set = new Set();
-  (room.accidentalBalls || []).forEach(b => set.add(b));
-  room.players.forEach(p => {
-    (p.pocketedCards || []).forEach(c => {
+  (room.accidentalBalls || []).forEach((b) => {
+    set.add(b);
+  });
+  room.players.forEach((p) => {
+    (p.pocketedCards || []).forEach((c) => {
       set.add(c.ballNumber);
     });
   });
@@ -178,12 +180,12 @@ function getPocketedBallNumbers(room) {
 
 // 检查是否有玩家满足胜利条件（手牌中未被打进的有效卡牌数为 0）
 function checkGameWinners(room) {
-  if (!room || room.status !== 'playing') return [];
+  if (room?.status !== 'playing') return [];
   const pocketedSet = new Set(getPocketedBallNumbers(room));
   const winners = [];
 
-  room.players.forEach(p => {
-    const activeCards = (p.cards || []).filter(c => !pocketedSet.has(c.ballNumber));
+  room.players.forEach((p) => {
+    const activeCards = (p.cards || []).filter((c) => !pocketedSet.has(c.ballNumber));
     if (activeCards.length === 0) {
       p.isWinner = true;
       winners.push(p);
@@ -196,54 +198,59 @@ function checkGameWinners(room) {
 // 结算游戏胜利状态
 function handleGameFinished(room, winners, actionPlayer) {
   room.status = 'finished';
-  winners.forEach(w => {
+  winners.forEach((w) => {
     w.wins = (w.wins || 0) + 1;
   });
 
   if (actionPlayer) {
-    const actionPlayerIdx = winners.findIndex(w => w.id === actionPlayer.id || w.userId === actionPlayer.userId);
+    const actionPlayerIdx = winners.findIndex((w) => w.id === actionPlayer.id || w.userId === actionPlayer.userId);
     if (actionPlayerIdx > 0) {
       const [actionPlayerWinner] = winners.splice(actionPlayerIdx, 1);
       winners.unshift(actionPlayerWinner);
     }
   }
 
-  room.winners = winners.map(w => ({
+  room.winners = winners.map((w) => ({
     name: w.name,
     avatar: w.avatar,
     id: w.id,
     userId: w.userId,
-    wins: w.wins
+    wins: w.wins,
   }));
-  room.lastWinnerUserId = (winners.length > 1 && actionPlayer ? actionPlayer.userId : winners[0].userId);
+  room.lastWinnerUserId = winners.length > 1 && actionPlayer ? actionPlayer.userId : winners[0].userId;
 
   if (winners.length === 1) {
     addLog(room, `🏆 恭喜 ${winners[0].name} 清空有效手牌，夺得本局胜利！(累计胜利 ${winners[0].wins} 次) 🎉`);
   } else {
-    const names = winners.map(w => `${w.name}(累计${w.wins}胜)`).join('、');
+    const names = winners.map((w) => `${w.name}(累计${w.wins}胜)`).join('、');
     addLog(room, `🏆 恭喜 ${names} 共同清空有效手牌，同时夺得本局胜利！🎉`);
   }
 }
 
 // 计算每局击球顺序
 function computeTurnOrder(room) {
-  if (!room || !room.players || room.players.length === 0) return [];
-  const currentP = room.players.map(p => p.userId);
-  if (!room.lastTurnOrder || room.lastTurnOrder.length === 0 || !room.lastWinnerUserId || !currentP.includes(room.lastWinnerUserId)) {
+  if (!room?.players || room.players.length === 0) return [];
+  const currentP = room.players.map((p) => p.userId);
+  if (
+    !room.lastTurnOrder ||
+    room.lastTurnOrder.length === 0 ||
+    !room.lastWinnerUserId ||
+    !currentP.includes(room.lastWinnerUserId)
+  ) {
     // 初始局或没有上一局胜利者信息，随机打乱
     return shuffle(currentP);
   }
 
   // 1. 保留上一局在场玩家，并补全中途加入的玩家
-  let validPrev = room.lastTurnOrder.filter(id => currentP.includes(id));
-  currentP.forEach(id => {
+  const validPrev = room.lastTurnOrder.filter((id) => currentP.includes(id));
+  currentP.forEach((id) => {
     if (!validPrev.includes(id)) {
       validPrev.push(id);
     }
   });
 
   // 2. 顺序反转
-  let reversed = [...validPrev].reverse();
+  const reversed = [...validPrev].reverse();
 
   // 3. 胜者优先
   let winnerIdx = reversed.indexOf(room.lastWinnerUserId);
@@ -266,7 +273,7 @@ function broadcastRoomState(roomCode) {
   for (const socketId of roomSockets) {
     const playerSocket = io.sockets.sockets.get(socketId);
     if (playerSocket) {
-      const currentPlayer = room.players.find(p => p.id === socketId);
+      const currentPlayer = room.players.find((p) => p.id === socketId);
       const clientRoom = {
         code: room.code,
         hostUserId: room.hostUserId,
@@ -279,7 +286,7 @@ function broadcastRoomState(roomCode) {
         winners: room.winners || [],
         pocketedBallNumbers: pocketedBallNumbers,
         turnOrder: room.turnOrder || [],
-        players: room.players.map(p => {
+        players: room.players.map((p) => {
           const isSelf = currentPlayer && p.userId === currentPlayer.userId;
           return {
             id: p.id,
@@ -290,12 +297,12 @@ function broadcastRoomState(roomCode) {
             online: p.online !== false,
             cardCount: p.cards.length,
             activeCardCount: p.cards.length,
-            cards: (isSelf || room.status === 'finished') ? p.cards : [],
+            cards: isSelf || room.status === 'finished' ? p.cards : [],
             pocketedCards: p.pocketedCards,
             wins: p.wins || 0,
-            isWinner: p.isWinner
+            isWinner: p.isWinner,
           };
-        })
+        }),
       };
       playerSocket.emit('room_updated', clientRoom);
     }
@@ -305,13 +312,17 @@ function broadcastRoomState(roomCode) {
 // 检查某个 Socket ID 是否为房间房主
 function isRoomHost(room, socketId) {
   if (!room) return false;
-  const player = room.players.find(p => p.id === socketId);
+  const player = room.players.find((p) => p.id === socketId);
   return player && player.userId === room.hostUserId;
 }
 
 // 日志记录 Helper
 function addLog(room, message) {
-  const time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const time = new Date().toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
   room.logs.push({ id: Date.now() + Math.random(), text: message, time });
 }
 
@@ -321,7 +332,7 @@ io.on('connection', (socket) => {
   // 1. 创建房间
   socket.on('create_room', ({ userId, name, avatar, ballConfigKey }) => {
     const roomCode = generateRoomCode();
-    const uid = userId || ('u_' + Date.now() + Math.random().toString(36).substr(2, 5));
+    const uid = userId || `u_${Date.now()}${Math.random().toString(36).substr(2, 5)}`;
     const newPlayer = {
       id: socket.id,
       userId: uid,
@@ -331,10 +342,10 @@ io.on('connection', (socket) => {
       cards: [],
       pocketedCards: [],
       wins: 0,
-      isWinner: false
+      isWinner: false,
     };
 
-    const defaultCards = (config.room && config.room.default_cards_per_player) || 5;
+    const defaultCards = config.room?.default_cards_per_player || 5;
     if (!isValidBallConfigKey(ballConfigKey)) {
       socket.emit('error_message', `球色配置无效: ${ballConfigKey}`);
       return;
@@ -347,7 +358,7 @@ io.on('connection', (socket) => {
       hostSocketId: socket.id,
       settings: {
         cardsPerPlayer: defaultCards,
-        ballConfigKey: selectedBallConfigKey
+        ballConfigKey: selectedBallConfigKey,
       },
       status: 'lobby',
       roundCount: 1,
@@ -355,13 +366,13 @@ io.on('connection', (socket) => {
       deck: [],
       accidentalBalls: [],
       winners: [],
-      logs: []
+      logs: [],
     };
 
     socket.join(roomCode);
     socketIndex.set(socket.id, { roomCode, userId: uid });
     addLog(rooms[roomCode], `${newPlayer.name} 创建了房间 ${roomCode}`);
-    
+
     socket.emit('room_created', { roomCode, userId: uid });
     broadcastRoomState(roomCode);
   });
@@ -376,8 +387,8 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const uid = userId || ('u_' + Date.now() + Math.random().toString(36).substr(2, 5));
-    const existingPlayer = room.players.find(p => p.userId === uid);
+    const uid = userId || `u_${Date.now()}${Math.random().toString(36).substr(2, 5)}`;
+    const existingPlayer = room.players.find((p) => p.userId === uid);
 
     if (existingPlayer) {
       if (existingPlayer.id && existingPlayer.id !== socket.id) {
@@ -406,9 +417,13 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const maxPlayers = (config.room && config.room.max_players) || 8;
+    const maxPlayers = config.room?.max_players || 8;
     if (room.players.length >= maxPlayers) {
-      if (callback) callback({ success: false, message: `房间已满（最多${maxPlayers}人）` });
+      if (callback)
+        callback({
+          success: false,
+          message: `房间已满（最多${maxPlayers}人）`,
+        });
       return;
     }
 
@@ -421,7 +436,7 @@ io.on('connection', (socket) => {
       cards: [],
       pocketedCards: [],
       wins: 0,
-      isWinner: false
+      isWinner: false,
     };
     room.players.push(newPlayer);
     socketIndex.set(socket.id, { roomCode: code, userId: uid });
@@ -442,7 +457,7 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const player = room.players.find(p => p.userId === userId);
+    const player = room.players.find((p) => p.userId === userId);
     if (!player) {
       if (callback) callback({ success: false, message: '玩家不在该房间中' });
       return;
@@ -498,7 +513,7 @@ io.on('connection', (socket) => {
 
     room.winners = [];
     room.accidentalBalls = [];
-    room.players.forEach(p => {
+    room.players.forEach((p) => {
       p.cards = [];
       p.pocketedCards = [];
       p.isWinner = false;
@@ -516,8 +531,8 @@ io.on('connection', (socket) => {
     room.turnOrder = order;
     room.lastTurnOrder = [...order];
 
-    const turnNames = room.turnOrder.map(uid => {
-      const p = room.players.find(pl => pl.userId === uid);
+    const turnNames = room.turnOrder.map((uid) => {
+      const p = room.players.find((pl) => pl.userId === uid);
       return p ? p.name : uid;
     });
 
@@ -529,17 +544,20 @@ io.on('connection', (socket) => {
   // 5. 销牌
   socket.on('pocket_ball', ({ roomCode, cardId }) => {
     const room = rooms[roomCode];
-    if (!room || room.status !== 'playing') return;
+    if (room?.status !== 'playing') return;
 
-    const player = room.players.find(p => p.id === socket.id);
+    const player = room.players.find((p) => p.id === socket.id);
     if (!player) return;
 
-    const cardIndex = player.cards.findIndex(c => c.id === cardId);
+    const cardIndex = player.cards.findIndex((c) => c.id === cardId);
     if (cardIndex !== -1) {
       const removedCard = player.cards.splice(cardIndex, 1)[0];
       player.pocketedCards.push(removedCard);
 
-      addLog(room, `🎱 ${player.name} 打进并消除了手牌 [${removedCard.suit}${removedCard.rank} -> ${removedCard.ballNumber}号球]！`);
+      addLog(
+        room,
+        `🎱 ${player.name} 打进并消除了手牌 [${removedCard.suit}${removedCard.rank} -> ${removedCard.ballNumber}号球]！`
+      );
 
       const winners = checkGameWinners(room);
       if (winners.length > 0) {
@@ -553,9 +571,9 @@ io.on('connection', (socket) => {
   // 6. 罚牌
   socket.on('draw_penalty', ({ roomCode }) => {
     const room = rooms[roomCode];
-    if (!room || room.status !== 'playing') return;
+    if (room?.status !== 'playing') return;
 
-    const player = room.players.find(p => p.id === socket.id);
+    const player = room.players.find((p) => p.id === socket.id);
     if (!player) return;
 
     if (room.deck.length === 0) {
@@ -574,29 +592,35 @@ io.on('connection', (socket) => {
   // 6.1 代记进球
   socket.on('referee_pocket_ball', ({ roomCode, targetUserId, ballNumber }) => {
     const room = rooms[roomCode];
-    if (!room || room.status !== 'playing') return;
+    if (room?.status !== 'playing') return;
 
-    const refereePlayer = room.players.find(p => p.id === socket.id);
+    const refereePlayer = room.players.find((p) => p.id === socket.id);
     if (!refereePlayer) return;
 
-    const targetPlayer = room.players.find(p => p.userId === targetUserId);
+    const targetPlayer = room.players.find((p) => p.userId === targetUserId);
     if (!targetPlayer) {
       socket.emit('error_message', '目标玩家不存在');
       return;
     }
 
     const ball = parseInt(ballNumber, 10);
-    if (isNaN(ball) || ball < 1 || ball > 15) return;
+    if (Number.isNaN(ball) || ball < 1 || ball > 15) return;
 
-    const cardIndex = targetPlayer.cards.findIndex(c => c.ballNumber === ball);
+    const cardIndex = targetPlayer.cards.findIndex((c) => c.ballNumber === ball);
     if (cardIndex !== -1) {
       const removedCard = targetPlayer.cards.splice(cardIndex, 1)[0];
       targetPlayer.pocketedCards.push(removedCard);
 
       if (refereePlayer.userId === targetPlayer.userId) {
-        addLog(room, `🎱 ${targetPlayer.name} 打进并消除了手牌 [${removedCard.suit}${removedCard.rank} -> ${removedCard.ballNumber}号球]！`);
+        addLog(
+          room,
+          `🎱 ${targetPlayer.name} 打进并消除了手牌 [${removedCard.suit}${removedCard.rank} -> ${removedCard.ballNumber}号球]！`
+        );
       } else {
-        addLog(room, `⚖️ [代记] ${refereePlayer.name} 为 ${targetPlayer.name} 记录打进并消除了手牌 [${removedCard.suit}${removedCard.rank} -> ${removedCard.ballNumber}号球]！`);
+        addLog(
+          room,
+          `⚖️ [代记] ${refereePlayer.name} 为 ${targetPlayer.name} 记录打进并消除了手牌 [${removedCard.suit}${removedCard.rank} -> ${removedCard.ballNumber}号球]！`
+        );
       }
     } else {
       if (!room.accidentalBalls) room.accidentalBalls = [];
@@ -607,7 +631,10 @@ io.on('connection', (socket) => {
       if (refereePlayer.userId === targetPlayer.userId) {
         addLog(room, `🎱 ${targetPlayer.name} 打进了 [${ball}号球]！`);
       } else {
-        addLog(room, `⚖️ [代记] ${refereePlayer.name} 记录 ${targetPlayer.name} 打进了 [${ball}号球]（全员该球号生效）！`);
+        addLog(
+          room,
+          `⚖️ [代记] ${refereePlayer.name} 记录 ${targetPlayer.name} 打进了 [${ball}号球]（全员该球号生效）！`
+        );
       }
     }
 
@@ -622,12 +649,12 @@ io.on('connection', (socket) => {
   // 6.2 代记犯规
   socket.on('referee_draw_penalty', ({ roomCode, targetUserId }) => {
     const room = rooms[roomCode];
-    if (!room || room.status !== 'playing') return;
+    if (room?.status !== 'playing') return;
 
-    const refereePlayer = room.players.find(p => p.id === socket.id);
+    const refereePlayer = room.players.find((p) => p.id === socket.id);
     if (!refereePlayer) return;
 
-    const targetPlayer = room.players.find(p => p.userId === targetUserId);
+    const targetPlayer = room.players.find((p) => p.userId === targetUserId);
     if (!targetPlayer) {
       socket.emit('error_message', '目标玩家不存在');
       return;
@@ -654,13 +681,13 @@ io.on('connection', (socket) => {
   // 6.5 意外进球 (全员该球号自动标记已进球，罚牌由玩家手动点击犯规触发)
   socket.on('accidental_pocket', ({ roomCode, ballNumber }) => {
     const room = rooms[roomCode];
-    if (!room || room.status !== 'playing') return;
+    if (room?.status !== 'playing') return;
 
-    const player = room.players.find(p => p.id === socket.id);
+    const player = room.players.find((p) => p.id === socket.id);
     if (!player) return;
 
     const ball = parseInt(ballNumber, 10);
-    if (isNaN(ball) || ball < 1 || ball > 15) return;
+    if (Number.isNaN(ball) || ball < 1 || ball > 15) return;
 
     if (!room.accidentalBalls) room.accidentalBalls = [];
     if (!room.accidentalBalls.includes(ball)) {
@@ -681,19 +708,22 @@ io.on('connection', (socket) => {
   // 6.6 撤回进球 (将自己本局已打进的一张牌撤回到手牌)
   socket.on('retract_ball', ({ roomCode, cardId }) => {
     const room = rooms[roomCode];
-    if (!room || room.status !== 'playing') return;
+    if (room?.status !== 'playing') return;
 
-    const player = room.players.find(p => p.id === socket.id);
+    const player = room.players.find((p) => p.id === socket.id);
     if (!player) return;
 
-    const cardIndex = player.pocketedCards.findIndex(c => c.id === cardId);
+    const cardIndex = player.pocketedCards.findIndex((c) => c.id === cardId);
     if (cardIndex === -1) return;
 
     const card = player.pocketedCards.splice(cardIndex, 1)[0];
     player.cards.push(card);
     player.cards.sort((a, b) => a.ballNumber - b.ballNumber);
 
-    addLog(room, `↩️ ${player.name} 撤回了已打进的手牌 [${card.suit}${card.rank} -> ${card.ballNumber}号球]，该牌返回手牌中。`);
+    addLog(
+      room,
+      `↩️ ${player.name} 撤回了已打进的手牌 [${card.suit}${card.rank} -> ${card.ballNumber}号球]，该牌返回手牌中。`
+    );
     broadcastRoomState(roomCode);
   });
 
@@ -706,7 +736,7 @@ io.on('connection', (socket) => {
     room.status = 'lobby';
     room.winners = [];
     room.accidentalBalls = [];
-    room.players.forEach(p => {
+    room.players.forEach((p) => {
       p.cards = [];
       p.pocketedCards = [];
       p.isWinner = false;
@@ -729,7 +759,7 @@ io.on('connection', (socket) => {
       socketIndex.delete(socket.id);
       const room = rooms[roomCode];
       if (room) {
-        const player = room.players.find(p => p.userId === userId || p.id === socket.id);
+        const player = room.players.find((p) => p.userId === userId || p.id === socket.id);
         if (player) {
           handlePlayerDisconnect(socket, roomCode, player);
         }
@@ -739,11 +769,11 @@ io.on('connection', (socket) => {
 });
 
 // 处理暂离断线：标记 offline 并开启 1 小时倒计时
-function handlePlayerDisconnect(socket, roomCode, player) {
+function handlePlayerDisconnect(_socket, roomCode, player) {
   const room = rooms[roomCode];
   if (!room || !player) return;
 
-  const timeoutMs = (config.room && config.room.disconnect_timeout_ms) || 3600000;
+  const timeoutMs = config.room?.disconnect_timeout_ms || 3600000;
   const minutes = Math.round(timeoutMs / 60000);
   const timeDesc = minutes >= 60 ? `${(minutes / 60).toFixed(minutes % 60 === 0 ? 0 : 1)}小时` : `${minutes}分钟`;
 
@@ -766,11 +796,11 @@ function handlePlayerPermanentLeave(roomCode, userId) {
   const room = rooms[roomCode];
   if (!room) return;
 
-  const timeoutMs = (config.room && config.room.disconnect_timeout_ms) || 3600000;
+  const timeoutMs = config.room?.disconnect_timeout_ms || 3600000;
   const minutes = Math.round(timeoutMs / 60000);
   const timeDesc = minutes >= 60 ? `${(minutes / 60).toFixed(minutes % 60 === 0 ? 0 : 1)}小时` : `${minutes}分钟`;
 
-  const playerIndex = room.players.findIndex(p => p.userId === userId);
+  const playerIndex = room.players.findIndex((p) => p.userId === userId);
   if (playerIndex !== -1) {
     const player = room.players[playerIndex];
     if (player.online) return; // 已恢复连线，跳过删除
@@ -792,7 +822,7 @@ function handlePlayerPermanentLeave(roomCode, userId) {
       delete rooms[roomCode];
     } else {
       if (room.hostUserId === userId) {
-        const nextHost = room.players.find(p => p.online !== false) || room.players[0];
+        const nextHost = room.players.find((p) => p.online !== false) || room.players[0];
         room.hostUserId = nextHost.userId;
         room.hostSocketId = nextHost.id;
         addLog(room, `👑 ${nextHost.name} 自动成为新房主`);
@@ -807,7 +837,7 @@ function handlePlayerExplicitLeave(socket, roomCode) {
   const room = rooms[roomCode];
   if (!room) return;
 
-  const playerIndex = room.players.findIndex(p => p.id === socket.id);
+  const playerIndex = room.players.findIndex((p) => p.id === socket.id);
   if (playerIndex !== -1) {
     const player = room.players[playerIndex];
     if (player.disconnectTimer) {
@@ -832,7 +862,7 @@ function handlePlayerExplicitLeave(socket, roomCode) {
       delete rooms[roomCode];
     } else {
       if (room.hostUserId === player.userId) {
-        const nextHost = room.players.find(p => p.online !== false) || room.players[0];
+        const nextHost = room.players.find((p) => p.online !== false) || room.players[0];
         room.hostUserId = nextHost.userId;
         room.hostSocketId = nextHost.id;
         addLog(room, `👑 ${nextHost.name} 自动成为新房主`);

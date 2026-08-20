@@ -1,0 +1,2 @@
+npx vue-tsc --noEmit
+npx lint-staged

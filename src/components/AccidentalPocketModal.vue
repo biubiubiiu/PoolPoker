@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import type { Card } from '../types/game';
+import type { Card } from '@/types/game';
 
 const props = defineProps<{
   show: boolean;
@@ -20,7 +20,7 @@ const isBallPocketed = (ballNum: number) => {
 };
 
 const isBallInMyHand = (ballNum: number) => {
-  return props.myCards.some(c => c.ballNumber === ballNum);
+  return props.myCards.some((c) => c.ballNumber === ballNum);
 };
 
 const getBallClass = (ballNum: number) => {
@@ -32,9 +32,21 @@ const getBallClass = (ballNum: number) => {
 
 const getBallName = (ballNum: number) => {
   const map: Record<number, string> = {
-    1: '1号(A)', 2: '2号(2)', 3: '3号(3)', 4: '4号(4)', 5: '5号(5)',
-    6: '6号(6)', 7: '7号(7)', 8: '8号(8)', 9: '9号(9)', 10: '10号(10)',
-    11: '11号(J)', 12: '12号(Q)', 13: '13号(K)', 14: '14号(小王)', 15: '15号(大王)'
+    1: '1号(A)',
+    2: '2号(2)',
+    3: '3号(3)',
+    4: '4号(4)',
+    5: '5号(5)',
+    6: '6号(6)',
+    7: '7号(7)',
+    8: '8号(8)',
+    9: '9号(9)',
+    10: '10号(10)',
+    11: '11号(J)',
+    12: '12号(Q)',
+    13: '13号(K)',
+    14: '14号(小王)',
+    15: '15号(大王)',
   };
   return map[ballNum] || `${ballNum}号`;
 };

@@ -6,7 +6,9 @@ body {
   background-color: #0b1912;
   background-image: radial-gradient(#143826 15%, transparent 16%), radial-gradient(#143826 15%, transparent 16%);
   background-size: 30px 30px;
-  background-position: 0 0, 15px 15px;
+  background-position:
+    0 0,
+    15px 15px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   user-select: none;
   -webkit-user-select: none;
@@ -18,14 +20,18 @@ body {
   height: 104px;
   background: linear-gradient(145deg, #ffffff 0%, #f0f0f0 100%);
   border-radius: 10px;
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.8);
+  box-shadow:
+    0 6px 12px rgba(0, 0, 0, 0.4),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.8);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   padding: 4px 6px;
   position: relative;
   overflow: hidden;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
   flex-shrink: 0;
 }
 
@@ -59,10 +65,18 @@ body {
   }
 }
 
-.color-red { color: #d32f2f; }
-.color-black { color: #1a1a1a; }
-.color-gold { color: #d4af37; }
-.color-gray { color: #616161; }
+.color-red {
+  color: #d32f2f;
+}
+.color-black {
+  color: #1a1a1a;
+}
+.color-gold {
+  color: #d4af37;
+}
+.color-gray {
+  color: #616161;
+}
 
 /* 核心台球球体 (缩小版，置于卡牌中下部) */
 .billiard-ball {
@@ -71,7 +85,10 @@ body {
   height: 52px;
   border-radius: 50%;
   overflow: hidden;
-  box-shadow: inset -4px -4px 8px rgba(0, 0, 0, 0.7), inset 2px 2px 4px rgba(255, 255, 255, 0.4), 0 4px 8px rgba(0, 0, 0, 0.4);
+  box-shadow:
+    inset -4px -4px 8px rgba(0, 0, 0, 0.7),
+    inset 2px 2px 4px rgba(255, 255, 255, 0.4),
+    0 4px 8px rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -111,42 +128,102 @@ body {
 
 /* 各球号配色（由配置驱动，三段渐变：高光/主色/暗部） */
 :root {
-  --ball-1-hi: #ffeb3b; --ball-1-mid: #fbc02d; --ball-1-lo: #f57f17;
-  --ball-2-hi: #2196f3; --ball-2-mid: #1976d2; --ball-2-lo: #0d47a1;
-  --ball-3-hi: #f44336; --ball-3-mid: #d32f2f; --ball-3-lo: #b71c1c;
-  --ball-4-hi: #9c27b0; --ball-4-mid: #7b1fa2; --ball-4-lo: #4a148c;
-  --ball-5-hi: #ff9800; --ball-5-mid: #f57c00; --ball-5-lo: #e65100;
-  --ball-6-hi: #4caf50; --ball-6-mid: #388e3c; --ball-6-lo: #1b5e20;
-  --ball-7-hi: #8d6e63; --ball-7-mid: #5d4037; --ball-7-lo: #3e2723;
-  --ball-8-hi: #424242; --ball-8-mid: #212121; --ball-8-lo: #000000;
-  --ball-9-hi: #ffeb3b; --ball-9-mid: #fbc02d; --ball-9-lo: #f57f17;
-  --ball-10-hi: #2196f3; --ball-10-mid: #1976d2; --ball-10-lo: #0d47a1;
-  --ball-11-hi: #f44336; --ball-11-mid: #d32f2f; --ball-11-lo: #b71c1c;
-  --ball-12-hi: #9c27b0; --ball-12-mid: #7b1fa2; --ball-12-lo: #4a148c;
-  --ball-13-hi: #ff9800; --ball-13-mid: #f57c00; --ball-13-lo: #e65100;
-  --ball-14-hi: #4caf50; --ball-14-mid: #388e3c; --ball-14-lo: #1b5e20;
-  --ball-15-hi: #8d6e63; --ball-15-mid: #5d4037; --ball-15-lo: #3e2723;
+  --ball-1-hi: #ffeb3b;
+  --ball-1-mid: #fbc02d;
+  --ball-1-lo: #f57f17;
+  --ball-2-hi: #2196f3;
+  --ball-2-mid: #1976d2;
+  --ball-2-lo: #0d47a1;
+  --ball-3-hi: #f44336;
+  --ball-3-mid: #d32f2f;
+  --ball-3-lo: #b71c1c;
+  --ball-4-hi: #9c27b0;
+  --ball-4-mid: #7b1fa2;
+  --ball-4-lo: #4a148c;
+  --ball-5-hi: #ff9800;
+  --ball-5-mid: #f57c00;
+  --ball-5-lo: #e65100;
+  --ball-6-hi: #4caf50;
+  --ball-6-mid: #388e3c;
+  --ball-6-lo: #1b5e20;
+  --ball-7-hi: #8d6e63;
+  --ball-7-mid: #5d4037;
+  --ball-7-lo: #3e2723;
+  --ball-8-hi: #424242;
+  --ball-8-mid: #212121;
+  --ball-8-lo: #000000;
+  --ball-9-hi: #ffeb3b;
+  --ball-9-mid: #fbc02d;
+  --ball-9-lo: #f57f17;
+  --ball-10-hi: #2196f3;
+  --ball-10-mid: #1976d2;
+  --ball-10-lo: #0d47a1;
+  --ball-11-hi: #f44336;
+  --ball-11-mid: #d32f2f;
+  --ball-11-lo: #b71c1c;
+  --ball-12-hi: #9c27b0;
+  --ball-12-mid: #7b1fa2;
+  --ball-12-lo: #4a148c;
+  --ball-13-hi: #ff9800;
+  --ball-13-mid: #f57c00;
+  --ball-13-lo: #e65100;
+  --ball-14-hi: #4caf50;
+  --ball-14-mid: #388e3c;
+  --ball-14-lo: #1b5e20;
+  --ball-15-hi: #8d6e63;
+  --ball-15-mid: #5d4037;
+  --ball-15-lo: #3e2723;
 }
 
-.ball-1 { background: radial-gradient(circle at 30% 30%, var(--ball-1-hi), var(--ball-1-mid), var(--ball-1-lo)); }
-.ball-2 { background: radial-gradient(circle at 30% 30%, var(--ball-2-hi), var(--ball-2-mid), var(--ball-2-lo)); }
-.ball-3 { background: radial-gradient(circle at 30% 30%, var(--ball-3-hi), var(--ball-3-mid), var(--ball-3-lo)); }
-.ball-4 { background: radial-gradient(circle at 30% 30%, var(--ball-4-hi), var(--ball-4-mid), var(--ball-4-lo)); }
-.ball-5 { background: radial-gradient(circle at 30% 30%, var(--ball-5-hi), var(--ball-5-mid), var(--ball-5-lo)); }
-.ball-6 { background: radial-gradient(circle at 30% 30%, var(--ball-6-hi), var(--ball-6-mid), var(--ball-6-lo)); }
-.ball-7 { background: radial-gradient(circle at 30% 30%, var(--ball-7-hi), var(--ball-7-mid), var(--ball-7-lo)); }
-.ball-8 { background: radial-gradient(circle at 30% 30%, var(--ball-8-hi), var(--ball-8-mid), var(--ball-8-lo)); }
-.ball-9 { background: radial-gradient(circle at 30% 30%, var(--ball-9-hi), var(--ball-9-mid), var(--ball-9-lo)); }
-.ball-10 { background: radial-gradient(circle at 30% 30%, var(--ball-10-hi), var(--ball-10-mid), var(--ball-10-lo)); }
-.ball-11 { background: radial-gradient(circle at 30% 30%, var(--ball-11-hi), var(--ball-11-mid), var(--ball-11-lo)); }
-.ball-12 { background: radial-gradient(circle at 30% 30%, var(--ball-12-hi), var(--ball-12-mid), var(--ball-12-lo)); }
-.ball-13 { background: radial-gradient(circle at 30% 30%, var(--ball-13-hi), var(--ball-13-mid), var(--ball-13-lo)); }
-.ball-14 { background: radial-gradient(circle at 30% 30%, var(--ball-14-hi), var(--ball-14-mid), var(--ball-14-lo)); }
-.ball-15 { background: radial-gradient(circle at 30% 30%, var(--ball-15-hi), var(--ball-15-mid), var(--ball-15-lo)); }
+.ball-1 {
+  background: radial-gradient(circle at 30% 30%, var(--ball-1-hi), var(--ball-1-mid), var(--ball-1-lo));
+}
+.ball-2 {
+  background: radial-gradient(circle at 30% 30%, var(--ball-2-hi), var(--ball-2-mid), var(--ball-2-lo));
+}
+.ball-3 {
+  background: radial-gradient(circle at 30% 30%, var(--ball-3-hi), var(--ball-3-mid), var(--ball-3-lo));
+}
+.ball-4 {
+  background: radial-gradient(circle at 30% 30%, var(--ball-4-hi), var(--ball-4-mid), var(--ball-4-lo));
+}
+.ball-5 {
+  background: radial-gradient(circle at 30% 30%, var(--ball-5-hi), var(--ball-5-mid), var(--ball-5-lo));
+}
+.ball-6 {
+  background: radial-gradient(circle at 30% 30%, var(--ball-6-hi), var(--ball-6-mid), var(--ball-6-lo));
+}
+.ball-7 {
+  background: radial-gradient(circle at 30% 30%, var(--ball-7-hi), var(--ball-7-mid), var(--ball-7-lo));
+}
+.ball-8 {
+  background: radial-gradient(circle at 30% 30%, var(--ball-8-hi), var(--ball-8-mid), var(--ball-8-lo));
+}
+.ball-9 {
+  background: radial-gradient(circle at 30% 30%, var(--ball-9-hi), var(--ball-9-mid), var(--ball-9-lo));
+}
+.ball-10 {
+  background: radial-gradient(circle at 30% 30%, var(--ball-10-hi), var(--ball-10-mid), var(--ball-10-lo));
+}
+.ball-11 {
+  background: radial-gradient(circle at 30% 30%, var(--ball-11-hi), var(--ball-11-mid), var(--ball-11-lo));
+}
+.ball-12 {
+  background: radial-gradient(circle at 30% 30%, var(--ball-12-hi), var(--ball-12-mid), var(--ball-12-lo));
+}
+.ball-13 {
+  background: radial-gradient(circle at 30% 30%, var(--ball-13-hi), var(--ball-13-mid), var(--ball-13-lo));
+}
+.ball-14 {
+  background: radial-gradient(circle at 30% 30%, var(--ball-14-hi), var(--ball-14-mid), var(--ball-14-lo));
+}
+.ball-15 {
+  background: radial-gradient(circle at 30% 30%, var(--ball-15-hi), var(--ball-15-mid), var(--ball-15-lo));
+}
 
 .billiard-ball.ball-striped::before,
 .mini-ball.ball-striped::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   bottom: 0;
@@ -162,7 +239,7 @@ body {
     #ffffff 100%
   );
   z-index: 1;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .mini-ball {
@@ -208,8 +285,13 @@ body {
 }
 
 @keyframes pulse-gold {
-  0%, 100% { box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); }
-  50% { box-shadow: 0 0 25px rgba(255, 215, 0, 0.8); }
+  0%,
+  100% {
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(255, 215, 0, 0.8);
+  }
 }
 
 .gold-glow {

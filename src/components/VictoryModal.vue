@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { Player, Card } from '../types/game';
+import type { Card, Player } from '@/types/game';
 
 const props = defineProps<{
   winners: Player[];
@@ -9,9 +9,7 @@ const props = defineProps<{
   pocketedBallNumbers: number[];
 }>();
 
-const emit = defineEmits<{
-  (e: 'restart'): void;
-}>();
+const emit = defineEmits<(e: 'restart') => void>();
 
 const getSuitColor = (card: Card) => {
   if (card.color === 'red') return 'text-red-400';
@@ -24,21 +22,21 @@ const getSuitColor = (card: Card) => {
 const getPlayerCards = (player: Player) => {
   const pocketedSet = new Set(props.pocketedBallNumbers);
   const scored: Card[] = player.pocketedCards || [];
-  const free: Card[] = (player.cards || []).filter(c => pocketedSet.has(c.ballNumber));
-  const remaining: Card[] = (player.cards || []).filter(c => !pocketedSet.has(c.ballNumber));
+  const free: Card[] = (player.cards || []).filter((c) => pocketedSet.has(c.ballNumber));
+  const remaining: Card[] = (player.cards || []).filter((c) => !pocketedSet.has(c.ballNumber));
   return { scored, free, remaining };
 };
 
 const isWinner = (player: Player) => {
-  return props.winners.some(w => w.userId === player.userId) || player.isWinner;
+  return props.winners.some((w) => w.userId === player.userId) || player.isWinner;
 };
 
 const winningPlayers = computed<Player[]>(() => {
-  return props.winners.length > 0 ? props.winners : props.players.filter(p => isWinner(p));
+  return props.winners.length > 0 ? props.winners : props.players.filter((p) => isWinner(p));
 });
 
 const winningNamesText = computed(() => {
-  return winningPlayers.value.map(p => `${p.avatar} ${p.name}`).join(' 、 ');
+  return winningPlayers.value.map((p) => `${p.avatar} ${p.name}`).join(' 、 ');
 });
 </script>
 
