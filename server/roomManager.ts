@@ -13,6 +13,44 @@ export function generateRoomCode(): string {
   return code;
 }
 
+export function getClientRoomState(roomCode: string, targetUserId?: string): Room | null {
+  const room = rooms[roomCode];
+  if (!room) return null;
+
+  const pocketedBallNumbers = getPocketedBallNumbers(room);
+
+  return {
+    code: room.code,
+    hostUserId: room.hostUserId,
+    hostSocketId: room.hostSocketId,
+    settings: room.settings,
+    status: room.status,
+    roundCount: room.roundCount,
+    deckCount: room.deck.length,
+    logs: room.logs.slice(-15),
+    winners: room.winners || [],
+    pocketedBallNumbers: pocketedBallNumbers,
+    turnOrder: room.turnOrder || [],
+    players: room.players.map((p) => {
+      const isSelf = targetUserId ? p.userId === targetUserId : false;
+      return {
+        id: p.id,
+        userId: p.userId,
+        name: p.name,
+        avatar: p.avatar,
+        isHost: p.userId === room.hostUserId,
+        online: p.online !== false,
+        cardCount: p.cards.length,
+        activeCardCount: p.cards.length,
+        cards: isSelf || room.status === 'finished' ? p.cards : [],
+        pocketedCards: isSelf || room.status === 'finished' ? p.pocketedCards : [],
+        wins: p.wins || 0,
+        isWinner: p.isWinner || false,
+      };
+    }),
+  };
+}
+
 export function broadcastRoomState(io: Server, roomCode: string): void {
   const room = rooms[roomCode];
   if (!room) return;
@@ -20,44 +58,14 @@ export function broadcastRoomState(io: Server, roomCode: string): void {
   const roomSockets = io.sockets.adapter.rooms.get(roomCode);
   if (!roomSockets) return;
 
-  const pocketedBallNumbers = getPocketedBallNumbers(room);
-
   for (const socketId of roomSockets) {
     const playerSocket = io.sockets.sockets.get(socketId);
     if (playerSocket) {
       const currentPlayer = room.players.find((p) => p.id === socketId);
-      const clientRoom: Room = {
-        code: room.code,
-        hostUserId: room.hostUserId,
-        hostSocketId: room.hostSocketId,
-        settings: room.settings,
-        status: room.status,
-        roundCount: room.roundCount,
-        deckCount: room.deck.length,
-        logs: room.logs.slice(-15),
-        winners: room.winners || [],
-        pocketedBallNumbers: pocketedBallNumbers,
-        turnOrder: room.turnOrder || [],
-        players: room.players.map((p) => {
-          const isSelf = currentPlayer && p.userId === currentPlayer.userId;
-          return {
-            id: p.id,
-            userId: p.userId,
-            name: p.name,
-            avatar: p.avatar,
-            isHost: p.userId === room.hostUserId,
-            online: p.online !== false,
-            cardCount: p.cards.length,
-            activeCardCount: p.cards.length,
-            cards: isSelf || room.status === 'finished' ? p.cards : [],
-            pocketedCards: isSelf || room.status === 'finished' ? p.pocketedCards : [],
-            wins: p.wins || 0,
-            isWinner: p.isWinner || false,
-          };
-        }),
-      };
-
-      playerSocket.emit('room_updated', clientRoom);
+      const clientRoom = getClientRoomState(roomCode, currentPlayer?.userId);
+      if (clientRoom) {
+        playerSocket.emit('room_updated', clientRoom);
+      }
     }
   }
 }

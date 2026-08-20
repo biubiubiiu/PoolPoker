@@ -5,6 +5,7 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '../shared/types/socket';
 import { appConfig, ballConfigs, rootDir } from './config';
+import { getClientRoomState } from './roomManager';
 import { registerSocketHandlers } from './socketHandlers';
 
 const app = express();
@@ -15,6 +16,8 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, {
     origin: '*',
     methods: ['GET', 'POST'],
   },
+  pingTimeout: 10000,
+  pingInterval: 5000,
 });
 
 app.get('/api/ball-configs', (_req: Request, res: Response) => {
@@ -22,6 +25,18 @@ app.get('/api/ball-configs', (_req: Request, res: Response) => {
     defaultKey: 'default',
     configs: ballConfigs,
   });
+});
+
+app.get('/api/rooms/:code', (req: Request, res: Response) => {
+  const roomCode = Array.isArray(req.params.code) ? req.params.code[0] : req.params.code;
+  const userId = req.query.userId as string | undefined;
+
+  const clientRoom = getClientRoomState(roomCode, userId);
+  if (!clientRoom) {
+    return res.status(404).json({ success: false, message: '房间不存在' });
+  }
+
+  res.json({ success: true, room: clientRoom });
 });
 
 // 托管静态资源目录（优先托管打包出来的 dist 目录）
@@ -36,7 +51,7 @@ if (fs.existsSync(distDir)) {
   console.warn('⚠️ 注意: 未发现 dist 构建目录，请先运行 `npm run build` 进行项目构建。');
 }
 
-io.on('connection', (socket) => {
+io.on('connection', (socket: any) => {
   console.log(`[Socket Connected] ID: ${socket.id}`);
   registerSocketHandlers(io as any, socket as any);
 });

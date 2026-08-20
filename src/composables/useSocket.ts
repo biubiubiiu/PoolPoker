@@ -6,7 +6,13 @@ export function useSocket() {
   const socketId = ref<string>('');
 
   onMounted(() => {
-    socket.value = io();
+    socket.value = io({
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 300,
+      reconnectionDelayMax: 1000,
+      timeout: 5000,
+    });
 
     socket.value.on('connect', () => {
       socketId.value = socket.value?.id || '';

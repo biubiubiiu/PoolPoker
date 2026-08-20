@@ -2,7 +2,7 @@ import type { Card, Player, Room } from '@shared/types/game';
 import type { SocketCallbackResponse } from '@shared/types/socket';
 import confetti from 'canvas-confetti';
 import type { Socket } from 'socket.io-client';
-import { computed, onMounted, type Ref, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, type Ref, ref, watch } from 'vue';
 
 export interface BallConfigItem {
   name: string;
@@ -43,7 +43,43 @@ export function useGameRoom(options: UseGameRoomOptions) {
     });
   };
 
+  const fetchLatestRoomState = async () => {
+    const savedRoomCode = localStorage.getItem('billiards_room_code');
+    if (!savedRoomCode) return;
+
+    try {
+      const res = await fetch(`/api/rooms/${savedRoomCode}?userId=${encodeURIComponent(userId.value)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.room) {
+          console.log('[HTTP] 极速同步房间状态成功');
+          room.value = data.room;
+        }
+      } else if (res.status === 404) {
+        console.warn('[HTTP Sync] 房间不存在或已解散');
+        localStorage.removeItem('billiards_room_code');
+        room.value = null;
+      }
+    } catch (err) {
+      console.error('[HTTP Sync Error]', err);
+    }
+  };
+
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'visible') {
+      console.log('[VisibilityChange] 页面切回前台，立即发起 HTTP 快照同步与 Socket 重连');
+      fetchLatestRoomState();
+
+      if (socket.value && !socket.value.connected) {
+        socket.value.connect();
+      }
+    }
+  };
+
   onMounted(async () => {
+    fetchLatestRoomState();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     try {
       const response = await fetch('/api/ball-configs');
       if (!response.ok) {
@@ -57,6 +93,10 @@ export function useGameRoom(options: UseGameRoomOptions) {
     } catch (err) {
       console.error('[BallConfigs Error]', err);
     }
+  });
+
+  onUnmounted(() => {
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
   });
 
   const setupSocketListeners = (s: Socket) => {
