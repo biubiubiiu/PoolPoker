@@ -193,6 +193,38 @@ function checkGameWinners(room) {
   return winners;
 }
 
+// 结算游戏胜利状态
+function handleGameFinished(room, winners, actionPlayer) {
+  room.status = 'finished';
+  winners.forEach(w => {
+    w.wins = (w.wins || 0) + 1;
+  });
+
+  if (actionPlayer) {
+    const actionPlayerIdx = winners.findIndex(w => w.id === actionPlayer.id || w.userId === actionPlayer.userId);
+    if (actionPlayerIdx > 0) {
+      const [actionPlayerWinner] = winners.splice(actionPlayerIdx, 1);
+      winners.unshift(actionPlayerWinner);
+    }
+  }
+
+  room.winners = winners.map(w => ({
+    name: w.name,
+    avatar: w.avatar,
+    id: w.id,
+    userId: w.userId,
+    wins: w.wins
+  }));
+  room.lastWinnerUserId = (winners.length > 1 && actionPlayer ? actionPlayer.userId : winners[0].userId);
+
+  if (winners.length === 1) {
+    addLog(room, `🏆 恭喜 ${winners[0].name} 清空有效手牌，夺得本局胜利！(累计胜利 ${winners[0].wins} 次) 🎉`);
+  } else {
+    const names = winners.map(w => `${w.name}(累计${w.wins}胜)`).join('、');
+    addLog(room, `🏆 恭喜 ${names} 共同清空有效手牌，同时夺得本局胜利！🎉`);
+  }
+}
+
 // 计算每局击球顺序
 function computeTurnOrder(room) {
   if (!room || !room.players || room.players.length === 0) return [];
@@ -244,8 +276,7 @@ function broadcastRoomState(roomCode) {
         roundCount: room.roundCount,
         deckCount: room.deck.length,
         logs: room.logs.slice(-15),
-        winner: room.winner,
-        winners: room.winners || (room.winner ? [room.winner] : []),
+        winners: room.winners || [],
         pocketedBallNumbers: pocketedBallNumbers,
         turnOrder: room.turnOrder || [],
         players: room.players.map(p => {
@@ -323,7 +354,7 @@ io.on('connection', (socket) => {
       players: [newPlayer],
       deck: [],
       accidentalBalls: [],
-      winner: null,
+      winners: [],
       logs: []
     };
 
@@ -465,8 +496,7 @@ io.on('connection', (socket) => {
 
     const shuffledDeck = shuffle(fullDeck);
 
-    room.winner = null;
-    room.winners = null;
+    room.winners = [];
     room.accidentalBalls = [];
     room.players.forEach(p => {
       p.cards = [];
@@ -513,26 +543,7 @@ io.on('connection', (socket) => {
 
       const winners = checkGameWinners(room);
       if (winners.length > 0) {
-        room.status = 'finished';
-        winners.forEach(w => {
-          w.wins = (w.wins || 0) + 1;
-        });
-        room.winners = winners.map(w => ({
-          name: w.name,
-          avatar: w.avatar,
-          id: w.id,
-          userId: w.userId,
-          wins: w.wins
-        }));
-        room.winner = room.winners[0];
-        room.lastWinnerUserId = winners[0].userId;
-
-        if (winners.length === 1) {
-          addLog(room, `🏆 恭喜 ${winners[0].name} 清空有效手牌，夺得本局胜利！(累计胜利 ${winners[0].wins} 次) 🎉`);
-        } else {
-          const names = winners.map(w => `${w.name}(累计${w.wins}胜)`).join('、');
-          addLog(room, `🏆 恭喜 ${names} 共同清空有效手牌，同时夺得本局胜利！🎉`);
-        }
+        handleGameFinished(room, winners, player);
       }
 
       broadcastRoomState(roomCode);
@@ -581,26 +592,7 @@ io.on('connection', (socket) => {
 
     const winners = checkGameWinners(room);
     if (winners.length > 0) {
-      room.status = 'finished';
-      winners.forEach(w => {
-        w.wins = (w.wins || 0) + 1;
-      });
-      room.winners = winners.map(w => ({
-        name: w.name,
-        avatar: w.avatar,
-        id: w.id,
-        userId: w.userId,
-        wins: w.wins
-      }));
-      room.winner = room.winners[0];
-      room.lastWinnerUserId = winners[0].userId;
-
-      if (winners.length === 1) {
-        addLog(room, `🏆 恭喜 ${winners[0].name} 清空有效手牌，夺得本局胜利！(累计胜利 ${winners[0].wins} 次) 🎉`);
-      } else {
-        const names = winners.map(w => `${w.name}(累计${w.wins}胜)`).join('、');
-        addLog(room, `🏆 恭喜 ${names} 共同清空有效手牌，同时夺得本局胜利！🎉`);
-      }
+      handleGameFinished(room, winners, player);
     }
 
     broadcastRoomState(roomCode);
@@ -632,8 +624,7 @@ io.on('connection', (socket) => {
 
     room.roundCount += 1;
     room.status = 'lobby';
-    room.winner = null;
-    room.winners = null;
+    room.winners = [];
     room.accidentalBalls = [];
     room.players.forEach(p => {
       p.cards = [];

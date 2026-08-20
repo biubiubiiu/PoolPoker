@@ -149,7 +149,7 @@ const {
                       @close="showRetractModal = false"
                       @confirm="handleRetractConfirm" />
 
-    <VictoryModal :winner="room?.winner || null"
+    <VictoryModal :winners="room?.winners || []"
                   :isHost="isHost"
                   :players="room?.players || []"
                   :pocketedBallNumbers="room?.pocketedBallNumbers || []"

@@ -95,7 +95,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
         localStorage.setItem('billiards_room_code', updatedRoom.code);
       }
 
-      if (updatedRoom && updatedRoom.winner) {
+      if (updatedRoom && updatedRoom.winners && updatedRoom.winners.length > 0) {
         triggerConfetti();
       }
     });

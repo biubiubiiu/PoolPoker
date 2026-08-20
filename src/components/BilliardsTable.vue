@@ -31,7 +31,6 @@ const getCardProgressPercent = (player: Player) => {
 
 const isPlayerWinner = (player: Player) => {
   if (player.isWinner) return true;
-  if (props.room.winner && props.room.winner.userId === player.userId) return true;
   if (props.room.winners && props.room.winners.some(w => w.userId === player.userId)) return true;
   return false;
 };

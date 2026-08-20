@@ -46,8 +46,7 @@ export interface Room {
   pocketedBallNumbers: number[];
   roundCount: number;
   deckCount: number;
-  winner: Player | null;
-  winners?: Player[];
+  winners: Player[];
   settings: RoomSettings;
   logs: GameLog[];
 }

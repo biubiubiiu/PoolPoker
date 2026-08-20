@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import type { Player, Card } from '../types/game';
 
 const props = defineProps<{
-  winner: Player | null;
+  winners: Player[];
   isHost: boolean;
   players: Player[];
   pocketedBallNumbers: number[];
@@ -29,22 +30,29 @@ const getPlayerCards = (player: Player) => {
 };
 
 const isWinner = (player: Player) => {
-  if (player.isWinner) return true;
-  if (props.winner && props.winner.userId === player.userId) return true;
-  return false;
+  return props.winners.some(w => w.userId === player.userId) || player.isWinner;
 };
+
+const winningPlayers = computed<Player[]>(() => {
+  return props.winners.length > 0 ? props.winners : props.players.filter(p => isWinner(p));
+});
+
+const winningNamesText = computed(() => {
+  return winningPlayers.value.map(p => `${p.avatar} ${p.name}`).join(' 、 ');
+});
 </script>
 
 <template>
-  <div v-if="winner" class="fixed inset-0 bg-black/85 backdrop-blur-md flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+  <div v-if="winners && winners.length > 0" class="fixed inset-0 bg-black/85 backdrop-blur-md flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
     <div class="glass-panel rounded-t-3xl sm:rounded-3xl w-full sm:max-w-sm border-t-2 sm:border-2 border-amber-400/60 shadow-2xl flex flex-col max-h-[92vh]">
 
       <!-- 顶部胜利信息 -->
       <div class="text-center px-5 pt-5 pb-3 shrink-0">
         <div class="text-4xl animate-pulse mb-1">🏆</div>
         <h3 class="text-[10px] text-amber-300 font-bold uppercase tracking-widest">Victory</h3>
-        <h2 class="text-lg font-black text-white mt-0.5">{{ winner.avatar }} {{ winner.name }}</h2>
-        <p class="text-xs text-emerald-300 mt-0.5">率先消完所有手上扑克牌！</p>
+        <h2 class="text-lg font-black text-white mt-0.5">{{ winningNamesText }}</h2>
+        <p class="text-xs text-emerald-300 mt-0.5" v-if="winningPlayers.length > 1">共同清空有效手牌，赢得本局胜利！</p>
+        <p class="text-xs text-emerald-300 mt-0.5" v-else>率先消完所有手上扑克牌！</p>
       </div>
 
       <!-- 图例说明 -->
