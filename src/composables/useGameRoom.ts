@@ -28,7 +28,6 @@ export function useGameRoom(options: UseGameRoomOptions) {
 
   const room = ref<Room | null>(null);
   const showRestartConfirm = ref<boolean>(false);
-  const showAccidentalModal = ref<boolean>(false);
   const showRetractModal = ref<boolean>(false);
   const showRefereePocketModal = ref<boolean>(false);
   const showRefereeFoulModal = ref<boolean>(false);
@@ -289,27 +288,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
     }
   };
 
-  // 6. 犯规抽卡
-  const handleDrawPenalty = () => {
-    if (room.value?.status !== 'playing') return;
-    if (window.confirm('确认要执行犯规罚抽 1 张扑克牌吗？')) {
-      socket.value?.emit('draw_penalty', {
-        roomCode: room.value.code,
-      });
-    }
-  };
-
-  // 7. 意外进球确认
-  const handleAccidentalConfirm = (ballNum: number) => {
-    if (!room.value) return;
-    socket.value?.emit('accidental_pocket', {
-      roomCode: room.value.code,
-      ballNumber: ballNum,
-    });
-    showAccidentalModal.value = false;
-  };
-
-  // 8. 撤回进球确认
+  // 6. 撤回进球确认
   const handleRetractConfirm = (cardId: string) => {
     if (!room.value) return;
     socket.value?.emit('retract_ball', {
@@ -319,14 +298,14 @@ export function useGameRoom(options: UseGameRoomOptions) {
     showRetractModal.value = false;
   };
 
-  // 8.5 代记模式打开与确认
+  // 7. 记录进球与记录犯规打开与确认（默认选中当前玩家自己）
   const openRefereePocket = (targetUserId?: string) => {
-    refereeTargetUserId.value = targetUserId || '';
+    refereeTargetUserId.value = targetUserId || userId.value;
     showRefereePocketModal.value = true;
   };
 
   const openRefereeFoul = (targetUserId?: string) => {
-    refereeTargetUserId.value = targetUserId || '';
+    refereeTargetUserId.value = targetUserId || userId.value;
     showRefereeFoulModal.value = true;
   };
 
@@ -349,14 +328,14 @@ export function useGameRoom(options: UseGameRoomOptions) {
     showRefereeFoulModal.value = false;
   };
 
-  // 9. 重置房间
+  // 8. 重置房间
   const handleConfirmRestart = () => {
     if (!isHost.value || !room.value) return;
     socket.value?.emit('restart_game', { roomCode: room.value.code });
     showRestartConfirm.value = false;
   };
 
-  // 10. 离开房间
+  // 9. 离开房间
   const handleLeaveRoom = () => {
     if (window.confirm('确认离开房间吗？')) {
       if (room.value) {
@@ -373,7 +352,6 @@ export function useGameRoom(options: UseGameRoomOptions) {
   return {
     room,
     showRestartConfirm,
-    showAccidentalModal,
     showRetractModal,
     showRefereePocketModal,
     showRefereeFoulModal,
@@ -391,8 +369,6 @@ export function useGameRoom(options: UseGameRoomOptions) {
     handleAdjustCards,
     handleStartGame,
     handleConfirmPocket,
-    handleDrawPenalty,
-    handleAccidentalConfirm,
     handleRetractConfirm,
     openRefereePocket,
     openRefereeFoul,

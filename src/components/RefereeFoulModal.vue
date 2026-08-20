@@ -16,11 +16,11 @@ const emit = defineEmits<{
 const selectedUserId = ref<string>('');
 
 watch(
-  () => props.show,
-  (newVal) => {
-    if (newVal) {
-      if (props.defaultUserId && props.players.some((p) => p.userId === props.defaultUserId)) {
-        selectedUserId.value = props.defaultUserId;
+  [() => props.show, () => props.defaultUserId],
+  ([newShow, newDefaultUser]) => {
+    if (newShow) {
+      if (newDefaultUser && props.players.some((p) => p.userId === newDefaultUser)) {
+        selectedUserId.value = newDefaultUser;
       } else if (props.players.length > 0) {
         selectedUserId.value = props.players[0].userId;
       }
@@ -47,7 +47,7 @@ const onConfirm = () => {
       <!-- 弹窗标题栏 -->
       <div class="flex items-center justify-between border-b border-white/10 pb-2">
         <h3 class="text-sm font-black text-red-300 flex items-center gap-1.5">
-          <i class="fa-solid fa-triangle-exclamation text-amber-400"></i> 代记犯规
+          <i class="fa-solid fa-triangle-exclamation text-amber-400"></i> 记录犯规
         </h3>
         <button @click="emit('close')" class="text-gray-400 hover:text-white text-xs px-2 py-1 cursor-pointer">
           <i class="fa-solid fa-xmark text-base"></i>
@@ -95,7 +95,7 @@ const onConfirm = () => {
         </button>
         <button @click="onConfirm" :disabled="!selectedUserId"
                 class="flex-1 py-2.5 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-xs font-black text-white rounded-xl shadow-lg transition active:scale-95 disabled:opacity-40 cursor-pointer">
-          确认代记犯规
+          确认记录犯规
         </button>
       </div>
 

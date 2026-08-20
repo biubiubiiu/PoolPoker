@@ -18,11 +18,11 @@ const selectedUserId = ref<string>('');
 const selectedBall = ref<number | null>(null);
 
 watch(
-  () => props.show,
-  (newVal) => {
-    if (newVal) {
-      if (props.defaultUserId && props.players.some((p) => p.userId === props.defaultUserId)) {
-        selectedUserId.value = props.defaultUserId;
+  [() => props.show, () => props.defaultUserId],
+  ([newShow, newDefaultUser]) => {
+    if (newShow) {
+      if (newDefaultUser && props.players.some((p) => p.userId === newDefaultUser)) {
+        selectedUserId.value = newDefaultUser;
       } else if (props.players.length > 0) {
         selectedUserId.value = props.players[0].userId;
       }
@@ -87,7 +87,7 @@ const onConfirm = () => {
       <!-- 弹窗标题栏 -->
       <div class="flex items-center justify-between border-b border-white/10 pb-2">
         <h3 class="text-sm font-black text-amber-300 flex items-center gap-1.5">
-          <i class="fa-solid fa-gavel text-amber-400"></i> 代记进球
+          <i class="fa-solid fa-gavel text-amber-400"></i> 记录进球
         </h3>
         <button @click="emit('close')" class="text-gray-400 hover:text-white text-xs px-2 py-1 cursor-pointer">
           <i class="fa-solid fa-xmark text-base"></i>
@@ -97,7 +97,7 @@ const onConfirm = () => {
       <!-- 步骤1: 选择击球玩家 -->
       <div class="space-y-1.5 text-left">
         <label class="text-[11px] font-bold text-emerald-300 flex items-center gap-1">
-          <i class="fa-solid fa-user-check"></i> 1. 选择击球进球的玩家：
+          <i class="fa-solid fa-user-check"></i> 1. 选择进球玩家：
         </label>
         <div class="flex flex-wrap gap-1.5">
           <button v-for="p in players" :key="p.userId"
@@ -154,7 +154,7 @@ const onConfirm = () => {
         </button>
         <button @click="onConfirm" :disabled="!selectedUserId || selectedBall === null"
                 class="flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-xs font-black text-black rounded-xl shadow-lg transition active:scale-95 disabled:opacity-40 cursor-pointer">
-          确认代记进球
+          确认记录进球
         </button>
       </div>
 

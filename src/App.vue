@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import AccidentalPocketModal from '@/components/AccidentalPocketModal.vue';
 import BilliardsTable from '@/components/BilliardsTable.vue';
 import GameHeader from '@/components/GameHeader.vue';
 import GameLogs from '@/components/GameLogs.vue';
@@ -21,7 +20,6 @@ const { socket } = useSocket();
 const {
   room,
   showRestartConfirm,
-  showAccidentalModal,
   showRetractModal,
   showRefereePocketModal,
   showRefereeFoulModal,
@@ -37,8 +35,6 @@ const {
   handleAdjustCards,
   handleStartGame,
   handleConfirmPocket,
-  handleDrawPenalty,
-  handleAccidentalConfirm,
   handleRetractConfirm,
   openRefereePocket,
   openRefereeFoul,
@@ -117,30 +113,13 @@ const {
                     class="bg-blue-950/80 hover:bg-blue-900 text-blue-200 border border-blue-700/50 px-2 py-1 rounded-lg font-bold flex items-center gap-1 active:scale-95 text-xs cursor-pointer">
               <i class="fa-solid fa-rotate-left text-blue-400"></i> 撤回
             </button>
-            <button @click="showAccidentalModal = true"
-                    class="bg-amber-950/80 hover:bg-amber-900 text-amber-200 border border-amber-700/50 px-2 py-1 rounded-lg font-bold flex items-center gap-1 active:scale-95 text-xs cursor-pointer">
-              <i class="fa-solid fa-bullseye text-amber-400"></i> 意外进球
-            </button>
-            <button @click="handleDrawPenalty"
-                    class="bg-red-950/80 hover:bg-red-900 text-red-200 border border-red-700/50 px-2 py-1 rounded-lg font-bold flex items-center gap-1 active:scale-95 text-xs cursor-pointer">
-              <i class="fa-solid fa-triangle-exclamation text-amber-400"></i> 犯规抽卡
-            </button>
-          </div>
-        </div>
-
-        <!-- 代记模式入口 -->
-        <div class="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between">
-          <span class="text-[10px] text-amber-300/90 font-bold flex items-center gap-1">
-            <i class="fa-solid fa-gavel text-amber-400"></i> 代记模式
-          </span>
-          <div class="flex items-center space-x-2">
             <button @click="openRefereePocket()"
                     class="bg-amber-950/90 hover:bg-amber-900 text-amber-200 border border-amber-500/40 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 active:scale-95 text-xs cursor-pointer shadow">
-              <i class="fa-solid fa-gavel text-amber-400"></i> 代记进球
+              <i class="fa-solid fa-gavel text-amber-400"></i> 记录进球
             </button>
             <button @click="openRefereeFoul()"
                     class="bg-red-950/90 hover:bg-red-900 text-red-200 border border-red-500/40 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 active:scale-95 text-xs cursor-pointer shadow">
-              <i class="fa-solid fa-triangle-exclamation text-amber-400"></i> 代记犯规
+              <i class="fa-solid fa-triangle-exclamation text-amber-400"></i> 记录犯规
             </button>
           </div>
         </div>
@@ -160,11 +139,6 @@ const {
     </div>
 
     <!-- 弹窗部分 -->
-    <AccidentalPocketModal :show="showAccidentalModal"
-                           :pocketedBallNumbers="room?.pocketedBallNumbers || []"
-                           :myCards="myInfo?.cards || []"
-                           @close="showAccidentalModal = false"
-                           @confirm="handleAccidentalConfirm" />
 
     <RetractBallModal :show="showRetractModal"
                       :myPocketedCards="myInfo?.pocketedCards || []"

@@ -132,17 +132,17 @@ const emit = defineEmits<{
               {{ isPlayerWinner(p) ? '🏆 胜出' : `还剩 ${p.activeCardCount !== undefined ? p.activeCardCount : (p.cards ? p.cards.length : p.cardCount)} 张` }}
             </span>
 
-            <!-- 代记快捷入口按钮 -->
+            <!-- 记录快捷入口按钮 -->
             <div v-if="room.status === 'playing'" class="flex items-center space-x-1 ml-1">
               <button @click="emit('open-referee-pocket', p.userId)"
-                      title="代记该玩家进球"
+                      title="记录该玩家进球"
                       class="bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-600/50 px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-0.5 active:scale-95 cursor-pointer">
-                <i class="fa-solid fa-gavel"></i> 代记
+                <i class="fa-solid fa-gavel"></i> 进球
               </button>
               <button @click="emit('open-referee-foul', p.userId)"
-                      title="代记该玩家犯规"
+                      title="记录该玩家犯规"
                       class="bg-red-950/80 hover:bg-red-900 text-red-300 border border-red-700/50 px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-0.5 active:scale-95 cursor-pointer">
-                <i class="fa-solid fa-triangle-exclamation text-amber-400"></i> 罚牌
+                <i class="fa-solid fa-triangle-exclamation text-amber-400"></i> 犯规
               </button>
             </div>
           </div>

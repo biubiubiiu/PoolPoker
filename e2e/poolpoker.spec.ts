@@ -119,29 +119,36 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await hostPage.waitForSelector('text=我的手上扑克手牌', { timeout: 5000 });
     await guestPage.waitForSelector('text=我的手上扑克手牌', { timeout: 5000 });
 
-    // --- 3.1 测试【犯规抽卡 (Draw Penalty)】---
+    // --- 3.1 测试【记录犯规 (Record Foul)】（默认选中自己）---
     const initialHandCardsCount = await hostPage.locator('.poker-card-frame').count();
-    await hostPage.click('button:has-text("犯规抽卡")');
+    await hostPage.click('button:has-text("记录犯规")');
+    await expect(hostPage.locator('.fixed:has-text("记录犯规")').first()).toBeVisible();
+    // 验证默认选中的玩家为自己 HostP1
+    await expect(hostPage.locator('.fixed button.bg-red-950\\/60:has-text("HostP1")')).toBeVisible();
+    await hostPage.click('.fixed button:has-text("确认记录犯规")');
     await hostPage.waitForTimeout(500);
     const afterPenaltyHandCardsCount = await hostPage.locator('.poker-card-frame').count();
     expect(afterPenaltyHandCardsCount).toBe(initialHandCardsCount + 1);
 
-    // --- 3.2 测试【意外进球 (Accidental Pocket)】及牌面免打置灰 (isCardDimmed) ---
-    await hostPage.click('button:has-text("意外进球")');
-    await expect(hostPage.locator('text=请选择意外打进的球号')).toBeVisible();
+    // --- 3.2 测试【记录进球 (Record Pocket Ball)】及全场进球免打置灰 ---
+    await hostPage.click('button:has-text("记录进球")');
+    await expect(hostPage.locator('.fixed:has-text("记录进球")').first()).toBeVisible();
+    // 验证默认选中的玩家为自己 HostP1
+    await expect(hostPage.locator('.fixed button.bg-emerald-500\\/30:has-text("HostP1")')).toBeVisible();
 
     // 找到未打进的球号按钮（例如 8 号球）并点击提交
-    const ball8Btn = hostPage.locator('.fixed button:has-text("8号")').first();
-    if (await ball8Btn.isVisible()) {
-      await ball8Btn.click();
-      await hostPage.click('.fixed button:has-text("确认进球")');
-      await expect(hostPage.locator('text=请选择意外打进的球号')).toBeHidden();
+    const ball8Btn = hostPage.locator('.fixed button').filter({ hasText: '8号' }).first();
+    await expect(ball8Btn).toBeVisible();
+    await ball8Btn.click();
+    const confirmBtn = hostPage.locator('.fixed button:has-text("确认记录进球")');
+    await expect(confirmBtn).toBeEnabled();
+    await confirmBtn.click();
+    await expect(hostPage.locator('.fixed h3:has-text("记录进球")')).toBeHidden();
 
-      // 验证全场对局日志（GameLogs）记录了判定事件
-      await expect(hostPage.locator('text=判定为已进球')).toBeVisible({
-        timeout: 5000,
-      });
-    }
+    // 验证全场对局日志（GameLogs）记录了判定/进球事件
+    await expect(hostPage.locator('text=8号球').first()).toBeVisible({
+      timeout: 5000,
+    });
 
     // --- 3.3 测试【打卡销牌 (Confirm Pocket)】---
     const cardToPocket = hostPage.locator('.poker-card-frame:not(.is-dimmed)').first();
@@ -314,24 +321,25 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
 
     let sharedBall = findSharedBall(hostBalls, guestBalls);
 
-    // 若当前无合适共同球号，执行犯规抽卡直至获得共同球号
+    // 若当前无合适共同球号，执行记录犯规抽卡直至获得共同球号
     while (!sharedBall) {
-      await hostPage.click('button:has-text("犯规抽卡")');
+      await hostPage.click('button:has-text("记录犯规")');
+      await hostPage.click('.fixed button:has-text("确认记录犯规")');
       await hostPage.waitForTimeout(300);
       hostBalls = await getUnpocketedBallList(hostPage);
       guestBalls = await getUnpocketedBallList(guestPage);
       sharedBall = findSharedBall(hostBalls, guestBalls);
     }
 
-    // 房主通过“意外进球”将所有非 sharedBall 的球打进
+    // 房主通过“记录进球”将所有非 sharedBall 的球打进
     const nonSharedBalls = Array.from(new Set([...hostBalls, ...guestBalls])).filter((b) => b !== sharedBall);
     for (const ballNum of nonSharedBalls) {
-      await hostPage.click('button:has-text("意外进球")');
-      await hostPage.waitForSelector('text=请选择意外打进的球号');
+      await hostPage.click('button:has-text("记录进球")');
+      await hostPage.waitForSelector('.fixed:has-text("记录进球")');
       const ballBtn = hostPage.locator(`.fixed button:has-text("${ballNum}号")`).first();
       if (await ballBtn.isEnabled()) {
         await ballBtn.click();
-        await hostPage.click('.fixed button:has-text("确认进球")');
+        await hostPage.click('.fixed button:has-text("确认记录进球")');
         await hostPage.waitForTimeout(200);
       } else {
         await hostPage.locator('.fixed button:has-text("取消")').first().click();
@@ -388,7 +396,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await guestContext.close();
   });
 
-  test('4. Referee Mode Proxy Ball Potting & Proxy Foul Drawing (裁判代记进球与犯规功能)', async ({ browser }) => {
+  test('4. Referee Mode Proxy Ball Potting & Proxy Foul Drawing (记录进球与记录犯规功能)', async ({ browser }) => {
     const hostContext = await browser.newContext();
     const guestContext = await browser.newContext();
 
@@ -426,29 +434,34 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await hostPage.waitForSelector('text=我的手上扑克手牌', { timeout: 5000 });
     await guestPage.waitForSelector('text=我的手上扑克手牌', { timeout: 5000 });
 
-    // 1. Guest (RefereeP2) 为 Host (RefereeP1) 代记进球
-    await guestPage.locator('button:has-text("代记进球")').first().click();
-    await guestPage.waitForSelector('text=代记进球');
+    // 1. Guest (RefereeP2) 为 Host (RefereeP1) 记录进球
+    await guestPage.locator('button:has-text("记录进球")').first().click();
+    await guestPage.waitForSelector('.fixed:has-text("记录进球")');
 
-    // 选择 RefereeP1
+    // 验证 Guest 点开时默认选中的是自己 RefereeP2
+    await expect(guestPage.locator('.fixed button.bg-emerald-500\\/30:has-text("RefereeP2")')).toBeVisible();
+
+    // 切换选择 RefereeP1
     await guestPage.click('.fixed button:has-text("RefereeP1")');
     // 选择 1号球
     await guestPage.click('.fixed button:has-text("1号")');
-    await guestPage.click('.fixed button:has-text("确认代记进球")');
+    await guestPage.click('.fixed button:has-text("确认记录进球")');
 
-    // 验证日志中包含代记记录
-    await expect(hostPage.locator('text=代记').first()).toBeVisible({
-      timeout: 5000,
-    });
+    // 验证日志中包含记录
     await expect(hostPage.locator('text=RefereeP2').first()).toBeVisible({
       timeout: 5000,
     });
 
-    // 2. Guest (RefereeP2) 为 Host (RefereeP1) 代记犯规
-    await guestPage.locator('button:has-text("代记犯规")').first().click();
-    await guestPage.waitForSelector('text=代记犯规');
+    // 2. Guest (RefereeP2) 为 Host (RefereeP1) 记录犯规
+    await guestPage.locator('button:has-text("记录犯规")').first().click();
+    await guestPage.waitForSelector('.fixed:has-text("记录犯规")');
+
+    // 验证 Guest 点开时默认选中的是自己 RefereeP2
+    await expect(guestPage.locator('.fixed button.bg-red-950\\/60:has-text("RefereeP2")')).toBeVisible();
+
+    // 切换选择 RefereeP1
     await guestPage.click('.fixed button:has-text("RefereeP1")');
-    await guestPage.click('.fixed button:has-text("确认代记犯规")');
+    await guestPage.click('.fixed button:has-text("确认记录犯规")');
 
     // 验证日志记录犯规
     await expect(hostPage.locator('text=触发犯规').or(hostPage.locator('text=犯规')).first()).toBeVisible({

@@ -330,7 +330,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     broadcastRoomState(io, roomCode);
   });
 
-  // 9. 裁判代记 - 帮指定玩家消卡
+  // 9. 记录进球 - 帮指定玩家消卡或记录全场进球
   socket.on('referee_pocket_ball', (data: RefereePocketBallPayload) => {
     const { roomCode, targetUserId, ballNumber } = data;
     const room = rooms[roomCode];
@@ -344,15 +344,33 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       const [pocketedCard] = targetPlayer.cards.splice(cardIndex, 1);
       targetPlayer.pocketedCards.push(pocketedCard);
       const refereePlayer = room.players.find((p) => p.id === socket.id);
-      const refName = refereePlayer ? refereePlayer.name : '裁判';
-      addLog(
-        room,
-        `⚖️ [代记] ${refName} 为 ${targetPlayer.name} 记录打进并消除了手牌 [${pocketedCard.suit}${pocketedCard.rank} -> ${pocketedCard.ballNumber}号球]！`
-      );
+      const isSelfAction = refereePlayer && refereePlayer.userId === targetPlayer.userId;
+      if (isSelfAction) {
+        addLog(
+          room,
+          `🎯 ${targetPlayer.name} 打进 ${pocketedCard.ballNumber}号球，消去卡牌 [${pocketedCard.suit}${pocketedCard.rank}]`
+        );
+      } else {
+        const refName = refereePlayer ? refereePlayer.name : '其他玩家';
+        addLog(
+          room,
+          `⚖️ ${refName} 为 ${targetPlayer.name} 记录打进并消除了手牌 [${pocketedCard.suit}${pocketedCard.rank} -> ${pocketedCard.ballNumber}号球]！`
+        );
+      }
 
       const winners = checkGameWinners(room);
       if (winners.length > 0) {
         handleGameFinished(room, winners, targetPlayer);
+      }
+    } else {
+      if (!room.accidentalBalls.includes(ballNumber)) {
+        room.accidentalBalls.push(ballNumber);
+        addLog(room, `🎱 记录 ${targetPlayer.name} 打进 ${ballNumber}号球（判定为全场已进球）`);
+
+        const winners = checkGameWinners(room);
+        if (winners.length > 0) {
+          handleGameFinished(room, winners, null);
+        }
       }
     }
 
