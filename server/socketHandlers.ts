@@ -53,6 +53,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       pocketedCards: [],
       wins: 0,
       isWinner: false,
+      totalScore: 0,
     };
 
     const validatedConfigKey = isValidBallConfigKey(ballConfigKey) ? ballConfigKey : 'default';
@@ -75,6 +76,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
         ballConfigKey: validatedConfigKey,
       },
       logs: [],
+      lastRoundScores: [],
     };
 
     rooms[roomCode] = newRoom;
@@ -131,6 +133,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
         pocketedCards: [],
         wins: 0,
         isWinner: false,
+        totalScore: 0,
       };
 
       if (room.status === 'playing') {
@@ -226,6 +229,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     room.deck = shuffle(create54PokerDeck());
     room.accidentalBalls = [];
     room.winners = [];
+    room.lastRoundScores = [];
     room.roundCount += 1;
     room.status = 'playing';
 

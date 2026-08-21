@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import BilliardsTable from '@/components/BilliardsTable.vue';
 import GameHeader from '@/components/GameHeader.vue';
 import GameLogs from '@/components/GameLogs.vue';
@@ -50,6 +51,8 @@ const {
   selectedBallConfigKey,
   getFinalPlayerName,
 });
+
+const showRulesModal = ref(false);
 </script>
 
 <template>
@@ -90,6 +93,10 @@ const {
               手上剩余 {{ myInfo?.cards ? myInfo.cards.length : 0 }} 张
             </span>
           </div>
+          <button @click="showRulesModal = true"
+                  class="text-[10px] text-sky-300 border border-sky-700/50 bg-sky-950/60 hover:bg-sky-900/60 px-2 py-0.5 rounded-lg font-bold active:scale-95 cursor-pointer flex items-center gap-1">
+            <i class="fa-solid fa-circle-question text-sky-400"></i> 规则
+          </button>
         </div>
 
         <div v-if="myInfo && myInfo.cards && myInfo.cards.length > 0" 
@@ -162,11 +169,77 @@ const {
                   :isHost="isHost"
                   :players="room?.players || []"
                   :pocketedBallNumbers="room?.pocketedBallNumbers || []"
+                  :lastRoundScores="room?.lastRoundScores || []"
                   @restart="handleConfirmRestart" />
 
     <RestartModal :show="showRestartConfirm"
                   @cancel="showRestartConfirm = false"
                   @confirm="handleConfirmRestart" />
+
+    <!-- 积分规则说明弹窗 -->
+    <Transition name="fade">
+      <div v-if="showRulesModal"
+           class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
+           @click.self="showRulesModal = false">
+        <div class="glass-panel rounded-t-3xl sm:rounded-3xl w-full sm:max-w-sm border-t-2 sm:border-2 border-sky-400/50 shadow-2xl">
+          <div class="px-5 pt-5 pb-2 flex items-center justify-between">
+            <h3 class="text-sm font-black text-sky-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-circle-question text-sky-400"></i> 积分计算规则
+            </h3>
+            <button @click="showRulesModal = false" class="text-gray-400 hover:text-white text-lg leading-none cursor-pointer">✕</button>
+          </div>
+
+          <div class="px-5 pb-5 space-y-4 text-xs text-gray-300">
+
+            <div>
+              <p class="font-bold text-white mb-1.5">牌的基础分值</p>
+              <div class="space-y-1 pl-2">
+                <div class="flex items-center gap-2">
+                  <span class="text-amber-300 font-bold w-16">大王 / 小王</span>
+                  <span class="text-gray-400">基数 <strong class="text-white">1</strong> 分</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-gray-200 font-bold w-16">其余牌</span>
+                  <span class="text-gray-400">基数 <strong class="text-white">2</strong> 分</span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <p class="font-bold text-white mb-1.5">组合倍率</p>
+              <div class="space-y-1 pl-2">
+                <div class="flex justify-between"><span class="text-gray-300">单张</span><span class="font-mono text-emerald-300">基数 × 1</span></div>
+                <div class="flex justify-between"><span class="text-gray-300">一对</span><span class="font-mono text-emerald-300">(两张基数之和) × 2</span></div>
+                <div class="flex justify-between"><span class="text-gray-300">三条</span><span class="font-mono text-emerald-300">(三张基数之和) × 3</span></div>
+                <div class="flex justify-between"><span class="text-gray-300">四条</span><span class="font-mono text-emerald-300">(四张基数之和) × 4</span></div>
+              </div>
+            </div>
+
+            <div class="bg-black/30 rounded-xl p-3 space-y-1.5 border border-white/8">
+              <p class="font-bold text-white text-[11px]">示例</p>
+              <div class="text-[10px] text-gray-400 space-y-1">
+                <p>剩余 <span class="text-white">A、2、2、4、大王</span></p>
+                <p class="font-mono text-sky-300">2 + (2+2)×2 + 2 + 1 = <strong class="text-white">13</strong> 分</p>
+              </div>
+              <div class="text-[10px] text-gray-400 space-y-1">
+                <p>剩余 <span class="text-white">A、A、3、3、3</span></p>
+                <p class="font-mono text-sky-300">(2+2)×2 + (2+2+2)×3 = <strong class="text-white">26</strong> 分</p>
+              </div>
+            </div>
+
+            <div>
+              <p class="font-bold text-white mb-1.5">结算方式</p>
+              <ul class="space-y-1 pl-2 list-disc list-inside text-gray-400">
+                <li>每位输家按剩余手牌计算失分</li>
+                <li>赢家平分所有输家的总失分</li>
+                <li>有余数时，击打赢的玩家多得 <strong class="text-white">1</strong> 分</li>
+              </ul>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </Transition>
 
   </div>
 </template>

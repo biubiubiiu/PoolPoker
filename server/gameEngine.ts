@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import type { Player, ServerRoom } from '../shared/types/game';
+import type { Card, Player, RoundScoreEntry, ServerRoom } from '../shared/types/game';
 import { shuffle } from './pokerDeck';
 
 export function addLog(room: ServerRoom, text: string): void {
@@ -57,6 +57,28 @@ export function checkGameWinners(room: ServerRoom): Player[] {
   return winners;
 }
 
+// 获取牌的基础分值：大王/小王基数1，其他牌基数2
+function getCardBase(card: Card): number {
+  return card.suitType === 'joker-big' || card.suitType === 'joker-small' ? 1 : 2;
+}
+
+// 计算一组未消除手牌的积分（同rank牌组合倍乘）
+export function calculateHandScore(remainingCards: Card[]): number {
+  if (remainingCards.length === 0) return 0;
+  const groups = new Map<string, Card[]>();
+  for (const card of remainingCards) {
+    if (!groups.has(card.rank)) groups.set(card.rank, []);
+    groups.get(card.rank)!.push(card);
+  }
+  let total = 0;
+  for (const cards of groups.values()) {
+    const n = cards.length;
+    const sumBase = cards.reduce((acc, c) => acc + getCardBase(c), 0);
+    total += sumBase * n;
+  }
+  return total;
+}
+
 // 结算游戏胜利状态
 export function handleGameFinished(room: ServerRoom, winners: Player[], actionPlayer?: Player | null): void {
   room.status = 'finished';
@@ -88,6 +110,52 @@ export function handleGameFinished(room: ServerRoom, winners: Player[], actionPl
     const names = winners.map((w) => `${w.name}(累计${w.wins}胜)`).join('、');
     addLog(room, `🏆 恭喜 ${names} 共同清空有效手牌，同时夺得本局胜利！🎉`);
   }
+
+  // 积分结算
+  const pocketedSet = new Set(getPocketedBallNumbers(room));
+  const winnerUserIds = new Set(winners.map((w) => w.userId));
+  const actionWinnerUserId = winners[0]?.userId ?? null;
+
+  // 计算每位输家剩余手牌分值
+  const loserEntries: { player: Player; handScore: number }[] = [];
+  room.players.forEach((p) => {
+    if (!winnerUserIds.has(p.userId)) {
+      const remaining = (p.cards || []).filter((c) => !pocketedSet.has(c.ballNumber));
+      loserEntries.push({ player: p, handScore: calculateHandScore(remaining) });
+    }
+  });
+
+  const totalLoserScore = loserEntries.reduce((acc, e) => acc + e.handScore, 0);
+  const numWinners = winners.length;
+  const baseShare = numWinners > 0 ? Math.floor(totalLoserScore / numWinners) : 0;
+  const remainder = numWinners > 0 ? totalLoserScore % numWinners : 0;
+
+  const roundScores: RoundScoreEntry[] = [];
+
+  loserEntries.forEach(({ player, handScore }) => {
+    player.totalScore = (player.totalScore || 0) - handScore;
+    roundScores.push({ userId: player.userId, delta: -handScore });
+  });
+
+  winners.forEach((w) => {
+    const player = room.players.find((p) => p.userId === w.userId);
+    if (!player) return;
+    const extra = remainder > 0 && w.userId === actionWinnerUserId ? remainder : 0;
+    const gain = baseShare + extra;
+    player.totalScore = (player.totalScore || 0) + gain;
+    roundScores.push({ userId: w.userId, delta: gain });
+  });
+
+  room.lastRoundScores = roundScores;
+
+  const scoreLines = roundScores
+    .map((rs) => {
+      const p = room.players.find((pl) => pl.userId === rs.userId);
+      const sign = rs.delta >= 0 ? '+' : '';
+      return `${p?.name ?? rs.userId}：${sign}${rs.delta}分`;
+    })
+    .join('，');
+  addLog(room, `📊 本局积分结算：${scoreLines}`);
 }
 
 // 计算每局击球顺序

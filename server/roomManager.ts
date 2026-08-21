@@ -47,8 +47,10 @@ export function getClientRoomState(roomCode: string, targetUserId?: string): Roo
         pocketedCards: isSelf || room.status === 'finished' ? p.pocketedCards : [],
         wins: p.wins || 0,
         isWinner: p.isWinner || false,
+        totalScore: p.totalScore || 0,
       };
     }),
+    lastRoundScores: room.lastRoundScores || [],
   };
 }
 
