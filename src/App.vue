@@ -29,6 +29,7 @@ const {
   ballColorStyle,
   isHost,
   myInfo,
+  sortedMyCards,
   turnOrderPlayers,
   isCardDimmed,
   handleCreateRoom,
@@ -99,9 +100,9 @@ const showRulesModal = ref(false);
           </button>
         </div>
 
-        <div v-if="myInfo && myInfo.cards && myInfo.cards.length > 0" 
+        <div v-if="sortedMyCards && sortedMyCards.length > 0"
              class="flex flex-wrap justify-center items-center gap-2.5 sm:gap-3 py-2 min-h-[120px]">
-          <PokerCard v-for="card in myInfo.cards" :key="card.id"
+          <PokerCard v-for="card in sortedMyCards" :key="card.id"
                      :card="card"
                      :isDimmed="isCardDimmed(card)"
                      @click="handleConfirmPocket" />

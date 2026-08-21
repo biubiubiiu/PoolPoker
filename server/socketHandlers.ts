@@ -306,7 +306,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     const penaltyCard = room.deck.pop();
     if (penaltyCard) {
       player.cards.push(penaltyCard);
-      addLog(room, `⚠️ ${player.name} 犯规，罚抽 1 张扑克牌 [${penaltyCard.suit}${penaltyCard.rank}]`);
+      addLog(room, `⚠️ ${player.name} 犯规，罚抽 1 张扑克牌`);
     }
 
     broadcastRoomState(io, roomCode);
@@ -420,7 +420,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     const penaltyCard = room.deck.pop();
     if (penaltyCard) {
       targetPlayer.cards.push(penaltyCard);
-      addLog(room, `👨‍⚖️ 裁判代记：${targetPlayer.name} 犯规，罚抽 1 张扑克牌 [${penaltyCard.suit}${penaltyCard.rank}]`);
+      addLog(room, `👨‍⚖️ 裁判代记：${targetPlayer.name} 犯规，罚抽 1 张扑克牌`);
     }
 
     broadcastRoomState(io, roomCode);

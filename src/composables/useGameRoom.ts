@@ -179,6 +179,11 @@ export function useGameRoom(options: UseGameRoomOptions) {
     return room.value.players.find((p) => p.userId === userId.value) || null;
   });
 
+  const sortedMyCards = computed<Card[]>(() => {
+    const cards = myInfo.value?.cards ?? [];
+    return [...cards].sort((a, b) => a.ballNumber - b.ballNumber);
+  });
+
   const turnOrderPlayers = computed<Player[]>(() => {
     if (!room.value?.players || !room.value.turnOrder) return [];
     return room.value.turnOrder
@@ -383,6 +388,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
     ballColorStyle,
     isHost,
     myInfo,
+    sortedMyCards,
     turnOrderPlayers,
     isCardDimmed,
     handleCreateRoom,
