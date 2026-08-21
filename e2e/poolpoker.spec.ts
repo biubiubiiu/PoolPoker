@@ -233,14 +233,11 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     const cardToPocket = page.locator('.poker-card-frame').first();
     await cardToPocket.click();
 
-    // 验证弹出 VictoryModal，并展示累计战报（总积分 + 1 胜徽章）
+    // 验证弹出 VictoryModal，并展示累计得分 1 胜
     await expect(page.locator('text=率先消完所有手上扑克牌')).toBeVisible({
       timeout: 5000,
     });
-    await expect(page.locator('text=总积分: 0')).toBeVisible({
-      timeout: 5000,
-    });
-    await expect(page.locator('text=1胜').first()).toBeVisible({
+    await expect(page.locator('text=累计得分: 1胜')).toBeVisible({
       timeout: 5000,
     });
 
@@ -255,11 +252,11 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     const secondCardToPocket = page.locator('.poker-card-frame').first();
     await secondCardToPocket.click();
 
-    // 验证 VictoryModal 展示累计战报（总积分 + 2 胜徽章）
+    // 验证 VictoryModal 展示累计得分 2 胜
     await expect(page.locator('text=率先消完所有手上扑克牌')).toBeVisible({
       timeout: 5000,
     });
-    await expect(page.locator('text=2胜').first()).toBeVisible({
+    await expect(page.locator('text=累计得分: 2胜')).toBeVisible({
       timeout: 5000,
     });
   });

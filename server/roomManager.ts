@@ -31,7 +31,6 @@ export function getClientRoomState(roomCode: string, targetUserId?: string): Roo
     logs: room.logs.slice(-15),
     winners: room.winners || [],
     pocketedBallNumbers: pocketedBallNumbers,
-    breakBalls: room.breakBalls || [],
     turnOrder: room.turnOrder || [],
     players: room.players.map((p) => {
       const isSelf = targetUserId ? p.userId === targetUserId : false;

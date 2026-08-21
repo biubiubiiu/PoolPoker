@@ -43,7 +43,7 @@ PoolPoker/
 │   ├── roomManager.ts       # 内存房间表、房间码生成、状态裁剪、广播
 │   ├── wecomWebhook.ts      # 每局结算推送到企业微信机器人
 │   ├── robotConfig.ts       # 机器人 Webhook 链接运行时配置（内存）
-│   └── socketHandlers.ts    # 16 个 Socket 事件处理器
+│   └── socketHandlers.ts    # 15 个 Socket 事件处理器
 ├── shared/types/            # 前后端共享类型
 │   ├── game.ts              # Card/Player/Room/ServerRoom/BallConfig 等
 │   └── socket.ts            # 事件 payload 与 Client/Server 事件接口
@@ -88,17 +88,17 @@ PoolPoker/
 
 - `rooms` 内存房间表、`socketIndex` 为 `socketId → { roomCode, userId }` 反向索引（优化断线查找）。
 - `generateRoomCode`：`crypto.randomInt(1000, 10000)` 生成 4 位数字房号，冲突时重试。
-- `getClientRoomState`：把 `ServerRoom` 裁剪为下发客户端的 `Room`——`cards`/`pocketedCards` 仅当「目标用户本人」或「房间 finished」时下发，否则置空，从源头防止泄露其他玩家手牌；`breakBalls`（开球进球球号）随客户端状态全员下发；`logs` 只取最近 15 条。
+- `getClientRoomState`：把 `ServerRoom` 裁剪为下发客户端的 `Room`——`cards`/`pocketedCards` 仅当「目标用户本人」或「房间 finished」时下发，否则置空，从源头防止泄露其他玩家手牌；`logs` 只取最近 15 条。
 - `broadcastRoomState`：遍历房间内 socket，按每个玩家的身份分别序列化下发，保证各客户端只见各自可见的数据。
 
 ### Socket 事件（`server/socketHandlers.ts`）
 
-共 16 个事件处理器，均在内存态上做变更后 `broadcastRoomState`：
+共 15 个事件处理器，均在内存态上做变更后 `broadcastRoomState`：
 
 - `create_room` / `join_room` / `rejoin_room`：建房/加入/断线重连。均生成或校验 `sessionToken`（`crypto.randomUUID`）；`join_room` 按 `userId` 判重复，重复则复用玩家并刷新 `sessionToken`/`id`/`online`，新玩家若房间已在 `playing` 则从 `deck` 补发牌；`rejoin_room` 严格校验 `player.sessionToken === sessionToken`，不通过拒绝并返回「身份凭证失效」。
 - `update_settings` / `start_game`：房主专属（`socketIndex` 反查 `userId === hostUserId`）。`start_game` 洗牌发牌、清空 `accidentalBalls`/`breakBalls`/`winners`/`lastRoundScores`、`roundCount+1`、按 `computeTurnOrder` 计算击球顺序。
 - `pocket_ball`（销牌）/ `draw_penalty`（犯规罚抽）/ `accidental_pocket`（意外进球）/ `retract_ball`（撤回进球）：本人手牌操作；罚抽时牌堆耗尽自动洗新牌堆补牌。
-- `break_pocket`（开球进球）/ `retract_break_ball`（撤回开球进球）：开球入袋的球号记入/移出 `breakBalls`（不归入任何玩家手牌），`break_pocket` 已进则跳过、`retract_break_ball` 移出后恢复为场上未进球，随后判定胜负。
+- `break_pocket`（开球进球）：记录开球时入袋的球号到 `breakBalls`（不归入任何玩家手牌），已进则跳过，随后判定胜负。
 - `referee_pocket_ball` / `referee_draw_penalty`：裁判代记，按 `targetUserId` 定位目标玩家消卡/罚抽；进球找不到对应球号时回退为「全场已进球」记录（`accidentalBalls`）。
 - `request_restart` / `confirm_restart` / `restart_game`：重开流程，`handleRestartRoom` 重置牌堆/球号/胜负、玩家清空手牌回 `waiting`。
 - `leave_room`：移出玩家，房主离开自动转让给首位玩家；空房删除。
@@ -123,7 +123,7 @@ PoolPoker/
 - `PokerCard`：手牌卡牌（牌面 rank/suit + 台球球号），已打进球号覆盖「已进球·无需打出」遮罩。
 - `VictoryModal`：结算弹窗——胜利者信息、图例、每位玩家三类手牌明细（已消除/免打卡/未消除，未消除牌按同 rank 倍乘标注 `-N分` 罚分）、本局积分变化（`+/-N分`）与累计总积分、房主「再来一局」。
 - `RefereePocketModal` / `RefereeFoulModal`：记录进球/犯规弹窗，默认选中当前玩家自己，进球额外选择未打进球号，并可切换「开球进球」记录不归属任何玩家的入袋球。
-- `RetractBallModal` / `RestartModal`：撤回弹窗（可撤回本人打进的手牌或开球进球）/ 重开确认。
+- `RetractBallModal` / `RestartModal`：撤回进球 / 重开确认。
 - `GameHeader` / `GameLogs`：房间码与局数标题栏、对局实况日志。
 - `App.vue`：组装上述组件；手牌区含「规则」按钮弹出积分规则说明弹窗（牌基础分值/组合倍率/结算方式，内联在 App.vue）。
 
@@ -151,7 +151,7 @@ PoolPoker/
 | `server/wecomWebhook.ts`（每局结算推送企业微信机器人） |
 | `server/robotConfig.ts`（机器人 Webhook 链接运行时配置） |
 | `server/roomManager.ts`（内存房间表、房间码生成、状态裁剪防泄露、广播） |
-| `server/socketHandlers.ts`（16 个 Socket 事件处理器、sessionToken 校验） |
+| `server/socketHandlers.ts`（15 个 Socket 事件处理器、sessionToken 校验） |
 | `shared/types/game.ts`（Card/Player/Room/ServerRoom/RoundScoreEntry/BallConfig 等） |
 | `shared/types/socket.ts`（事件 payload 与 Client/Server 事件接口） |
 | `src/composables/usePlayerProfile.ts` / `useSocket.ts` / `useGameRoom.ts` |
