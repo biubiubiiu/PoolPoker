@@ -41,6 +41,7 @@ const {
   openRefereePocket,
   openRefereeFoul,
   handleRefereePocketConfirm,
+  handleBreakPocketConfirm,
   handleRefereeFoulConfirm,
   handleConfirmRestart,
   handleLeaveRoom,
@@ -158,7 +159,8 @@ const showRulesModal = ref(false);
                         :pocketedBallNumbers="room?.pocketedBallNumbers || []"
                         :defaultUserId="refereeTargetUserId"
                         @close="showRefereePocketModal = false"
-                        @confirm="handleRefereePocketConfirm" />
+                        @confirm="handleRefereePocketConfirm"
+                        @confirm-break="handleBreakPocketConfirm" />
 
     <RefereeFoulModal :show="showRefereeFoulModal"
                       :players="room?.players || []"

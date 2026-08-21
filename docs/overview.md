@@ -2,7 +2,7 @@
 
 ## 需求概述
 
-实现「朋友线下打台球聚会」场景的实时多人在线对战 Web 应用：以 54 张扑克牌发牌、牌面映射台球球号（A\~K → 1\~13 号、小王 → 14 号、大王 → 15 号，固定包含 8 号黑八），玩家通过 4 位数字房间号创建/加入房间，开局发牌后按「进球 → 点击对应卡牌销牌」的方式逐步消去手牌，率先清空全部有效手牌者获胜。应用覆盖完整对战生命周期：房间大厅（昵称/头像/球色配置/发牌数调节）、断线重连与暂离保护、击球顺序轮转、销牌/撤回进球、犯规罚抽牌、意外进球/误进无关球、裁判代记（进球/犯规）、多人联合胜利结算与累计胜负/积分统计，以及 Playwright 端到端测试与一键构建部署脚本。前端经 Vue3 + TS + Vite 重构，后端从单文件 `server.js` 演进为 TypeScript 模块化 + Socket.IO 实时同步，前后端共享 `shared/types` 类型定义。
+实现「朋友线下打台球聚会」场景的实时多人在线对战 Web 应用：以 54 张扑克牌发牌、牌面映射台球球号（A\~K → 1\~13 号、小王 → 14 号、大王 → 15 号，固定包含 8 号黑八），玩家通过 4 位数字房间号创建/加入房间，开局发牌后按「进球 → 点击对应卡牌销牌」的方式逐步消去手牌，率先清空全部有效手牌者获胜。应用覆盖完整对战生命周期：房间大厅（昵称/头像/球色配置/发牌数调节）、断线重连与暂离保护、击球顺序轮转、销牌/撤回进球、犯规罚抽牌、意外进球/误进无关球、开球进球（不归入任何玩家手牌）、裁判代记（进球/犯规）、多人联合胜利结算与累计胜负/积分统计、每局结算自动推送企业微信机器人（Webhook 链接运行时配置），以及 Playwright 端到端测试与一键构建部署脚本。前端经 Vue3 + TS + Vite 重构，后端从单文件 `server.js` 演进为 TypeScript 模块化 + Socket.IO 实时同步，前后端共享 `shared/types` 类型定义。
 
 ---
 
@@ -41,7 +41,9 @@ PoolPoker/
 │   ├── pokerDeck.ts         # 54 张牌库 + CSPRNG 洗牌
 │   ├── gameEngine.ts        # 胜负判定 / 积分结算 / 击球顺序
 │   ├── roomManager.ts       # 内存房间表、房间码生成、状态裁剪、广播
-│   └── socketHandlers.ts    # 14 个 Socket 事件处理器
+│   ├── wecomWebhook.ts      # 每局结算推送到企业微信机器人
+│   ├── robotConfig.ts       # 机器人 Webhook 链接运行时配置（内存）
+│   └── socketHandlers.ts    # 15 个 Socket 事件处理器
 ├── shared/types/            # 前后端共享类型
 │   ├── game.ts              # Card/Player/Room/ServerRoom/BallConfig 等
 │   └── socket.ts            # 事件 payload 与 Client/Server 事件接口
@@ -50,6 +52,7 @@ PoolPoker/
 │   ├── components/          # RoomLobby/BilliardsTable/PokerCard/VictoryModal 等
 │   ├── App.vue              # 页面组装与弹窗编排
 │   └── styles/main.css
+├── public/enter_robot.html  # 机器人 Webhook 链接设置页面（独立于 SPA）
 ├── e2e/poolpoker.spec.ts    # Playwright 端到端测试
 ├── ball_configs.json        # 球色主题配置（default / xingpai）
 ├── config.yaml              # 端口与房间默认设置
@@ -70,11 +73,16 @@ PoolPoker/
 ### 游戏引擎（`server/gameEngine.ts`）
 
 - `addLog`：追加对局日志（`zh-CN` 时间戳 + `crypto.randomBytes` id），保留最近 50 条。
-- `getPocketedBallNumbers`：`accidentalBalls`（意外进球）与各玩家 `pocketedCards`（销牌）的球号并集，升序返回——全局「已打进球号」的唯一来源。
+- `getPocketedBallNumbers`：`accidentalBalls`（意外进球）、`breakBalls`（开球进球）与各玩家 `pocketedCards`（销牌）的球号并集，升序返回——全局「已打进球号」的唯一来源。
 - `checkGameWinners`：仅 `status === 'playing'` 时判定，某玩家 `cards` 中未被已打进球号命中的「有效卡牌」数量为 0 即胜，支持多人同时胜利。
 - `calculateHandScore`：结算输家剩余手牌积分——大小王基数 1、其余牌基数 2，同 rank 组合倍乘（n 张 = 基数之和 × n）。
-- `handleGameFinished`：置 `finished`、胜者 `wins+1`、击球触发者优先排序、记录 `lastWinnerUserId`；随后做本局积分结算——每位输家 `totalScore` 扣剩余手牌分、赢家平分输家总分（余数归击球触发的胜者），结果写入 `room.lastRoundScores` 并打印结算日志。
+- `handleGameFinished`：置 `finished`、胜者 `wins+1`、击球触发者优先排序、记录 `lastWinnerUserId`；随后做本局积分结算——每位输家 `totalScore` 扣剩余手牌分、赢家平分输家总分（余数归击球触发的胜者），结果写入 `room.lastRoundScores` 并打印结算日志；结算完成后调用 `sendRoundResultToWecom` 异步推送本局结果到企业微信机器人（不阻塞结算流程）。
 - `computeTurnOrder`：计算下局击球顺序——无上一局顺序时随机洗牌；否则保留上一局在场玩家并补入新玩家 → 顺序反转 → 上一局胜者轮转到首位。
+
+### 企业微信结算推送（`server/wecomWebhook.ts` / `server/robotConfig.ts`）
+
+- `wecomWebhook.ts`：`sendRoundResultToWecom(room)` 每局结算后把「房间号 + 各成员本局得分变化 + 累计积分」拼成文本，POST 到企业微信机器人 Webhook（`msgtype: text` + 固定提及成员列表）；未配置 Webhook 链接时直接返回不发送；HTTP 非 2xx / `errcode !== 0` / 异常时打印 `⚠️ [WeCom]` 警告日志，不抛出。
+- `robotConfig.ts`：机器人 Webhook 链接运行时配置——内存变量 `robotWebhookUrl`，`getRobotWebhookUrl` / `setRobotWebhookUrl`（`trim` 后保存），服务重启即清空。
 
 ### 房间管理（`server/roomManager.ts`）
 
@@ -85,11 +93,12 @@ PoolPoker/
 
 ### Socket 事件（`server/socketHandlers.ts`）
 
-共 14 个事件处理器，均在内存态上做变更后 `broadcastRoomState`：
+共 15 个事件处理器，均在内存态上做变更后 `broadcastRoomState`：
 
 - `create_room` / `join_room` / `rejoin_room`：建房/加入/断线重连。均生成或校验 `sessionToken`（`crypto.randomUUID`）；`join_room` 按 `userId` 判重复，重复则复用玩家并刷新 `sessionToken`/`id`/`online`，新玩家若房间已在 `playing` 则从 `deck` 补发牌；`rejoin_room` 严格校验 `player.sessionToken === sessionToken`，不通过拒绝并返回「身份凭证失效」。
-- `update_settings` / `start_game`：房主专属（`socketIndex` 反查 `userId === hostUserId`）。`start_game` 洗牌发牌、清空 `accidentalBalls`/`winners`/`lastRoundScores`、`roundCount+1`、按 `computeTurnOrder` 计算击球顺序。
+- `update_settings` / `start_game`：房主专属（`socketIndex` 反查 `userId === hostUserId`）。`start_game` 洗牌发牌、清空 `accidentalBalls`/`breakBalls`/`winners`/`lastRoundScores`、`roundCount+1`、按 `computeTurnOrder` 计算击球顺序。
 - `pocket_ball`（销牌）/ `draw_penalty`（犯规罚抽）/ `accidental_pocket`（意外进球）/ `retract_ball`（撤回进球）：本人手牌操作；罚抽时牌堆耗尽自动洗新牌堆补牌。
+- `break_pocket`（开球进球）：记录开球时入袋的球号到 `breakBalls`（不归入任何玩家手牌），已进则跳过，随后判定胜负。
 - `referee_pocket_ball` / `referee_draw_penalty`：裁判代记，按 `targetUserId` 定位目标玩家消卡/罚抽；进球找不到对应球号时回退为「全场已进球」记录（`accidentalBalls`）。
 - `request_restart` / `confirm_restart` / `restart_game`：重开流程，`handleRestartRoom` 重置牌堆/球号/胜负、玩家清空手牌回 `waiting`。
 - `leave_room`：移出玩家，房主离开自动转让给首位玩家；空房删除。
@@ -98,14 +107,14 @@ PoolPoker/
 ### 服务启动与配置（`server/index.ts` / `server/config.ts` / `server/logger.ts`）
 
 - `config.ts`：读取 `config.yaml`（端口），缺失/异常回退默认 3000；加载 `ball_configs.json`（缺 `default` 或非法直接 `process.exit(1)`），导出 `isValidBallConfigKey` 校验。
-- `index.ts`：Express 提供 `/api/ball-configs`（球色配置）、`/api/rooms/:code`（HTTP 快照查询房间状态，供移动端快速同步）两个接口；托管 `dist` 静态资源并 SPA 回退；Socket.IO 配置 `pingTimeout 10000` / `pingInterval 5000`。
+- `index.ts`：Express 提供 `/api/ball-configs`（球色配置）、`/api/rooms/:code`（HTTP 快照查询房间状态，供移动端快速同步）、`/api/robot-url`（GET/POST 读取/设置机器人 Webhook 链接）、`/enter_robot`（机器人链接设置页面，独立于 SPA 的静态路由）等接口；托管 `dist` 静态资源并 SPA 回退；Socket.IO 配置 `pingTimeout 10000` / `pingInterval 5000`。
 - `logger.ts`：`formatTimestamp` 统一时间戳格式；`getSocketUsername` 从 `socket.data` → `handshake.auth/query` → 房间成员逐级取用户名；`logSocketConnect`/`logSocketDisconnect` 打印带时间戳、用户、断开原因的日志。
 
 ### 前端 Composables（`src/composables/`）
 
 - `usePlayerProfile`：玩家身份持久化——`userId`（首次生成 `u_随机串`）、`playerName`、`selectedAvatar`（6 个头像）、`selectedBallConfigKey` 均存 `localStorage`；`getFinalPlayerName` 空名回退「球友+随机三位数」。
 - `useSocket`：Socket.IO 客户端初始化，`auth` 携带已存 name/userId，调优重连参数 `reconnectionAttempts: Infinity` / `reconnectionDelay: 300` / `reconnectionDelayMax: 1000` / `timeout: 5000`；封装 `on`/`off`/`emit`。
-- `useGameRoom`：核心业务状态与操作——`room` 状态、`isHost`/`myInfo`/`turnOrderPlayers` 计算属性、球色配置加载与 CSS 变量生成（`--ball-N-hi/mid/lo`）、`isCardDimmed`（球号已打进则置灰免打）；挂载时 `fetchLatestRoomState`（HTTP 快照）+ `visibilitychange` 切前台时快照同步 + Socket 重连；`setupSocketListeners` 监听 `connect`（自动 `rejoin_room`）、`room_updated`（更新 `room` 并胜利时放彩带）、`room_created`、`error_message`；对外暴露建房/加入/调发牌数/开局/销牌/撤回/记录进球/记录犯规/重开/离开等全部 `handle*` 方法。
+- `useGameRoom`：核心业务状态与操作——`room` 状态、`isHost`/`myInfo`/`turnOrderPlayers` 计算属性、`sortedMyCards`（本人手牌按球号升序排序的计算属性）、球色配置加载与 CSS 变量生成（`--ball-N-hi/mid/lo`）、`isCardDimmed`（球号已打进则置灰免打）；挂载时 `fetchLatestRoomState`（HTTP 快照）+ `visibilitychange` 切前台时快照同步 + Socket 重连；`setupSocketListeners` 监听 `connect`（自动 `rejoin_room`）、`room_updated`（更新 `room` 并胜利时放彩带）、`room_created`、`error_message`；对外暴露建房/加入/调发牌数/开局/销牌/撤回/记录进球/记录犯规/重开/离开等全部 `handle*` 方法。
 
 ### 前端组件（`src/components/`）
 
@@ -113,7 +122,7 @@ PoolPoker/
 - `BilliardsTable`：全局赛况——本局击球顺序、已打出球号列表（mini-ball 彩色球 + 条纹）、玩家赛况列表（胜场/剩余张数/暂离态/进度条/记录进球与犯规快捷按钮）。
 - `PokerCard`：手牌卡牌（牌面 rank/suit + 台球球号），已打进球号覆盖「已进球·无需打出」遮罩。
 - `VictoryModal`：结算弹窗——胜利者信息、图例、每位玩家三类手牌明细（已消除/免打卡/未消除，未消除牌按同 rank 倍乘标注 `-N分` 罚分）、本局积分变化（`+/-N分`）与累计总积分、房主「再来一局」。
-- `RefereePocketModal` / `RefereeFoulModal`：记录进球/犯规弹窗，默认选中当前玩家自己，进球额外选择未打进球号。
+- `RefereePocketModal` / `RefereeFoulModal`：记录进球/犯规弹窗，默认选中当前玩家自己，进球额外选择未打进球号，并可切换「开球进球」记录不归属任何玩家的入袋球。
 - `RetractBallModal` / `RestartModal`：撤回进球 / 重开确认。
 - `GameHeader` / `GameLogs`：房间码与局数标题栏、对局实况日志。
 - `App.vue`：组装上述组件；手牌区含「规则」按钮弹出积分规则说明弹窗（牌基础分值/组合倍率/结算方式，内联在 App.vue）。
@@ -139,13 +148,16 @@ PoolPoker/
 | `server/logger.ts`（socket 连接/断开日志，时间戳 + 用户名） |
 | `server/pokerDeck.ts`（54 张牌库、CSPRNG 洗牌） |
 | `server/gameEngine.ts`（胜负判定、积分结算、击球顺序） |
+| `server/wecomWebhook.ts`（每局结算推送企业微信机器人） |
+| `server/robotConfig.ts`（机器人 Webhook 链接运行时配置） |
 | `server/roomManager.ts`（内存房间表、房间码生成、状态裁剪防泄露、广播） |
-| `server/socketHandlers.ts`（14 个 Socket 事件处理器、sessionToken 校验） |
+| `server/socketHandlers.ts`（15 个 Socket 事件处理器、sessionToken 校验） |
 | `shared/types/game.ts`（Card/Player/Room/ServerRoom/RoundScoreEntry/BallConfig 等） |
 | `shared/types/socket.ts`（事件 payload 与 Client/Server 事件接口） |
 | `src/composables/usePlayerProfile.ts` / `useSocket.ts` / `useGameRoom.ts` |
 | `src/App.vue`（页面组装、积分规则弹窗） |
 | `src/components/RoomLobby.vue` / `BilliardsTable.vue` / `PokerCard.vue` / `VictoryModal.vue` / `RefereePocketModal.vue` / `RefereeFoulModal.vue` / `RetractBallModal.vue` / `RestartModal.vue` / `GameHeader.vue` / `GameLogs.vue` |
+| `public/enter_robot.html`（机器人 Webhook 链接设置页面） |
 | `src/styles/main.css`（玻璃拟态、mini-ball 球色、条纹样式） |
 | `e2e/poolpoker.spec.ts`（Playwright 端到端测试） |
 | `ball_configs.json`（default / xingpai 球色主题） |

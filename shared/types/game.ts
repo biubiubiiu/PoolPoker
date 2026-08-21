@@ -75,6 +75,7 @@ export interface ServerRoom {
   players: Player[];
   deck: Card[];
   accidentalBalls: number[];
+  breakBalls: number[];
   winners: WinnerInfo[];
   lastWinnerUserId?: string;
   lastTurnOrder?: string[];

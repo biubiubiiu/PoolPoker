@@ -3,6 +3,7 @@ import type { Server, Socket } from 'socket.io';
 import type { Player, ServerRoom } from '../shared/types/game';
 import type {
   AccidentalPocketPayload,
+  BreakPocketPayload,
   ConfirmRestartPayload,
   CreateRoomPayload,
   DrawPenaltyPayload,
@@ -66,6 +67,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       players: [newPlayer],
       deck: [],
       accidentalBalls: [],
+      breakBalls: [],
       winners: [],
       turnOrder: [],
       roundCount: 0,
@@ -228,6 +230,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
 
     room.deck = shuffle(create54PokerDeck());
     room.accidentalBalls = [];
+    room.breakBalls = [];
     room.winners = [];
     room.lastRoundScores = [];
     room.roundCount += 1;
@@ -321,6 +324,25 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     if (!room.accidentalBalls.includes(ballNumber)) {
       room.accidentalBalls.push(ballNumber);
       addLog(room, `🎱 记录场上 ${ballNumber}号球判定为已进球`);
+
+      const winners = checkGameWinners(room);
+      if (winners.length > 0) {
+        handleGameFinished(room, winners, null);
+      }
+    }
+
+    broadcastRoomState(io, roomCode);
+  });
+
+  // 7.1 开球进球 - 记录场上球入袋，不归入任何玩家手牌
+  socket.on('break_pocket', (data: BreakPocketPayload) => {
+    const { roomCode, ballNumber } = data;
+    const room = rooms[roomCode];
+    if (room?.status !== 'playing') return;
+
+    if (!room.breakBalls.includes(ballNumber)) {
+      room.breakBalls.push(ballNumber);
+      addLog(room, `🚀 记录开球进球：${ballNumber}号球已进球`);
 
       const winners = checkGameWinners(room);
       if (winners.length > 0) {
@@ -443,6 +465,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
 
     room.deck = [];
     room.accidentalBalls = [];
+    room.breakBalls = [];
     room.winners = [];
     room.status = 'waiting';
 

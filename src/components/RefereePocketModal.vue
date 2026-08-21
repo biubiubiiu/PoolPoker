@@ -12,10 +12,12 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'close'): void;
   (e: 'confirm', targetUserId: string, ballNum: number): void;
+  (e: 'confirm-break', ballNum: number): void;
 }>();
 
 const selectedUserId = ref<string>('');
 const selectedBall = ref<number | null>(null);
+const isBreakPocket = ref<boolean>(false);
 
 watch(
   [() => props.show, () => props.defaultUserId],
@@ -27,6 +29,7 @@ watch(
         selectedUserId.value = props.players[0].userId;
       }
       selectedBall.value = null;
+      isBreakPocket.value = false;
     }
   },
   { immediate: true }
@@ -35,6 +38,11 @@ watch(
 const targetPlayer = computed(() => {
   return props.players.find((p) => p.userId === selectedUserId.value) || null;
 });
+
+const selectBreakPocket = () => {
+  isBreakPocket.value = true;
+  selectedUserId.value = '';
+};
 
 const availableBalls = computed(() => {
   return Array.from({ length: 15 }, (_, i) => i + 1).filter((b) => !props.pocketedBallNumbers.includes(b));
@@ -73,10 +81,13 @@ const selectBall = (ballNum: number) => {
 };
 
 const onConfirm = () => {
-  if (selectedUserId.value && selectedBall.value !== null) {
+  if (selectedBall.value === null) return;
+  if (isBreakPocket.value) {
+    emit('confirm-break', selectedBall.value);
+  } else if (selectedUserId.value) {
     emit('confirm', selectedUserId.value, selectedBall.value);
-    selectedBall.value = null;
   }
+  selectedBall.value = null;
 };
 </script>
 
@@ -101,13 +112,21 @@ const onConfirm = () => {
         </label>
         <div class="flex flex-wrap gap-1.5">
           <button v-for="p in players" :key="p.userId"
-                  @click="selectedUserId = p.userId"
+                  @click="selectedUserId = p.userId; isBreakPocket = false"
                   :class="['px-2.5 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer',
-                           selectedUserId === p.userId
+                           selectedUserId === p.userId && !isBreakPocket
                              ? 'bg-emerald-500/30 border-emerald-400 text-amber-300 shadow-md ring-1 ring-emerald-400/50'
                              : 'bg-black/40 border-white/10 text-gray-300 hover:border-white/30']">
             <span>{{ p.avatar }}</span>
             <span>{{ p.name }}</span>
+          </button>
+          <button @click="selectBreakPocket"
+                  :class="['px-2.5 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer',
+                           isBreakPocket
+                             ? 'bg-amber-500/30 border-amber-400 text-amber-300 shadow-md ring-1 ring-amber-400/50'
+                             : 'bg-black/40 border-white/10 text-gray-300 hover:border-white/30']">
+            <i class="fa-solid fa-play text-amber-400"></i>
+            <span>开球进球</span>
           </button>
         </div>
       </div>
@@ -135,7 +154,13 @@ const onConfirm = () => {
       </div>
 
       <!-- 描述框 -->
-      <div v-if="targetPlayer && selectedBall !== null" class="bg-emerald-950/50 p-2.5 rounded-xl border border-emerald-500/30 text-xs text-emerald-200 text-left">
+      <div v-if="isBreakPocket && selectedBall !== null" class="bg-amber-950/50 p-2.5 rounded-xl border border-amber-500/30 text-xs text-amber-200 text-left">
+        记录开球进球：<span class="font-black text-amber-300 text-sm ml-1">{{ getBallName(selectedBall) }}</span>
+        <p class="text-[10px] text-gray-300 mt-1">
+          该球号将标记为已进球，但不归属于任何玩家手牌。
+        </p>
+      </div>
+      <div v-else-if="targetPlayer && selectedBall !== null" class="bg-emerald-950/50 p-2.5 rounded-xl border border-emerald-500/30 text-xs text-emerald-200 text-left">
         为 <span class="font-black text-amber-300">{{ targetPlayer.name }}</span> 记录打进：
         <span class="font-black text-amber-300 text-sm ml-1">{{ getBallName(selectedBall) }}</span>
         <p class="text-[10px] text-gray-300 mt-1">
@@ -152,7 +177,7 @@ const onConfirm = () => {
                 class="flex-1 py-2.5 bg-gray-800/80 hover:bg-gray-700 text-xs font-bold text-gray-300 rounded-xl border border-white/10 transition active:scale-95 cursor-pointer">
           取消
         </button>
-        <button @click="onConfirm" :disabled="!selectedUserId || selectedBall === null"
+        <button @click="onConfirm" :disabled="selectedBall === null || (!isBreakPocket && !selectedUserId)"
                 class="flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-xs font-black text-black rounded-xl shadow-lg transition active:scale-95 disabled:opacity-40 cursor-pointer">
           确认记录进球
         </button>

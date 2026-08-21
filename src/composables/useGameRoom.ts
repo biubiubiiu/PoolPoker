@@ -344,6 +344,15 @@ export function useGameRoom(options: UseGameRoomOptions) {
     showRefereePocketModal.value = false;
   };
 
+  const handleBreakPocketConfirm = (ballNum: number) => {
+    if (!room.value) return;
+    socket.value?.emit('break_pocket', {
+      roomCode: room.value.code,
+      ballNumber: ballNum,
+    });
+    showRefereePocketModal.value = false;
+  };
+
   const handleRefereeFoulConfirm = (targetUserId: string) => {
     if (!room.value) return;
     socket.value?.emit('referee_draw_penalty', {
@@ -400,6 +409,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
     openRefereePocket,
     openRefereeFoul,
     handleRefereePocketConfirm,
+    handleBreakPocketConfirm,
     handleRefereeFoulConfirm,
     handleConfirmRestart,
     handleLeaveRoom,

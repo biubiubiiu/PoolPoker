@@ -33,6 +33,9 @@ export function getPocketedBallNumbers(room: ServerRoom): number[] {
   (room.accidentalBalls || []).forEach((b) => {
     set.add(b);
   });
+  (room.breakBalls || []).forEach((b) => {
+    set.add(b);
+  });
   room.players.forEach((p) => {
     (p.pocketedCards || []).forEach((c) => {
       set.add(c.ballNumber);
