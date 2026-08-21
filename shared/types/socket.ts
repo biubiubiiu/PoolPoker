@@ -50,7 +50,6 @@ export interface BreakPocketPayload {
 
 export interface RetractBallPayload {
   roomCode: string;
-  cardId: string;
 }
 
 export interface RefereePocketBallPayload {

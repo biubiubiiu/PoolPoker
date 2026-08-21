@@ -7,7 +7,6 @@ import PokerCard from '@/components/PokerCard.vue';
 import RefereeFoulModal from '@/components/RefereeFoulModal.vue';
 import RefereePocketModal from '@/components/RefereePocketModal.vue';
 import RestartModal from '@/components/RestartModal.vue';
-import RetractBallModal from '@/components/RetractBallModal.vue';
 import RoomLobby from '@/components/RoomLobby.vue';
 import VictoryModal from '@/components/VictoryModal.vue';
 import { useGameRoom } from '@/composables/useGameRoom';
@@ -21,7 +20,6 @@ const { socket } = useSocket();
 const {
   room,
   showRestartConfirm,
-  showRetractModal,
   showRefereePocketModal,
   showRefereeFoulModal,
   refereeTargetUserId,
@@ -37,7 +35,7 @@ const {
   handleAdjustCards,
   handleStartGame,
   handleConfirmPocket,
-  handleRetractConfirm,
+  handleRetract,
   openRefereePocket,
   openRefereeFoul,
   handleRefereePocketConfirm,
@@ -118,7 +116,7 @@ const showRulesModal = ref(false);
           <span class="text-gray-400 text-[10px] shrink-0 mr-2">打进球后点击<br>对应扑克卡片销牌</span>
           
           <div class="flex items-center space-x-2">
-            <button @click="showRetractModal = true"
+            <button @click="handleRetract"
                     class="bg-blue-950/80 hover:bg-blue-900 text-blue-200 border border-blue-700/50 px-2 py-1 rounded-lg font-bold flex items-center gap-1 active:scale-95 text-xs cursor-pointer">
               <i class="fa-solid fa-rotate-left text-blue-400"></i> 撤回
             </button>
@@ -148,11 +146,6 @@ const showRulesModal = ref(false);
     </div>
 
     <!-- 弹窗部分 -->
-
-    <RetractBallModal :show="showRetractModal"
-                      :myPocketedCards="myInfo?.pocketedCards || []"
-                      @close="showRetractModal = false"
-                      @confirm="handleRetractConfirm" />
 
     <RefereePocketModal :show="showRefereePocketModal"
                         :players="room?.players || []"

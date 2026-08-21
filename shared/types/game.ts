@@ -50,6 +50,35 @@ export interface WinnerInfo {
   wins: number;
 }
 
+// 单个玩家在某一时刻的「游戏进行态」快照
+// 不含身份/连接类字段（id、userId、sessionToken、name、avatar、isHost、online），
+// 这些字段不随牌局操作变化，撤回时保持不变。
+export interface GamePlayerSnapshot {
+  cards: Card[];
+  pocketedCards: Card[];
+  cardCount: number;
+  activeCardCount: number;
+  wins: number;
+  isWinner: boolean;
+  totalScore: number;
+}
+
+// 一局游戏某一时刻的完整「进行态」快照，用于逐步撤回（每步操作 push 一份、撤回即 pop）
+// 注意：不含 logs —— 日志属于审计记录，不随撤回回退，撤回本身会额外追加一条日志。
+export interface GameState {
+  status: ServerRoom['status'];
+  players: GamePlayerSnapshot[];
+  deck: Card[];
+  accidentalBalls: number[];
+  breakBalls: number[];
+  winners: WinnerInfo[];
+  turnOrder: string[];
+  lastTurnOrder?: string[];
+  lastWinnerUserId?: string;
+  roundCount: number;
+  lastRoundScores: RoundScoreEntry[];
+}
+
 export interface Room {
   code: string;
   hostUserId: string;
@@ -84,6 +113,7 @@ export interface ServerRoom {
   settings: RoomSettings;
   logs: GameLog[];
   lastRoundScores: RoundScoreEntry[];
+  gameHistory: GameState[];
 }
 
 export interface BallConfig {

@@ -231,3 +231,22 @@
   - `src/composables/useGameRoom.ts` — 新增：`handleBreakPocketConfirm` 并导出。
   - `src/App.vue` — 修改：接入 `handleBreakPocketConfirm` 与 `@confirm-break`。
 - **commit**：未提交（工作区改动）
+
+### 第25轮：内存数据收敛 + 撤回改造为快照栈 [2026-08-22]
+- **输入**：整理游戏进行用到的所有内存数据封装到一个结构体；撤回功能改为——每步操作后的新结构体放进一个总体记录数组，撤回时 pop 数组回到上一步；每局开始游戏时清空数组，数组为空时撤回无效果。
+- **探索与决策**：
+  - 将 `ServerRoom` 里散落的「进行态」字段收敛为 `GameState`（`shared/types/game.ts`）：`status` / `players[]`（`GamePlayerSnapshot`，仅含 `cards`/`pocketedCards`/`cardCount`/`activeCardCount`/`wins`/`isWinner`/`totalScore`）/ `deck` / `accidentalBalls` / `breakBalls` / `winners` / `turnOrder` / `lastTurnOrder` / `lastWinnerUserId` / `roundCount` / `lastRoundScores`。快照**不含 logs**（日志属审计记录不随撤回回退）与身份/连接/设置类字段（`id`/`userId`/`sessionToken`/`name`/`avatar`/`isHost`/`online`/`settings`）。
+  - 新增 `server/gameState.ts` 承载快照：`snapshotGameState` / `restoreGameState`（深拷贝）、`recordGameStep`（操作后 push）、`undoGameStep`（pop 当前、回退到新栈顶）。采用「push 操作后状态」语义，`undoGameStep` 丢弃栈顶回退到再上一步，历史只剩基线（length ≤ 1）时返回 null 无效果。
+  - 撤回权限定为「所有玩家」、前端交互定为「撤回上一步 + 确认框」，移除选牌弹窗（`RetractBallModal.vue` 删除），`RetractBallPayload` 去掉 `cardId`。
+- **最终改动**：
+  - `shared/types/game.ts` — 修改：新增 `GameState` / `GamePlayerSnapshot`；`ServerRoom` 增 `gameHistory: GameState[]`。
+  - `shared/types/socket.ts` — 修改：`RetractBallPayload` 移除 `cardId`，仅留 `roomCode`。
+  - `server/gameState.ts` — 新增：`snapshotGameState` / `restoreGameState` / `recordGameStep` / `undoGameStep`。
+  - `server/socketHandlers.ts` — 修改：`create_room` 初始化 `gameHistory`；`start_game` 清空并 `recordGameStep` 播种发牌基线；`pocket_ball`/`draw_penalty`/`accidental_pocket`/`break_pocket`/`referee_pocket_ball`（两分支）/`referee_draw_penalty` 操作后 `recordGameStep`；`retract_ball` 改为 `undoGameStep` 并追加「已撤回到上一步操作 / 没有可撤回的操作」日志；`handleRestartRoom` 清空 `gameHistory`。
+  - `src/composables/useGameRoom.ts` — 修改：`handleRetractConfirm(cardId)` 改为 `handleRetract()`（`window.confirm` 后发 `retract_ball`），移除 `showRetractModal`。
+  - `src/App.vue` — 修改：撤回按钮改为 `@click="handleRetract"`，移除 `RetractBallModal` 引用。
+  - `src/components/RetractBallModal.vue` — 删除：选牌撤回弹窗（被确认框交互取代）。
+  - `e2e/poolpoker.spec.ts` — 修改：撤回用例改为验证「已撤回到上一步操作」日志。
+- **验收**：`npm run build`（vue-tsc + vite）通过；变更文件 Biome 检查通过。
+- **commit**：未提交（工作区改动）
+

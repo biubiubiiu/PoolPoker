@@ -28,7 +28,6 @@ export function useGameRoom(options: UseGameRoomOptions) {
 
   const room = ref<Room | null>(null);
   const showRestartConfirm = ref<boolean>(false);
-  const showRetractModal = ref<boolean>(false);
   const showRefereePocketModal = ref<boolean>(false);
   const showRefereeFoulModal = ref<boolean>(false);
   const refereeTargetUserId = ref<string>('');
@@ -313,14 +312,12 @@ export function useGameRoom(options: UseGameRoomOptions) {
     }
   };
 
-  // 6. 撤回进球确认
-  const handleRetractConfirm = (cardId: string) => {
+  // 6. 撤回上一步操作（整体回退到上一步状态）
+  const handleRetract = () => {
     if (!room.value) return;
-    socket.value?.emit('retract_ball', {
-      roomCode: room.value.code,
-      cardId,
-    });
-    showRetractModal.value = false;
+    if (window.confirm('确认撤回到上一步操作吗？将整体回退牌桌最近一次的操作。')) {
+      socket.value?.emit('retract_ball', { roomCode: room.value.code });
+    }
   };
 
   // 7. 记录进球与记录犯规打开与确认（默认选中当前玩家自己）
@@ -387,7 +384,6 @@ export function useGameRoom(options: UseGameRoomOptions) {
   return {
     room,
     showRestartConfirm,
-    showRetractModal,
     showRefereePocketModal,
     showRefereeFoulModal,
     refereeTargetUserId,
@@ -405,7 +401,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
     handleAdjustCards,
     handleStartGame,
     handleConfirmPocket,
-    handleRetractConfirm,
+    handleRetract,
     openRefereePocket,
     openRefereeFoul,
     handleRefereePocketConfirm,

@@ -156,24 +156,13 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
       await cardToPocket.click(); // 自动接受 window.confirm
       await hostPage.waitForTimeout(500);
 
-      // --- 3.4 测试【撤回进球 (Retract Ball Modal)】确认撤回功能 ---
+      // --- 3.4 测试【撤回上一步 (Retract)】整体回退最近一步操作 ---
       await hostPage.click('button:has-text("撤回")');
-      await expect(hostPage.locator('text=撤回进球')).toBeVisible();
 
-      // 选中已打进的卡片并点击确认撤回
-      const pocketedCardInModal = hostPage.locator('.fixed button:has-text("号")').first();
-      if (await pocketedCardInModal.isVisible()) {
-        await pocketedCardInModal.click();
-        await hostPage.click('.fixed button:has-text("确认撤回")');
-        await expect(hostPage.locator('text=撤回进球')).toBeHidden();
-
-        // 验证日志显示了撤回记录
-        await expect(hostPage.locator('text=撤回了已打进的手牌')).toBeVisible({
-          timeout: 5000,
-        });
-      } else {
-        await hostPage.click('.fixed button:has-text("取消")');
-      }
+      // 验证日志显示了撤回记录
+      await expect(hostPage.locator('text=已撤回到上一步操作')).toBeVisible({
+        timeout: 5000,
+      });
     }
 
     // --- 3.5 测试【重置局况 (Restart Modal)】---
