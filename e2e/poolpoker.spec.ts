@@ -1,6 +1,18 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', () => {
+  // 辅助函数：提取当前页面展示的玩家手牌球号列表
+  const getHandBallNumbers = async (page: any) => {
+    const cardElements = page.locator('.poker-card-frame .ball-number');
+    const count = await cardElements.count();
+    const ballNumbers: number[] = [];
+    for (let i = 0; i < count; i++) {
+      const text = await cardElements.nth(i).innerText();
+      ballNumbers.push(parseInt(text.trim(), 10));
+    }
+    return ballNumbers;
+  };
+
   test('1. Player Profile & LocalStorage Persistence (usePlayerProfile)', async ({ page }) => {
     await page.goto('/');
     await page.waitForTimeout(500);
@@ -119,6 +131,11 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await hostPage.waitForSelector('text=我的手上扑克手牌', { timeout: 5000 });
     await guestPage.waitForSelector('text=我的手上扑克手牌', { timeout: 5000 });
 
+    // 验证初始发牌手牌按球号/点数升序排列
+    const initialHostHand = await getHandBallNumbers(hostPage);
+    expect(initialHostHand.length).toBeGreaterThan(0);
+    expect(initialHostHand).toEqual([...initialHostHand].sort((a, b) => a - b));
+
     // --- 3.1 测试【记录犯规 (Record Foul)】（默认选中自己）---
     const initialHandCardsCount = await hostPage.locator('.poker-card-frame').count();
     await hostPage.click('button:has-text("记录犯规")');
@@ -129,6 +146,18 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await hostPage.waitForTimeout(500);
     const afterPenaltyHandCardsCount = await hostPage.locator('.poker-card-frame').count();
     expect(afterPenaltyHandCardsCount).toBe(initialHandCardsCount + 1);
+
+    // 验证犯规罚牌后手牌依然按球号严格升序排列
+    const hostHandAfterPenalty = await getHandBallNumbers(hostPage);
+    expect(hostHandAfterPenalty.length).toBe(afterPenaltyHandCardsCount);
+    expect(hostHandAfterPenalty).toEqual([...hostHandAfterPenalty].sort((a, b) => a - b));
+
+    // 验证犯规日志未泄露抽到的具体扑克牌花色与点数
+    const foulLogItem = hostPage.locator('.glass-panel div').filter({ hasText: 'HostP1 犯规' }).last();
+    await expect(foulLogItem).toBeVisible();
+    const foulLogText = await foulLogItem.innerText();
+    expect(foulLogText).toContain('罚抽 1 张扑克牌');
+    expect(foulLogText).not.toMatch(/[♠♥♣♦]/);
 
     // --- 3.2 测试【记录进球 (Record Pocket Ball)】及全场进球免打置灰 ---
     await hostPage.click('button:has-text("记录进球")');
@@ -388,7 +417,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await guestContext.close();
   });
 
-  test('4. Referee Mode Proxy Ball Potting & Proxy Foul Drawing (记录进球与记录犯规功能)', async ({ browser }) => {
+  test('6. Referee Mode Proxy Ball Potting & Proxy Foul Drawing (记录进球与记录犯规功能)', async ({ browser }) => {
     const hostContext = await browser.newContext();
     const guestContext = await browser.newContext();
 
@@ -455,10 +484,99 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await guestPage.click('.fixed button:has-text("RefereeP1")');
     await guestPage.click('.fixed button:has-text("确认记录犯规")');
 
-    // 验证日志记录犯规
-    await expect(hostPage.locator('text=触发犯规').or(hostPage.locator('text=犯规')).first()).toBeVisible({
-      timeout: 5000,
-    });
+    // 验证日志记录犯规，且未泄露裁判代抽的具体扑克花色点数
+    const proxyFoulLogItem = hostPage.locator('.glass-panel div').filter({ hasText: '裁判代记' }).last();
+    await expect(proxyFoulLogItem).toBeVisible({ timeout: 5000 });
+    const proxyFoulLogText = await proxyFoulLogItem.innerText();
+    expect(proxyFoulLogText).toContain('RefereeP1 犯规');
+    expect(proxyFoulLogText).toContain('罚抽 1 张扑克牌');
+    expect(proxyFoulLogText).not.toMatch(/[♠♥♣♦]/);
+
+    // 验证受罚玩家(RefereeP1)补牌后手牌依然按球号升序排列
+    const refereeP1Hand = await getHandBallNumbers(hostPage);
+    expect(refereeP1Hand.length).toBeGreaterThan(0);
+    expect(refereeP1Hand).toEqual([...refereeP1Hand].sort((a, b) => a - b));
+
+    await hostContext.close();
+    await guestContext.close();
+  });
+
+  test('7. Hand Cards Point Sorting & Penalty Log Privacy Protection Verification (手牌球号/点数排序与罚牌日志隐私防泄漏测试)', async ({
+    browser,
+  }) => {
+    const hostContext = await browser.newContext();
+    const guestContext = await browser.newContext();
+
+    const hostPage = await hostContext.newPage();
+    const guestPage = await guestContext.newPage();
+
+    hostPage.on('dialog', (d) => d.accept());
+    guestPage.on('dialog', (d) => d.accept());
+
+    // Host 创建房间
+    await hostPage.goto('/');
+    await hostPage.waitForTimeout(500);
+    await hostPage.locator('input[placeholder*="请输入你的大名/外号"]').fill('PriHost');
+    await hostPage.click('button:has-text("创建新房间")');
+    await hostPage.click('button:has-text("一键创建数字房间")');
+
+    await hostPage.waitForSelector('text=已加入玩家');
+    const roomCodeElement = hostPage.locator('header span.font-mono').first();
+    await expect(roomCodeElement).not.toHaveText('');
+    const roomCode = (await roomCodeElement.innerText()).trim();
+    // Guest 加入房间
+    await guestPage.goto('/');
+    await guestPage.waitForTimeout(500);
+    await guestPage.locator('input[placeholder*="请输入你的大名/外号"]').fill('PriGuest');
+    await guestPage.click('button:has-text("加入朋友房间")');
+    await guestPage.locator('input[placeholder*="输入 4 位数字房间码"]').fill(roomCode);
+    await guestPage.click('button:has-text("进入球局")');
+
+    await expect(hostPage.locator('text=PriGuest').first()).toBeVisible({ timeout: 5000 });
+
+    // 房主发牌
+    await hostPage.click('button:has-text("开始扑克发牌")');
+    await hostPage.waitForSelector('text=我的手上扑克手牌', { timeout: 5000 });
+    await guestPage.waitForSelector('text=我的手上扑克手牌', { timeout: 5000 });
+
+    // 1. 验证双侧玩家初始发牌手牌均为严格升序
+    const hostHand1 = await getHandBallNumbers(hostPage);
+    const guestHand1 = await getHandBallNumbers(guestPage);
+    expect(hostHand1.length).toBeGreaterThan(0);
+    expect(guestHand1.length).toBeGreaterThan(0);
+    expect(hostHand1).toEqual([...hostHand1].sort((a, b) => a - b));
+    expect(guestHand1).toEqual([...guestHand1].sort((a, b) => a - b));
+
+    // 2. 玩家主动犯规：验证手牌保持升序 & 日志不泄漏点数花色
+    await hostPage.click('button:has-text("记录犯规")');
+    await hostPage.click('.fixed button:has-text("确认记录犯规")');
+    await hostPage.waitForTimeout(500);
+
+    const hostHand2 = await getHandBallNumbers(hostPage);
+    expect(hostHand2.length).toBe(hostHand1.length + 1);
+    expect(hostHand2).toEqual([...hostHand2].sort((a, b) => a - b));
+
+    const hostFoulLogItem = hostPage.locator('.glass-panel div').filter({ hasText: 'PriHost 犯规' }).last();
+    const hostFoulLog = await hostFoulLogItem.innerText();
+    expect(hostFoulLog).toContain('PriHost 犯规');
+    expect(hostFoulLog).toContain('罚抽 1 张扑克牌');
+    expect(hostFoulLog).not.toMatch(/[♠♥♣♦]/);
+
+    // 3. 裁判代记犯规：验证目标玩家手牌保持升序 & 日志不泄漏点数花色
+    await hostPage.click('button:has-text("记录犯规")');
+    await hostPage.click('.fixed button:has-text("PriGuest")');
+    await hostPage.click('.fixed button:has-text("确认记录犯规")');
+    await guestPage.waitForTimeout(500);
+
+    const guestHand2 = await getHandBallNumbers(guestPage);
+    expect(guestHand2.length).toBe(guestHand1.length + 1);
+    expect(guestHand2).toEqual([...guestHand2].sort((a, b) => a - b));
+
+    const proxyFoulLogItem = guestPage.locator('.glass-panel div').filter({ hasText: 'PriGuest 犯规' }).last();
+    const proxyFoulLog = await proxyFoulLogItem.innerText();
+    expect(proxyFoulLog).toContain('PriGuest 犯规');
+    expect(proxyFoulLog).toContain('罚抽 1 张扑克牌');
+    expect(proxyFoulLog).not.toMatch(/[♠♥♣♦]/);
 
     await hostContext.close();
     await guestContext.close();
