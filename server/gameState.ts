@@ -43,16 +43,18 @@ export function snapshotGameState(room: ServerRoom): GameState {
 // 用快照覆盖房间当前的「游戏进行态」。
 // 快照只含随牌局操作变化的字段；status、winners、turnOrder、lastTurnOrder、lastWinnerUserId、
 // roundCount、lastRoundScores 等局级元数据以及身份/连接/胜负/积分/设置/日志字段保持不变。
+// 注意：这里同样要深拷贝快照内的数组再赋值——若直接按引用赋值，房间后续的 deck.pop() / cards.push()
+// 等操作会原地污染历史快照，导致撤回后历史基线被篡改、后续撤回失效。
 export function restoreGameState(room: ServerRoom, state: GameState): void {
-  room.deck = state.deck;
-  room.accidentalBalls = state.accidentalBalls;
-  room.breakBalls = state.breakBalls;
+  room.deck = deepClone(state.deck);
+  room.accidentalBalls = deepClone(state.accidentalBalls);
+  room.breakBalls = deepClone(state.breakBalls);
 
   (room.players || []).forEach((p, i) => {
     const snap = state.players[i];
     if (!snap) return;
-    p.cards = snap.cards;
-    p.pocketedCards = snap.pocketedCards;
+    p.cards = deepClone(snap.cards);
+    p.pocketedCards = deepClone(snap.pocketedCards);
     p.cardCount = snap.cardCount;
     p.activeCardCount = snap.activeCardCount;
   });
