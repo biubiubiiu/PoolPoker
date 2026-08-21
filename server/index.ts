@@ -9,7 +9,7 @@ import { logSocketConnect } from './logger';
 import { getRobotWebhookUrl, setRobotWebhookUrl } from './robotConfig';
 import { getClientRoomState } from './roomManager';
 import { registerSocketHandlers } from './socketHandlers';
-import { sendCrashReportToWecom } from './wecomWebhook';
+import { isWecomPushDisabled, sendCrashReportToWecom, setWecomPushDisabled } from './wecomWebhook';
 
 const app = express();
 const server = http.createServer(app);
@@ -53,6 +53,19 @@ app.post('/api/robot-url', (req: Request, res: Response) => {
   const url = typeof req.body?.url === 'string' ? req.body.url.trim() : '';
   setRobotWebhookUrl(url);
   res.json({ success: true, url: getRobotWebhookUrl() });
+});
+
+// 企微机器人推送开关 (供 E2E 测试或动态关停调用)
+app.get('/api/wecom-push/status', (_req: Request, res: Response) => {
+  res.json({ success: true, disabled: isWecomPushDisabled() });
+});
+
+app.post('/api/wecom-push/toggle', (req: Request, res: Response) => {
+  const disabled = req.body?.disabled;
+  if (typeof disabled === 'boolean') {
+    setWecomPushDisabled(disabled);
+  }
+  res.json({ success: true, disabled: isWecomPushDisabled() });
 });
 
 // 机器人链接设置页面（独立路由，独立于 SPA）

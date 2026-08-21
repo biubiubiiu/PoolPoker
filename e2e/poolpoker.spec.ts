@@ -13,6 +13,11 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     return ballNumbers;
   };
 
+  test.beforeAll(async ({ request }) => {
+    // 跑 Playwright 测试时，自动静默禁用企业微信机器人推送，防消息打扰
+    await request.post('/api/wecom-push/toggle', { data: { disabled: true } }).catch(() => {});
+  });
+
   test('1. Player Profile & LocalStorage Persistence (usePlayerProfile)', async ({ page }) => {
     await page.goto('/');
     await page.waitForTimeout(500);

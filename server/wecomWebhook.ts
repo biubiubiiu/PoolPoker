@@ -6,6 +6,24 @@ import { rooms } from './roomManager';
 // 固定提及成员
 const WECOM_MENTIONED_LIST = ['shyren'];
 
+let isPushDisabledOverride: boolean | null = null;
+
+export function setWecomPushDisabled(disabled: boolean): void {
+  isPushDisabledOverride = disabled;
+}
+
+export function isWecomPushDisabled(): boolean {
+  if (isPushDisabledOverride !== null) {
+    return isPushDisabledOverride;
+  }
+  return (
+    process.env.PLAYWRIGHT_TEST === 'true' ||
+    process.env.DISABLE_WECOM_PUSH === 'true' ||
+    process.env.NODE_ENV === 'test' ||
+    !!process.env.CI
+  );
+}
+
 interface WecomTextMessage {
   msgtype: 'text';
   text: {
@@ -16,6 +34,8 @@ interface WecomTextMessage {
 
 // 每局胜利后，将房间号、各成员本局得分以及当前累计积分推送到企业微信机器人
 export async function sendRoundResultToWecom(room: ServerRoom): Promise<void> {
+  if (isWecomPushDisabled()) return; // 在 Playwright E2E 测试或显式禁用模式下不推送
+
   const webhookUrl = getRobotWebhookUrl();
   if (!webhookUrl) return; // 未配置机器人链接，不发送
 
@@ -59,6 +79,8 @@ export async function sendRoundResultToWecom(room: ServerRoom): Promise<void> {
 
 // 进程崩溃 / 异常退出时，整理报错及当前对战快照推送到企业微信机器人
 export async function sendCrashReportToWecom(error: Error | unknown, type: string): Promise<void> {
+  if (isWecomPushDisabled()) return;
+
   const webhookUrl = getRobotWebhookUrl();
   if (!webhookUrl) return;
 
