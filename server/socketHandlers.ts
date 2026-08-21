@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import type { Server, Socket } from 'socket.io';
 import type { Player, ServerRoom } from '../shared/types/game';
 import type {
@@ -36,10 +37,12 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     socket.data.userId = userId;
 
     const roomCode = generateRoomCode();
+    const sessionToken = crypto.randomUUID();
 
     const newPlayer: Player = {
       id: socket.id,
       userId,
+      sessionToken,
       name,
       avatar: avatar || '🎱',
       isHost: true,
@@ -80,7 +83,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
 
     addLog(newRoom, `🏠 房间创建成功，房主 ${name} 进入房间`);
 
-    if (callback) callback({ success: true, roomCode });
+    if (callback) callback({ success: true, roomCode, sessionToken });
     socket.emit('room_created', { roomCode });
     broadcastRoomState(io, roomCode);
   });
@@ -104,15 +107,20 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
 
     let player = room.players.find((p) => p.userId === userId);
     if (player) {
+      if (!player.sessionToken) {
+        player.sessionToken = crypto.randomUUID();
+      }
       player.id = socket.id;
       player.name = name || player.name;
       player.avatar = avatar || player.avatar;
       player.online = true;
       addLog(room, `🔌 玩家 ${player.name} 重新连接`);
     } else {
+      const sessionToken = crypto.randomUUID();
       player = {
         id: socket.id,
         userId,
+        sessionToken,
         name,
         avatar: avatar || '🎱',
         isHost: false,
@@ -143,13 +151,13 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     socketIndex.set(socket.id, { roomCode, userId });
     socket.join(roomCode);
 
-    if (callback) callback({ success: true, roomCode });
+    if (callback) callback({ success: true, roomCode, sessionToken: player.sessionToken });
     broadcastRoomState(io, roomCode);
   });
 
   // 2.1 尝试断线重连恢复
   socket.on('rejoin_room', (data: RejoinRoomPayload, callback?: (res: any) => void) => {
-    const { roomCode, userId } = data;
+    const { roomCode, userId, sessionToken } = data;
     const room = rooms[roomCode];
 
     if (!room) {
@@ -160,6 +168,11 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     const player = room.players.find((p) => p.userId === userId);
     if (!player) {
       if (callback) callback({ success: false, message: '你不在此房间成员列表中' });
+      return;
+    }
+
+    if (!sessionToken || player.sessionToken !== sessionToken) {
+      if (callback) callback({ success: false, message: '身份凭证失效或验证失败，拒绝加入' });
       return;
     }
 
@@ -177,7 +190,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
 
     addLog(room, `🔄 玩家 ${player.name} 恢复了房间连接`);
 
-    if (callback) callback({ success: true, roomCode });
+    if (callback) callback({ success: true, roomCode, sessionToken: player.sessionToken });
     broadcastRoomState(io, roomCode);
   });
 

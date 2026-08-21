@@ -57,6 +57,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
       } else if (res.status === 404) {
         console.warn('[HTTP Sync] 房间不存在或已解散');
         localStorage.removeItem('billiards_room_code');
+        localStorage.removeItem('billiards_session_token');
         room.value = null;
       }
     } catch (err) {
@@ -103,18 +104,23 @@ export function useGameRoom(options: UseGameRoomOptions) {
       console.log('[Socket] Connected, ID:', s.id);
 
       const savedRoomCode = localStorage.getItem('billiards_room_code');
+      const savedSessionToken = localStorage.getItem('billiards_session_token') || '';
       if (savedRoomCode) {
         s.emit(
           'rejoin_room',
           {
             roomCode: savedRoomCode,
             userId: userId.value,
+            sessionToken: savedSessionToken,
           },
           (res: SocketCallbackResponse) => {
             if (!res.success) {
               console.warn('[Rejoin Failed]', res.message);
               localStorage.removeItem('billiards_room_code');
+              localStorage.removeItem('billiards_session_token');
               room.value = null;
+            } else if (res.sessionToken) {
+              localStorage.setItem('billiards_session_token', res.sessionToken);
             }
           }
         );
@@ -221,12 +227,23 @@ export function useGameRoom(options: UseGameRoomOptions) {
   // 1. 创建房间
   const handleCreateRoom = () => {
     const finalName = getFinalPlayerName();
-    socket.value?.emit('create_room', {
-      userId: userId.value,
-      name: finalName,
-      avatar: selectedAvatar.value,
-      ballConfigKey: selectedBallConfigKey.value,
-    });
+    socket.value?.emit(
+      'create_room',
+      {
+        userId: userId.value,
+        name: finalName,
+        avatar: selectedAvatar.value,
+        ballConfigKey: selectedBallConfigKey.value,
+      },
+      (res: SocketCallbackResponse) => {
+        if (res.success && res.roomCode) {
+          localStorage.setItem('billiards_room_code', res.roomCode);
+          if (res.sessionToken) {
+            localStorage.setItem('billiards_session_token', res.sessionToken);
+          }
+        }
+      }
+    );
   };
 
   // 2. 加入房间
@@ -245,6 +262,9 @@ export function useGameRoom(options: UseGameRoomOptions) {
           alert(res.message || '加入房间失败');
         } else if (res.roomCode) {
           localStorage.setItem('billiards_room_code', res.roomCode);
+          if (res.sessionToken) {
+            localStorage.setItem('billiards_session_token', res.sessionToken);
+          }
         }
       }
     );
@@ -345,6 +365,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
         });
       }
       localStorage.removeItem('billiards_room_code');
+      localStorage.removeItem('billiards_session_token');
       room.value = null;
     }
   };

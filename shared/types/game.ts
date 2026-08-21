@@ -10,6 +10,7 @@ export interface Card {
 export interface Player {
   id: string;
   userId: string;
+  sessionToken?: string;
   name: string;
   avatar: string;
   isHost: boolean;

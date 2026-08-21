@@ -17,6 +17,7 @@ export interface JoinRoomPayload {
 export interface RejoinRoomPayload {
   roomCode: string;
   userId: string;
+  sessionToken: string;
 }
 
 export interface UpdateSettingsPayload {
@@ -84,6 +85,7 @@ export interface SocketCallbackResponse {
   success: boolean;
   message?: string;
   roomCode?: string;
+  sessionToken?: string;
 }
 
 // 客户端接收的事件 (Server -> Client)
