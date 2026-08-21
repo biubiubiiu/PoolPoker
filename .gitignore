@@ -27,6 +27,7 @@ Thumbs.db
 # 调试与环境配置
 .env
 .env.local
+.robot_url
 .vscode/
 .idea/
 

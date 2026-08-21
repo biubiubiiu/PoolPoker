@@ -9,6 +9,7 @@ import { logSocketConnect } from './logger';
 import { getRobotWebhookUrl, setRobotWebhookUrl } from './robotConfig';
 import { getClientRoomState } from './roomManager';
 import { registerSocketHandlers } from './socketHandlers';
+import { sendCrashReportToWecom } from './wecomWebhook';
 
 const app = express();
 const server = http.createServer(app);
@@ -80,6 +81,25 @@ io.on('connection', (socket: any) => {
   logSocketConnect(socket);
   registerSocketHandlers(io as any, socket as any);
 });
+
+// 全局崩溃异常捕获与对战告警推送
+let isCrashing = false;
+async function handleCrash(error: unknown, type: string) {
+  console.error(`💥 捕获到全局崩溃/异常 (${type}):`, error);
+  if (isCrashing) return;
+  isCrashing = true;
+
+  try {
+    await Promise.race([sendCrashReportToWecom(error, type), new Promise((resolve) => setTimeout(resolve, 3000))]);
+  } catch (err) {
+    console.error('❌ 推送崩溃告警失败:', err);
+  } finally {
+    process.exit(1);
+  }
+}
+
+process.on('uncaughtException', (err) => handleCrash(err, 'uncaughtException'));
+process.on('unhandledRejection', (reason) => handleCrash(reason, 'unhandledRejection'));
 
 server.listen(appConfig.port, () => {
   console.log('=================================');

@@ -71,21 +71,21 @@
 <body>
   <div class="card">
     <h1><span class="icon">🎱</span> 机器人推送链接</h1>
-    <p class="sub">每局胜利结算后，将房间号与积分推送到企业微信机器人。</p>
+    <p class="sub">每局胜利结算后及服务端崩溃时，将消息推送到企业微信机器人。</p>
 
     <label for="url">Webhook 链接</label>
     <textarea id="url" placeholder="粘贴企业微信机器人的 Webhook 地址，例如 https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=..."></textarea>
 
     <div class="row">
-      <button class="save" onclick="save()">保存</button>
-      <button class="clear" onclick="clearUrl()">清除</button>
+      <button type="button" class="save" onclick="save()">保存</button>
+      <button type="button" class="clear" onclick="clearUrl()">清除</button>
     </div>
 
     <div class="msg" id="msg"></div>
 
     <div class="hint">
       <p>• 保存后，有链接才会发送；清除或留空则不再推送。</p>
-      <p>• 链接仅保存在服务内存中，服务重启后会清空。</p>
+      <p>• 链接已支持持久化自动保存。</p>
       <p>• 当前地址：<code id="current">加载中…</code></p>
     </div>
   </div>
@@ -97,7 +97,7 @@
 
     function show(msg, ok) {
       msgEl.textContent = msg;
-      msgEl.className = 'msg ' + (ok ? 'ok' : 'err');
+      msgEl.className = `msg ${ok ? 'ok' : 'err'}`;
     }
 
     async function load() {
@@ -107,7 +107,7 @@
         urlEl.value = data.url || '';
         currentEl.textContent = data.url || '(未设置)';
       } catch (e) {
-        show('加载失败：' + e.message, false);
+        show(`加载失败：${e.message}`, false);
       }
     }
 
@@ -123,12 +123,12 @@
         const data = await res.json();
         if (data.success) {
           currentEl.textContent = data.url;
-          show('✅ 已保存，之后每局会推送结果', true);
+          show('✅ 已保存，之后每局及崩溃时会推送结果', true);
         } else {
           show('保存失败', false);
         }
       } catch (e) {
-        show('保存失败：' + e.message, false);
+        show(`保存失败：${e.message}`, false);
       }
     }
 
@@ -146,11 +146,12 @@
           show('已清除，之后不再推送', true);
         }
       } catch (e) {
-        show('清除失败：' + e.message, false);
+        show(`清除失败：${e.message}`, false);
       }
     }
 
     load();
   </script>
+
 </body>
 </html>
