@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import type { Card, Player, RoundScoreEntry, ServerRoom } from '../shared/types/game';
 import { shuffle } from './pokerDeck';
+import { sendRoundResultToWecom } from './wecomWebhook';
 
 export function addLog(room: ServerRoom, text: string): void {
   const time = new Date().toLocaleTimeString('zh-CN', {
@@ -156,6 +157,9 @@ export function handleGameFinished(room: ServerRoom, winners: Player[], actionPl
     })
     .join('，');
   addLog(room, `📊 本局积分结算：${scoreLines}`);
+
+  // 每局胜利结算完成后，推送本局结果到企业微信机器人（不阻塞结算流程）
+  sendRoundResultToWecom(room);
 }
 
 // 计算每局击球顺序
