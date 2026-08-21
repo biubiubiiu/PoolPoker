@@ -1,7 +1,7 @@
 import type { ServerRoom } from '../shared/types/game';
+import { getRobotWebhookUrl } from './robotConfig';
 
-// 企业微信机器人 Webhook 地址与固定提及成员（写死，不可修改）
-const WECOM_WEBHOOK_URL = 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=7110add4-d59b-4624-aaf5-a71cc8bd6a31';
+// 固定提及成员
 const WECOM_MENTIONED_LIST = ['shyren'];
 
 interface WecomTextMessage {
@@ -14,6 +14,9 @@ interface WecomTextMessage {
 
 // 每局胜利后，将房间号、各成员本局得分以及当前累计积分推送到企业微信机器人
 export async function sendRoundResultToWecom(room: ServerRoom): Promise<void> {
+  const webhookUrl = getRobotWebhookUrl();
+  if (!webhookUrl) return; // 未配置机器人链接，不发送
+
   const memberLines = room.players.map((p) => {
     const roundDelta = (room.lastRoundScores || []).find((rs) => rs.userId === p.userId)?.delta ?? 0;
     const deltaText = roundDelta >= 0 ? `+${roundDelta}` : `${roundDelta}`;
@@ -31,7 +34,7 @@ export async function sendRoundResultToWecom(room: ServerRoom): Promise<void> {
   };
 
   try {
-    const res = await fetch(WECOM_WEBHOOK_URL, {
+    const res = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(message),

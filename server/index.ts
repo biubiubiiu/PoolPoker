@@ -6,11 +6,14 @@ import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '../shared/types/socket';
 import { appConfig, ballConfigs, rootDir } from './config';
 import { logSocketConnect } from './logger';
+import { getRobotWebhookUrl, setRobotWebhookUrl } from './robotConfig';
 import { getClientRoomState } from './roomManager';
 import { registerSocketHandlers } from './socketHandlers';
 
 const app = express();
 const server = http.createServer(app);
+
+app.use(express.json());
 
 const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, {
   cors: {
@@ -38,6 +41,27 @@ app.get('/api/rooms/:code', (req: Request, res: Response) => {
   }
 
   res.json({ success: true, room: clientRoom });
+});
+
+// 机器人 Webhook 链接：内存读取 / 设置（由 /enter_robot 页面调用）
+app.get('/api/robot-url', (_req: Request, res: Response) => {
+  res.json({ success: true, url: getRobotWebhookUrl() });
+});
+
+app.post('/api/robot-url', (req: Request, res: Response) => {
+  const url = typeof req.body?.url === 'string' ? req.body.url.trim() : '';
+  setRobotWebhookUrl(url);
+  res.json({ success: true, url: getRobotWebhookUrl() });
+});
+
+// 机器人链接设置页面（独立路由，独立于 SPA）
+const enterRobotPage = path.join(rootDir, 'public', 'enter_robot.html');
+app.get('/enter_robot', (_req: Request, res: Response) => {
+  if (fs.existsSync(enterRobotPage)) {
+    res.sendFile(enterRobotPage);
+  } else {
+    res.status(404).send('页面不存在');
+  }
 });
 
 // 托管静态资源目录（优先托管打包出来的 dist 目录）
