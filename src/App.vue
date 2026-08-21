@@ -38,6 +38,7 @@ const {
   handleStartGame,
   handleConfirmPocket,
   handleRetractConfirm,
+  handleRetractBreakConfirm,
   openRefereePocket,
   openRefereeFoul,
   handleRefereePocketConfirm,
@@ -151,8 +152,10 @@ const showRulesModal = ref(false);
 
     <RetractBallModal :show="showRetractModal"
                       :myPocketedCards="myInfo?.pocketedCards || []"
+                      :breakBalls="room?.breakBalls || []"
                       @close="showRetractModal = false"
-                      @confirm="handleRetractConfirm" />
+                      @confirm="handleRetractConfirm"
+                      @confirm-break="handleRetractBreakConfirm" />
 
     <RefereePocketModal :show="showRefereePocketModal"
                         :players="room?.players || []"

@@ -230,4 +230,18 @@
   - `src/components/RefereePocketModal.vue` — 修改：新增「开球进球」切换、`confirm-break` 事件、按钮禁用逻辑与开球描述框。
   - `src/composables/useGameRoom.ts` — 新增：`handleBreakPocketConfirm` 并导出。
   - `src/App.vue` — 修改：接入 `handleBreakPocketConfirm` 与 `@confirm-break`。
+- **commit**：`feb0e50`
+
+### 第25轮：开球进球可撤回 [2026-08-22]
+- **输入**：修复「记录开球进球后没有这颗球可以撤回」——上一轮 `break_pocket` 写入 `ServerRoom.breakBalls`，但撤回流程 `retract_ball` 只处理玩家自己的 `pocketedCards`，客户端 `Room` 类型也未暴露 `breakBalls`。
+- **探索与决策**：不扩展现有 `retract_ball`（其语义是「把 `pocketedCards` 移回 `cards`」，与开球进球无归属玩家不同），改为新增独立的 `retract_break_ball` 事件把球号移出 `breakBalls`、恢复为场上未进球；客户端 `Room` 增 `breakBalls`（`getClientRoomState` 全员下发，无需防泄露裁剪）。前端复用 `RetractBallModal`：在既有「本局打进的手牌」列表下新增「开球进球」分区，两者互斥单选，分别走 `confirm`（`retract_ball`）与 `confirm-break`（`retract_break_ball`）。
+- **最终改动**：
+  - `shared/types/game.ts` — 修改：`Room` 新增 `breakBalls: number[]`。
+  - `shared/types/socket.ts` — 修改：新增 `RetractBreakBallPayload` 与 `ClientToServerEvents.retract_break_ball`。
+  - `server/roomManager.ts` — 修改：`getClientRoomState` 下发 `breakBalls`。
+  - `server/socketHandlers.ts` — 新增：`retract_break_ball` 事件处理器（移出球号、记日志、广播，仅 `playing` 状态生效）。
+  - `src/components/RetractBallModal.vue` — 修改：新增「开球进球」分区与 `confirm-break` 事件，手牌/开球两区互斥单选。
+  - `src/composables/useGameRoom.ts` — 新增：`handleRetractBreakConfirm` 并导出。
+  - `src/App.vue` — 修改：接入 `:breakBalls` 与 `@confirm-break`。
+- **验收**：`vue-tsc --noEmit` 通过、`npm run build` 通过。
 - **commit**：未提交（工作区改动）

@@ -323,6 +323,16 @@ export function useGameRoom(options: UseGameRoomOptions) {
     showRetractModal.value = false;
   };
 
+  // 6.1 撤回开球进球确认
+  const handleRetractBreakConfirm = (ballNum: number) => {
+    if (!room.value) return;
+    socket.value?.emit('retract_break_ball', {
+      roomCode: room.value.code,
+      ballNumber: ballNum,
+    });
+    showRetractModal.value = false;
+  };
+
   // 7. 记录进球与记录犯规打开与确认（默认选中当前玩家自己）
   const openRefereePocket = (targetUserId?: string) => {
     refereeTargetUserId.value = targetUserId || userId.value;
@@ -406,6 +416,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
     handleStartGame,
     handleConfirmPocket,
     handleRetractConfirm,
+    handleRetractBreakConfirm,
     openRefereePocket,
     openRefereeFoul,
     handleRefereePocketConfirm,

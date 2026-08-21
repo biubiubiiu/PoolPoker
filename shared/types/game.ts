@@ -59,6 +59,7 @@ export interface Room {
   turnOrder: string[];
   currentTurnIndex?: number;
   pocketedBallNumbers: number[];
+  breakBalls: number[];
   roundCount: number;
   deckCount: number;
   winners: WinnerInfo[] | Player[];

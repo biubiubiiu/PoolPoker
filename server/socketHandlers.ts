@@ -16,6 +16,7 @@ import type {
   RequestRestartPayload,
   RestartGamePayload,
   RetractBallPayload,
+  RetractBreakBallPayload,
   StartGamePayload,
   UpdateSettingsPayload,
 } from '../shared/types/socket';
@@ -348,6 +349,21 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       if (winners.length > 0) {
         handleGameFinished(room, winners, null);
       }
+    }
+
+    broadcastRoomState(io, roomCode);
+  });
+
+  // 7.2 撤回开球进球 - 从 breakBalls 移除球号，恢复为场上未进球
+  socket.on('retract_break_ball', (data: RetractBreakBallPayload) => {
+    const { roomCode, ballNumber } = data;
+    const room = rooms[roomCode];
+    if (room?.status !== 'playing') return;
+
+    const idx = room.breakBalls.indexOf(ballNumber);
+    if (idx !== -1) {
+      room.breakBalls.splice(idx, 1);
+      addLog(room, `↩️ 撤回开球进球：${ballNumber}号球恢复为场上未进球`);
     }
 
     broadcastRoomState(io, roomCode);
