@@ -21,9 +21,6 @@ function clonePlayer(p: GamePlayerSnapshot): GamePlayerSnapshot {
     pocketedCards: deepClone(p.pocketedCards),
     cardCount: p.cardCount,
     activeCardCount: p.activeCardCount,
-    wins: p.wins,
-    isWinner: p.isWinner,
-    totalScore: p.totalScore,
   };
 }
 
@@ -36,33 +33,20 @@ export function recordGameStep(room: ServerRoom): void {
 // 将房间当前「游戏进行态」整体打包成一份快照（深拷贝）。
 export function snapshotGameState(room: ServerRoom): GameState {
   return {
-    status: room.status,
     players: (room.players || []).map(clonePlayer),
     deck: deepClone(room.deck || []),
     accidentalBalls: deepClone(room.accidentalBalls || []),
     breakBalls: deepClone(room.breakBalls || []),
-    winners: deepClone(room.winners || []),
-    turnOrder: deepClone(room.turnOrder || []),
-    lastTurnOrder: room.lastTurnOrder ? deepClone(room.lastTurnOrder) : undefined,
-    lastWinnerUserId: room.lastWinnerUserId,
-    roundCount: room.roundCount,
-    lastRoundScores: deepClone(room.lastRoundScores || []),
   };
 }
 
 // 用快照覆盖房间当前的「游戏进行态」。
-// 快照只含进行态字段，身份/连接/设置/日志等非进行态字段（id、userId、sessionToken、name、avatar、isHost、online、settings、logs 等）保持不变。
+// 快照只含随牌局操作变化的字段；status、winners、turnOrder、lastTurnOrder、lastWinnerUserId、
+// roundCount、lastRoundScores 等局级元数据以及身份/连接/胜负/积分/设置/日志字段保持不变。
 export function restoreGameState(room: ServerRoom, state: GameState): void {
-  room.status = state.status;
   room.deck = state.deck;
   room.accidentalBalls = state.accidentalBalls;
   room.breakBalls = state.breakBalls;
-  room.winners = state.winners;
-  room.turnOrder = state.turnOrder;
-  room.lastTurnOrder = state.lastTurnOrder;
-  room.lastWinnerUserId = state.lastWinnerUserId;
-  room.roundCount = state.roundCount;
-  room.lastRoundScores = state.lastRoundScores;
 
   (room.players || []).forEach((p, i) => {
     const snap = state.players[i];
@@ -71,9 +55,6 @@ export function restoreGameState(room: ServerRoom, state: GameState): void {
     p.pocketedCards = snap.pocketedCards;
     p.cardCount = snap.cardCount;
     p.activeCardCount = snap.activeCardCount;
-    p.wins = snap.wins;
-    p.isWinner = snap.isWinner;
-    p.totalScore = snap.totalScore;
   });
 }
 
