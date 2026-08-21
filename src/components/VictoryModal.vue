@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Card, Player, WinnerInfo } from '@shared/types/game';
+import type { Card, Player, RoundScoreEntry, WinnerInfo } from '@shared/types/game';
 import { computed } from 'vue';
 
 const props = defineProps<{
@@ -7,6 +7,7 @@ const props = defineProps<{
   isHost: boolean;
   players: Player[];
   pocketedBallNumbers: number[];
+  lastRoundScores: RoundScoreEntry[];
 }>();
 
 const emit = defineEmits<(e: 'restart') => void>();
@@ -38,6 +39,31 @@ const winningPlayers = computed<Array<WinnerInfo | Player>>(() => {
 const winningNamesText = computed(() => {
   return winningPlayers.value.map((p) => `${p.avatar} ${p.name}`).join(' 、 ');
 });
+
+const roundScoreMap = computed<Record<string, number>>(() => {
+  const map: Record<string, number> = {};
+  props.lastRoundScores.forEach(({ userId, delta }) => {
+    map[userId] = delta;
+  });
+  return map;
+});
+
+// 计算每张未消除手牌的单张积分贡献 (base * groupSize)
+function cardPenaltyBase(card: Card): number {
+  return card.suitType === 'joker-big' || card.suitType === 'joker-small' ? 1 : 2;
+}
+
+function getRemainingCardPenalties(player: Player): Map<string, number> {
+  const pocketedSet = new Set(props.pocketedBallNumbers);
+  const remaining = (player.cards || []).filter((c) => !pocketedSet.has(c.ballNumber));
+  const rankCount = new Map<string, number>();
+  for (const c of remaining) rankCount.set(c.rank, (rankCount.get(c.rank) || 0) + 1);
+  const result = new Map<string, number>();
+  for (const c of remaining) {
+    result.set(c.id, cardPenaltyBase(c) * (rankCount.get(c.rank) || 1));
+  }
+  return result;
+}
 </script>
 
 <template>
@@ -73,10 +99,19 @@ const winningNamesText = computed(() => {
             <span v-if="isWinner(player)" class="text-[9px] bg-amber-400 text-black font-black px-1.5 py-0.5 rounded-full">🏆 胜出</span>
             <span v-if="player.online === false" class="text-[9px] bg-red-950 text-red-300 border border-red-700/50 px-1 rounded">暂离</span>
 
+            <!-- 本局积分变化 -->
+            <span v-if="roundScoreMap[player.userId] !== undefined"
+                  :class="['text-[10px] font-black px-1.5 py-0.5 rounded-lg border',
+                           roundScoreMap[player.userId] >= 0
+                             ? 'bg-emerald-950 text-emerald-300 border-emerald-600/40'
+                             : 'bg-red-950 text-red-300 border-red-700/40']">
+              {{ roundScoreMap[player.userId] >= 0 ? '+' : '' }}{{ roundScoreMap[player.userId] }}分
+            </span>
+
             <!-- 累计得分战报 -->
             <span class="ml-auto text-xs font-black text-amber-300 bg-amber-950/90 border border-amber-500/40 px-2 py-0.5 rounded-lg flex items-center gap-1 shadow-sm">
               <i class="fa-solid fa-trophy text-amber-400 text-[10px]"></i>
-              <span>累计得分: {{ player.wins }}胜</span>
+              <span>总积分: {{ player.totalScore || 0 }}</span>
             </span>
           </div>
 
@@ -118,6 +153,7 @@ const winningNamesText = computed(() => {
                   <span :class="getSuitColor(card)">{{ card.suit }}</span>
                   <span>{{ card.rank }}</span>
                   <span class="text-[9px] text-red-300/70">·{{ card.ballNumber }}</span>
+                  <span class="text-[9px] text-red-400 font-black ml-0.5">-{{ getRemainingCardPenalties(player).get(card.id) }}分</span>
                 </span>
               </div>
             </template>

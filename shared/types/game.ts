@@ -21,6 +21,12 @@ export interface Player {
   pocketedCards: Card[];
   wins: number;
   isWinner: boolean;
+  totalScore: number;
+}
+
+export interface RoundScoreEntry {
+  userId: string;
+  delta: number;
 }
 
 export interface RoomSettings {
@@ -58,6 +64,7 @@ export interface Room {
   winners: WinnerInfo[] | Player[];
   settings: RoomSettings;
   logs: GameLog[];
+  lastRoundScores: RoundScoreEntry[];
 }
 
 export interface ServerRoom {
@@ -75,6 +82,7 @@ export interface ServerRoom {
   roundCount: number;
   settings: RoomSettings;
   logs: GameLog[];
+  lastRoundScores: RoundScoreEntry[];
 }
 
 export interface BallConfig {
