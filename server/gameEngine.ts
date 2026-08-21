@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import type { Player, ServerRoom } from '../shared/types/game';
 import { shuffle } from './pokerDeck';
 
@@ -14,7 +15,7 @@ export function addLog(room: ServerRoom, text: string): void {
   }
 
   room.logs.push({
-    id: `${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    id: `${Date.now()}_${crypto.randomBytes(3).toString('hex')}`,
     time,
     text,
   });

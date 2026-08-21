@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import type { Server } from 'socket.io';
 import type { Room, ServerRoom } from '../shared/types/game';
 import { getPocketedBallNumbers } from './gameEngine';
@@ -8,7 +9,7 @@ export const socketIndex = new Map<string, { roomCode: string; userId: string }>
 export function generateRoomCode(): string {
   let code = '';
   do {
-    code = Math.floor(1000 + Math.random() * 9000).toString();
+    code = crypto.randomInt(1000, 10000).toString();
   } while (rooms[code]);
   return code;
 }
