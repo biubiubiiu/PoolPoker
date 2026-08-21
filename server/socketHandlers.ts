@@ -3,6 +3,7 @@ import type { Server, Socket } from 'socket.io';
 import type { Player, ServerRoom } from '../shared/types/game';
 import type {
   AccidentalPocketPayload,
+  BreakPocketPayload,
   ConfirmRestartPayload,
   CreateRoomPayload,
   DrawPenaltyPayload,
@@ -20,6 +21,7 @@ import type {
 } from '../shared/types/socket';
 import { isValidBallConfigKey } from './config';
 import { addLog, checkGameWinners, computeTurnOrder, handleGameFinished } from './gameEngine';
+import { recordGameStep, undoGameStep } from './gameState';
 import { logSocketDisconnect } from './logger';
 import { create54PokerDeck, shuffle } from './pokerDeck';
 import { broadcastRoomState, generateRoomCode, rooms, socketIndex } from './roomManager';
@@ -66,6 +68,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       players: [newPlayer],
       deck: [],
       accidentalBalls: [],
+      breakBalls: [],
       winners: [],
       turnOrder: [],
       roundCount: 0,
@@ -77,6 +80,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       },
       logs: [],
       lastRoundScores: [],
+      gameHistory: [],
     };
 
     rooms[roomCode] = newRoom;
@@ -228,6 +232,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
 
     room.deck = shuffle(create54PokerDeck());
     room.accidentalBalls = [];
+    room.breakBalls = [];
     room.winners = [];
     room.lastRoundScores = [];
     room.roundCount += 1;
@@ -250,6 +255,10 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
 
     room.turnOrder = computeTurnOrder(room);
     room.lastTurnOrder = [...room.turnOrder];
+
+    // 每局开始游戏时清空撤回历史，并记录「发牌完成」的初始状态作为第 0 步基线
+    room.gameHistory = [];
+    recordGameStep(room);
 
     addLog(room, `🎮 第 ${room.roundCount} 局游戏正式开始！每位玩家发牌 ${count} 张`);
     broadcastRoomState(io, roomCode);
@@ -283,6 +292,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       handleGameFinished(room, winners, player);
     }
 
+    recordGameStep(room);
     broadcastRoomState(io, roomCode);
   });
 
@@ -306,9 +316,10 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     const penaltyCard = room.deck.pop();
     if (penaltyCard) {
       player.cards.push(penaltyCard);
-      addLog(room, `⚠️ ${player.name} 犯规，罚抽 1 张扑克牌 [${penaltyCard.suit}${penaltyCard.rank}]`);
+      addLog(room, `⚠️ ${player.name} 犯规，罚抽 1 张扑克牌`);
     }
 
+    recordGameStep(room);
     broadcastRoomState(io, roomCode);
   });
 
@@ -326,31 +337,45 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       if (winners.length > 0) {
         handleGameFinished(room, winners, null);
       }
+
+      recordGameStep(room);
     }
 
     broadcastRoomState(io, roomCode);
   });
 
-  // 8. 追回 / 撤销已消除卡牌
+  // 7.1 开球进球 - 记录场上球入袋，不归入任何玩家手牌
+  socket.on('break_pocket', (data: BreakPocketPayload) => {
+    const { roomCode, ballNumber } = data;
+    const room = rooms[roomCode];
+    if (room?.status !== 'playing') return;
+
+    if (!room.breakBalls.includes(ballNumber)) {
+      room.breakBalls.push(ballNumber);
+      addLog(room, `🚀 记录开球进球：${ballNumber}号球已进球`);
+
+      const winners = checkGameWinners(room);
+      if (winners.length > 0) {
+        handleGameFinished(room, winners, null);
+      }
+
+      recordGameStep(room);
+    }
+
+    broadcastRoomState(io, roomCode);
+  });
+
+  // 8. 撤回上一步操作（整体回退到上一步状态）
   socket.on('retract_ball', (data: RetractBallPayload) => {
-    const { roomCode, cardId } = data;
+    const { roomCode } = data;
     const room = rooms[roomCode];
     if (!room) return;
 
-    const session = socketIndex.get(socket.id);
-    if (!session) return;
-
-    const player = room.players.find((p) => p.userId === session.userId);
-    if (!player) return;
-
-    const pCardIdx = player.pocketedCards.findIndex((c) => c.id === cardId);
-    if (pCardIdx !== -1) {
-      const [retractedCard] = player.pocketedCards.splice(pCardIdx, 1);
-      player.cards.push(retractedCard);
-      addLog(
-        room,
-        `↩️ ${player.name} 撤回了已打进的手牌 [${retractedCard.suit}${retractedCard.rank} -> ${retractedCard.ballNumber}号球]，该牌返回手牌中。`
-      );
+    const previous = undoGameStep(room);
+    if (!previous) {
+      addLog(room, '↩️ 没有可撤回的操作');
+    } else {
+      addLog(room, '↩️ 已撤回到上一步操作');
     }
 
     broadcastRoomState(io, roomCode);
@@ -388,6 +413,8 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       if (winners.length > 0) {
         handleGameFinished(room, winners, targetPlayer);
       }
+
+      recordGameStep(room);
     } else {
       if (!room.accidentalBalls.includes(ballNumber)) {
         room.accidentalBalls.push(ballNumber);
@@ -397,6 +424,8 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
         if (winners.length > 0) {
           handleGameFinished(room, winners, null);
         }
+
+        recordGameStep(room);
       }
     }
 
@@ -420,9 +449,10 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     const penaltyCard = room.deck.pop();
     if (penaltyCard) {
       targetPlayer.cards.push(penaltyCard);
-      addLog(room, `👨‍⚖️ 裁判代记：${targetPlayer.name} 犯规，罚抽 1 张扑克牌 [${penaltyCard.suit}${penaltyCard.rank}]`);
+      addLog(room, `👨‍⚖️ 裁判代记：${targetPlayer.name} 犯规，罚抽 1 张扑克牌`);
     }
 
+    recordGameStep(room);
     broadcastRoomState(io, roomCode);
   });
 
@@ -443,8 +473,10 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
 
     room.deck = [];
     room.accidentalBalls = [];
+    room.breakBalls = [];
     room.winners = [];
     room.status = 'waiting';
+    room.gameHistory = [];
 
     room.players.forEach((p) => {
       p.cards = [];

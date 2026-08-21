@@ -43,9 +43,13 @@ export interface AccidentalPocketPayload {
   ballNumber: number;
 }
 
+export interface BreakPocketPayload {
+  roomCode: string;
+  ballNumber: number;
+}
+
 export interface RetractBallPayload {
   roomCode: string;
-  cardId: string;
 }
 
 export interface RefereePocketBallPayload {
@@ -105,6 +109,7 @@ export interface ClientToServerEvents {
   pocket_ball: (payload: PocketBallPayload) => void;
   draw_penalty: (payload: DrawPenaltyPayload) => void;
   accidental_pocket: (payload: AccidentalPocketPayload) => void;
+  break_pocket: (payload: BreakPocketPayload) => void;
   retract_ball: (payload: RetractBallPayload) => void;
   referee_pocket_ball: (payload: RefereePocketBallPayload) => void;
   referee_draw_penalty: (payload: RefereeDrawPenaltyPayload) => void;

@@ -191,3 +191,62 @@
   - `src/App.vue` — 修改：积分规则弹窗（内联）。
   - `src/components/VictoryModal.vue` — 修改：积分变化、累计总分、单张罚分展示。
 - **commit**：`150d669`（经 `38123ae` 合并）
+
+### 第21轮：每局结算推送企业微信机器人 [2026-08-21]
+- **输入**：新增「看板」——每局胜利结算后，把房间号与各成员积分推送到企业微信机器人。
+- **探索与决策**：新增 `server/wecomWebhook.ts` 承载推送逻辑，`sendRoundResultToWecom(room)` 把「房间号 + 各成员本局得分变化（`+N/-N`）+ 累计积分」拼成文本消息（`msgtype: text`），POST 到企业微信机器人 Webhook（地址与提及成员先写死）；在 `gameEngine.ts` 的 `handleGameFinished` 结算完成后调用，异步推送、不阻塞结算流程；推送失败（HTTP 非 2xx / `errcode !== 0` / 异常）只打印 `⚠️ [WeCom]` 警告日志，不抛出、不影响对局。
+- **最终改动**：
+  - `server/wecomWebhook.ts` — 新增：企业微信结算推送（拼消息 + fetch POST + 错误告警）。
+  - `server/gameEngine.ts` — 修改：`handleGameFinished` 结算后调用 `sendRoundResultToWecom`。
+- **commit**：`ac2b2a2`
+
+### 第22轮：机器人 Webhook 链接改为运行时配置 [2026-08-21]
+- **输入**：机器人 Webhook 地址不写死，改为运行时通过设置页面配置。
+- **探索与决策**：Webhook 地址抽到 `server/robotConfig.ts`（内存变量 + `get/set`），新增 `/api/robot-url`（GET 读 / POST 写）接口与 `/enter_robot` 静态设置页面（独立于 SPA），页面保存/清除后 `setRobotWebhookUrl` 更新内存值；`sendRoundResultToWecom` 推送前先 `getRobotWebhookUrl()` 检查，未配置则直接返回不发送；`index.ts` 启用 `express.json()` 以解析 POST body。链接仅存内存，服务重启后清空。
+- **最终改动**：
+  - `server/robotConfig.ts` — 新增：Webhook 链接内存配置（`getRobotWebhookUrl` / `setRobotWebhookUrl`）。
+  - `server/index.ts` — 修改：`express.json()`、`/api/robot-url`（GET/POST）、`/enter_robot` 静态页面路由。
+  - `server/wecomWebhook.ts` — 修改：改从 `robotConfig` 取链接，未配置跳过推送。
+  - `public/enter_robot.html` — 新增：机器人链接设置页面（读取/保存/清除）。
+- **commit**：`fb66860`
+
+### 第23轮：手牌按球号排序，罚牌日志隐去点数花色 [2026-08-21]
+- **输入**：手牌按球号升序排列；犯规罚抽的日志不再显示具体点数花色。
+- **探索与决策**：手牌排序放在前端计算属性，新增 `sortedMyCards`（`[...cards].sort((a,b) => a.ballNumber - b.ballNumber)`），`App.vue` 手牌区改渲染 `sortedMyCards`，避免改动服务端 `cards` 数组本身；罚抽日志去掉 `[suit+rank]` 后缀，普通犯规与裁判代记两处统一为「罚抽 1 张扑克牌」。
+- **最终改动**：
+  - `src/composables/useGameRoom.ts` — 修改：新增 `sortedMyCards` 计算属性并导出。
+  - `src/App.vue` — 修改：手牌区改渲染 `sortedMyCards`。
+  - `server/socketHandlers.ts` — 修改：`draw_penalty` / `referee_draw_penalty` 罚抽日志去掉具体点数花色。
+- **commit**：`9f3e9b4`
+
+### 第24轮：开球进球记录 [2026-08-21]
+- **输入**：新增「开球进球」记录——开球时入袋的球记为已进球，但不归入任何玩家手牌。
+- **探索与决策**：沿用 `accidental_pocket` 的「全场已进球」思路，新增独立 `breakBalls` 数组（写入 `ServerRoom`，创建/开局/重开时清空）以区别于意外进球；`getPocketedBallNumbers` 把 `breakBalls` 并入全局已进球号并集，从而不影响胜负判定与前端置灰逻辑。新增 `break_pocket` 事件（payload `BreakPocketPayload`），去重入袋、记日志、判胜负。前端在 `RefereePocketModal` 里加「开球进球」切换按钮（`isBreakPocket`），选中后隐藏玩家选择、走独立的 `confirm-break` 事件，由 `useGameRoom.handleBreakPocketConfirm` 发 `break_pocket`。
+- **最终改动**：
+  - `shared/types/game.ts` — 修改：`ServerRoom` 新增 `breakBalls: number[]`。
+  - `shared/types/socket.ts` — 修改：新增 `BreakPocketPayload` 与 `ClientToServerEvents.break_pocket`。
+  - `server/gameEngine.ts` — 修改：`getPocketedBallNumbers` 并入 `breakBalls`。
+  - `server/socketHandlers.ts` — 新增：`break_pocket` 事件处理器；创建/开局/重开处清空 `breakBalls`。
+  - `src/components/RefereePocketModal.vue` — 修改：新增「开球进球」切换、`confirm-break` 事件、按钮禁用逻辑与开球描述框。
+  - `src/composables/useGameRoom.ts` — 新增：`handleBreakPocketConfirm` 并导出。
+  - `src/App.vue` — 修改：接入 `handleBreakPocketConfirm` 与 `@confirm-break`。
+- **commit**：未提交（工作区改动）
+
+### 第25轮：内存数据收敛 + 撤回改造为快照栈 [2026-08-22]
+- **输入**：整理游戏进行用到的所有内存数据封装到一个结构体；撤回功能改为——每步操作后的新结构体放进一个总体记录数组，撤回时 pop 数组回到上一步；每局开始游戏时清空数组，数组为空时撤回无效果。
+- **探索与决策**：
+  - 将 `ServerRoom` 里散落的「进行态」字段收敛为 `GameState`（`shared/types/game.ts`）：`status` / `players[]`（`GamePlayerSnapshot`，仅含 `cards`/`pocketedCards`/`cardCount`/`activeCardCount`/`wins`/`isWinner`/`totalScore`）/ `deck` / `accidentalBalls` / `breakBalls` / `winners` / `turnOrder` / `lastTurnOrder` / `lastWinnerUserId` / `roundCount` / `lastRoundScores`。快照**不含 logs**（日志属审计记录不随撤回回退）与身份/连接/设置类字段（`id`/`userId`/`sessionToken`/`name`/`avatar`/`isHost`/`online`/`settings`）。
+  - 新增 `server/gameState.ts` 承载快照：`snapshotGameState` / `restoreGameState`（深拷贝）、`recordGameStep`（操作后 push）、`undoGameStep`（pop 当前、回退到新栈顶）。采用「push 操作后状态」语义，`undoGameStep` 丢弃栈顶回退到再上一步，历史只剩基线（length ≤ 1）时返回 null 无效果。
+  - 撤回权限定为「所有玩家」、前端交互定为「撤回上一步 + 确认框」，移除选牌弹窗（`RetractBallModal.vue` 删除），`RetractBallPayload` 去掉 `cardId`。
+- **最终改动**：
+  - `shared/types/game.ts` — 修改：新增 `GameState` / `GamePlayerSnapshot`；`ServerRoom` 增 `gameHistory: GameState[]`。
+  - `shared/types/socket.ts` — 修改：`RetractBallPayload` 移除 `cardId`，仅留 `roomCode`。
+  - `server/gameState.ts` — 新增：`snapshotGameState` / `restoreGameState` / `recordGameStep` / `undoGameStep`。
+  - `server/socketHandlers.ts` — 修改：`create_room` 初始化 `gameHistory`；`start_game` 清空并 `recordGameStep` 播种发牌基线；`pocket_ball`/`draw_penalty`/`accidental_pocket`/`break_pocket`/`referee_pocket_ball`（两分支）/`referee_draw_penalty` 操作后 `recordGameStep`；`retract_ball` 改为 `undoGameStep` 并追加「已撤回到上一步操作 / 没有可撤回的操作」日志；`handleRestartRoom` 清空 `gameHistory`。
+  - `src/composables/useGameRoom.ts` — 修改：`handleRetractConfirm(cardId)` 改为 `handleRetract()`（`window.confirm` 后发 `retract_ball`），移除 `showRetractModal`。
+  - `src/App.vue` — 修改：撤回按钮改为 `@click="handleRetract"`，移除 `RetractBallModal` 引用。
+  - `src/components/RetractBallModal.vue` — 删除：选牌撤回弹窗（被确认框交互取代）。
+  - `e2e/poolpoker.spec.ts` — 修改：撤回用例改为验证「已撤回到上一步操作」日志。
+- **验收**：`npm run build`（vue-tsc + vite）通过；变更文件 Biome 检查通过。
+- **commit**：未提交（工作区改动）
+

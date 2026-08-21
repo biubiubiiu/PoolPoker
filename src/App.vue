@@ -7,7 +7,6 @@ import PokerCard from '@/components/PokerCard.vue';
 import RefereeFoulModal from '@/components/RefereeFoulModal.vue';
 import RefereePocketModal from '@/components/RefereePocketModal.vue';
 import RestartModal from '@/components/RestartModal.vue';
-import RetractBallModal from '@/components/RetractBallModal.vue';
 import RoomLobby from '@/components/RoomLobby.vue';
 import VictoryModal from '@/components/VictoryModal.vue';
 import { useGameRoom } from '@/composables/useGameRoom';
@@ -21,7 +20,6 @@ const { socket } = useSocket();
 const {
   room,
   showRestartConfirm,
-  showRetractModal,
   showRefereePocketModal,
   showRefereeFoulModal,
   refereeTargetUserId,
@@ -29,6 +27,7 @@ const {
   ballColorStyle,
   isHost,
   myInfo,
+  sortedMyCards,
   turnOrderPlayers,
   isCardDimmed,
   handleCreateRoom,
@@ -36,10 +35,11 @@ const {
   handleAdjustCards,
   handleStartGame,
   handleConfirmPocket,
-  handleRetractConfirm,
+  handleRetract,
   openRefereePocket,
   openRefereeFoul,
   handleRefereePocketConfirm,
+  handleBreakPocketConfirm,
   handleRefereeFoulConfirm,
   handleConfirmRestart,
   handleLeaveRoom,
@@ -99,9 +99,9 @@ const showRulesModal = ref(false);
           </button>
         </div>
 
-        <div v-if="myInfo && myInfo.cards && myInfo.cards.length > 0" 
+        <div v-if="sortedMyCards && sortedMyCards.length > 0"
              class="flex flex-wrap justify-center items-center gap-2.5 sm:gap-3 py-2 min-h-[120px]">
-          <PokerCard v-for="card in myInfo.cards" :key="card.id"
+          <PokerCard v-for="card in sortedMyCards" :key="card.id"
                      :card="card"
                      :isDimmed="isCardDimmed(card)"
                      @click="handleConfirmPocket" />
@@ -116,7 +116,7 @@ const showRulesModal = ref(false);
           <span class="text-gray-400 text-[10px] shrink-0 mr-2">打进球后点击<br>对应扑克卡片销牌</span>
           
           <div class="flex items-center space-x-2">
-            <button @click="showRetractModal = true"
+            <button @click="handleRetract"
                     class="bg-blue-950/80 hover:bg-blue-900 text-blue-200 border border-blue-700/50 px-2 py-1 rounded-lg font-bold flex items-center gap-1 active:scale-95 text-xs cursor-pointer">
               <i class="fa-solid fa-rotate-left text-blue-400"></i> 撤回
             </button>
@@ -147,17 +147,13 @@ const showRulesModal = ref(false);
 
     <!-- 弹窗部分 -->
 
-    <RetractBallModal :show="showRetractModal"
-                      :myPocketedCards="myInfo?.pocketedCards || []"
-                      @close="showRetractModal = false"
-                      @confirm="handleRetractConfirm" />
-
     <RefereePocketModal :show="showRefereePocketModal"
                         :players="room?.players || []"
                         :pocketedBallNumbers="room?.pocketedBallNumbers || []"
                         :defaultUserId="refereeTargetUserId"
                         @close="showRefereePocketModal = false"
-                        @confirm="handleRefereePocketConfirm" />
+                        @confirm="handleRefereePocketConfirm"
+                        @confirm-break="handleBreakPocketConfirm" />
 
     <RefereeFoulModal :show="showRefereeFoulModal"
                       :players="room?.players || []"
