@@ -1,10 +1,47 @@
 @import "tailwindcss";
 
-/* 台球卡牌专属 3D 样式与扑克化外观 */
+/* 
+ * PoolPoker 主题与视觉样式规范
+ * 1. 变量层 (Design Tokens): 集中管理系统配色与 UI 契约
+ * 2. 实体资产保护层 (Physical Game Assets): 统一隔离扑克牌与台球，防止移动端反色
+ * 3. 基础画布与组件样式 (Canvas & Components)
+ */
+
+/* ==========================================================================
+   1. 设计令牌 (Design Tokens & Theme System)
+   ========================================================================== */
+:root {
+  color-scheme: dark;
+
+  /* 默认：经典绿绒台球桌主题 (Green Felt Theme) */
+  --table-bg-color: #0b1912;
+  --table-pattern-color: #143826;
+  --glass-panel-bg: rgba(18, 48, 33, 0.85);
+  --glass-panel-border: rgba(255, 255, 255, 0.1);
+}
+
+/* 预留扩展：浅色/木质台桌主题 (Light / Wood Theme) */
+[data-theme="light"] {
+  color-scheme: light;
+  --table-bg-color: #e2e8f0;
+  --table-pattern-color: #cbd5e1;
+  --glass-panel-bg: rgba(255, 255, 255, 0.85);
+  --glass-panel-border: rgba(0, 0, 0, 0.1);
+}
+
+/* ==========================================================================
+   2. 基础应用画布 (App Canvas)
+   ========================================================================== */
+html,
+body {
+  color-scheme: dark;
+}
 
 body {
-  background-color: #0b1912;
-  background-image: radial-gradient(#143826 15%, transparent 16%), radial-gradient(#143826 15%, transparent 16%);
+  background-color: var(--table-bg-color);
+  background-image:
+    radial-gradient(var(--table-pattern-color) 15%, transparent 16%),
+    radial-gradient(var(--table-pattern-color) 15%, transparent 16%);
   background-size: 30px 30px;
   background-position:
     0 0,
@@ -14,7 +51,32 @@ body {
   -webkit-user-select: none;
 }
 
-/* 扑克卡牌容器外观 (经典扑克圆角竖卡) */
+/* 移动端下拉菜单选项主题兼容 */
+select option {
+  background-color: var(--table-bg-color);
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   3. 实体游戏资产保护 (Physical Game Assets Protection)
+   使用 color-scheme: only light 显式禁止 Chrome/Safari/Blink 自动深色算法 (Auto Dark Mode)
+   与系统高对比度反色 (Forced Colors) 破坏扑克牌与台球球体的物理真实色彩
+   ========================================================================== */
+.poker-card-frame,
+.billiard-ball,
+.mini-ball,
+.ball-number,
+.ball-striped::before {
+  color-scheme: only light !important;
+  forced-color-adjust: none !important;
+  -webkit-forced-color-adjust: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+}
+
+/* ==========================================================================
+   4. 扑克卡牌容器外观 (经典扑克圆角竖卡)
+   ========================================================================== */
 .poker-card-frame {
   width: 76px;
   height: 104px;
@@ -78,7 +140,9 @@ body {
   color: #616161;
 }
 
-/* 核心台球球体 (缩小版，置于卡牌中下部) */
+/* ==========================================================================
+   5. 核心台球球体
+   ========================================================================== */
 .billiard-ball {
   position: relative;
   width: 52px;
@@ -267,10 +331,10 @@ body {
 
 /* 玻璃流光面板 */
 .glass-panel {
-  background: rgba(18, 48, 33, 0.85);
+  background: var(--glass-panel-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--glass-panel-border);
 }
 
 .log-scrollbar::-webkit-scrollbar {
