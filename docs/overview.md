@@ -26,7 +26,7 @@
 - **后端**：Node.js + Express + Socket.IO（TypeScript，`tsx` 运行），房间状态全部保存在内存 `rooms: Record<string, ServerRoom>`。
 - **共享层**：`shared/types/game.ts`（Card/Player/Room 等领域模型）与 `shared/types/socket.ts`（前后端 Socket 事件契约），两端复用同一类型，保证字段一致。
 - **关键约束**：
-  - 房间状态以 `ServerRoom`（服务端内部态，含 `deck`/`accidentalBalls` 等敏感字段）与 `Room`（下发客户端的裁剪态）两种形态存在；`getClientRoomState` 按「是否本人 / 房间是否 finished」裁剪 `cards`/`pocketedCards`，防止泄露其他玩家手牌。
+  - 房间状态以 `ServerRoom`（服务端内部态，含 `deck`/`accidentalBalls` 等敏感字段）与 `Room`（下发客户端的裁剪态）两种形态存在；`getClientRoomState` 按「是否本人 / 房间是否 finished」裁剪未进球手牌 `cards`（防止泄露其他玩家手牌），而 `pocketedCards`（已消除卡牌）公开下发给所有玩家（在全局赛况显示「已消xxxx」）。
   - 撤回采用快照栈：`ServerRoom.gameHistory` 存每步操作后的 `GameState` 快照（深拷贝，不含日志），每步操作 `recordGameStep` push、撤回 `undoGameStep` pop 回退到上一步；每局 `start_game` 清空并播种发牌完成基线，历史只剩基线时撤回无效果；`gameHistory` 不下发客户端。
   - 身份校验：每个玩家持有 `sessionToken`（`crypto.randomUUID`），`rejoin_room` 重连必须校验 token，防止会话劫持。
   - 随机性统一用 `node:crypto` CSPRNG（洗牌 `crypto.randomInt`、房间码 `crypto.randomInt`、token `crypto.randomUUID`），不使用 `Math.random`。
@@ -96,7 +96,7 @@ PoolPoker/
 
 - `rooms` 内存房间表、`socketIndex` 为 `socketId → { roomCode, userId }` 反向索引（优化断线查找）。
 - `generateRoomCode`：`crypto.randomInt(1000, 10000)` 生成 4 位数字房号，冲突时重试。
-- `getClientRoomState`：把 `ServerRoom` 裁剪为下发客户端的 `Room`——`cards`/`pocketedCards` 仅当「目标用户本人」或「房间 finished」时下发，否则置空，从源头防止泄露其他玩家手牌；`logs` 只取最近 15 条。
+- `getClientRoomState`：把 `ServerRoom` 裁剪为下发客户端的 `Room`——未进球手牌 `cards` 仅当「目标用户本人」或「房间 finished」时下发，否则置空，从源头防止泄露其他玩家未进球手牌；而已消除的 `pocketedCards` 则向所有玩家下发；`logs` 只取最近 15 条。
 - `broadcastRoomState`：遍历房间内 socket，按每个玩家的身份分别序列化下发，保证各客户端只见各自可见的数据。
 
 ### Socket 事件（`server/socketHandlers.ts`）
