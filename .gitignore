@@ -30,6 +30,19 @@ Thumbs.db
 .robot_url
 .vscode/
 .idea/
+*.iml
+
+# Android / Gradle
+.gradle/
+build/
+local.properties
+gradle.properties.local
+*.apk
+*.aab
+*.keystore
+*.jks
+.cxx/
+captures/
 
 # 临时生成文件
 *.tmp

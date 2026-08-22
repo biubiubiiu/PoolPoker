@@ -64,8 +64,12 @@ export function broadcastRoomState(io: Server, roomCode: string): void {
   for (const socketId of roomSockets) {
     const playerSocket = io.sockets.sockets.get(socketId);
     if (playerSocket) {
-      const currentPlayer = room.players.find((p) => p.id === socketId);
-      const clientRoom = getClientRoomState(roomCode, currentPlayer?.userId);
+      const socketData = socketIndex.get(socketId);
+      const currentPlayer = room.players.find(
+        (p) => p.id === socketId || (socketData?.userId && p.userId === socketData.userId)
+      );
+      const targetUserId = currentPlayer?.userId || socketData?.userId;
+      const clientRoom = getClientRoomState(roomCode, targetUserId);
       if (clientRoom) {
         playerSocket.emit('room_updated', clientRoom);
       }
