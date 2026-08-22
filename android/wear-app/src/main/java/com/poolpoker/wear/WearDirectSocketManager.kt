@@ -16,7 +16,7 @@ object WearDirectSocketManager {
 
     var serverUrl: String = BuildConfig.SERVER_URL
     var userId: String = ""
-    var userName: String = "手表玩家"
+    var userName: String = "Watch Player"
     var currentRoomCode: String? = null
     var isConnected: Boolean = false
 
@@ -26,6 +26,7 @@ object WearDirectSocketManager {
         serverUrl = url
         currentRoomCode = roomCode
         userId = customUserId ?: WearUserPrefs.getOrCreateUserId(context)
+        userName = context.getString(R.string.watch_player_default)
 
         try {
             if (socket?.connected() == true) {
@@ -42,7 +43,7 @@ object WearDirectSocketManager {
             socket?.on(Socket.EVENT_CONNECT) {
                 Log.d(TAG, "Wear OS direct socket connected to $serverUrl")
                 isConnected = true
-                onStatusChanged?.invoke("已直连服务器")
+                onStatusChanged?.invoke(context.getString(R.string.status_connected_direct))
                 joinRoom(roomCode)
                 onConnected()
             }
@@ -50,14 +51,14 @@ object WearDirectSocketManager {
             socket?.on(Socket.EVENT_DISCONNECT) {
                 Log.d(TAG, "Wear OS direct socket disconnected")
                 isConnected = false
-                onStatusChanged?.invoke("连接断开")
+                onStatusChanged?.invoke(context.getString(R.string.status_disconnected))
             }
 
             socket?.on(Socket.EVENT_CONNECT_ERROR) { args ->
                 Log.e(TAG, "Wear OS direct socket connect error: ${args.firstOrNull()}")
                 isConnected = false
-                val errReason = args.firstOrNull()?.toString() ?: "网络无法访问"
-                onStatusChanged?.invoke("失败: $errReason")
+                val errReason = args.firstOrNull()?.toString() ?: context.getString(R.string.err_network_unreachable)
+                onStatusChanged?.invoke(context.getString(R.string.status_failed_format, errReason))
             }
 
             socket?.on("room_updated") { args ->
@@ -103,7 +104,7 @@ object WearDirectSocketManager {
             socket?.connect()
         } catch (e: Exception) {
             Log.e(TAG, "Direct socket error", e)
-            onStatusChanged?.invoke("连接失败: ${e.message}")
+            onStatusChanged?.invoke(context.getString(R.string.status_connect_failed_format, e.message ?: ""))
         }
     }
 

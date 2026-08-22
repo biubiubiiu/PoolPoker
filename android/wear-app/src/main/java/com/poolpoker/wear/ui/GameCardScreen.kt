@@ -36,6 +36,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -52,12 +53,13 @@ import com.google.android.gms.wearable.Wearable
 import com.poolpoker.shared.CardModel
 import com.poolpoker.shared.DataLayerConstants
 import com.poolpoker.shared.RoomStatus
-import com.poolpoker.shared.SuitType
 import com.poolpoker.shared.WearAction
 import com.poolpoker.shared.WearActionPayload
 import com.poolpoker.shared.WearSyncRoomPayload
 import com.poolpoker.wear.BuildConfig
+import com.poolpoker.wear.R
 import com.poolpoker.wear.WearDirectSocketManager
+import com.poolpoker.wear.ui.theme.PoolPokerColors
 
 @Composable
 fun WearGameScreen(roomState: WearSyncRoomPayload?) {
@@ -83,7 +85,7 @@ fun WearGameScreen(roomState: WearSyncRoomPayload?) {
             item {
                 ListHeader {
                     Text(
-                        text = "🏠 房间: ${roomState.roomCode}",
+                        text = stringResource(R.string.room_title, roomState.roomCode),
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
@@ -94,7 +96,12 @@ fun WearGameScreen(roomState: WearSyncRoomPayload?) {
             }
             item {
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("等待房主开始游戏...", fontSize = 12.sp, color = Color(0xFFFFD700), textAlign = TextAlign.Center)
+                Text(
+                    text = stringResource(R.string.waiting_for_host),
+                    fontSize = 12.sp,
+                    color = PoolPokerColors.PoolGold,
+                    textAlign = TextAlign.Center
+                )
             }
         }
         return
@@ -111,8 +118,8 @@ fun WearGameScreen(roomState: WearSyncRoomPayload?) {
             item {
                 ListHeader {
                     Text(
-                        text = "🏆 游戏结束",
-                        color = Color(0xFFFFD700),
+                        text = stringResource(R.string.game_over),
+                        color = PoolPokerColors.PoolGold,
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
                         textAlign = TextAlign.Center,
@@ -122,7 +129,13 @@ fun WearGameScreen(roomState: WearSyncRoomPayload?) {
             }
             item {
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("胜者: ${roomState.winnerName ?: "未知"}", fontSize = 13.sp, color = Color.White, textAlign = TextAlign.Center)
+                val winnerName = roomState.winnerName ?: stringResource(R.string.unknown_winner)
+                Text(
+                    text = stringResource(R.string.winner_format, winnerName),
+                    fontSize = 13.sp,
+                    color = Color.White,
+                    textAlign = TextAlign.Center
+                )
             }
         }
         return
@@ -145,10 +158,10 @@ fun WearGameScreen(roomState: WearSyncRoomPayload?) {
             item {
                 ListHeader {
                     Text(
-                        text = "⚠️ 选择犯规玩家",
+                        text = stringResource(R.string.select_foul_player),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFFF5252),
+                        color = PoolPokerColors.FoulRed,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -181,7 +194,11 @@ fun WearGameScreen(roomState: WearSyncRoomPayload?) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text("${player.avatar} ${player.name}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                        Text("${player.cardCount}张牌", fontSize = 10.sp, color = Color.LightGray)
+                        Text(
+                            text = stringResource(R.string.card_count_format, player.cardCount),
+                            fontSize = 10.sp,
+                            color = Color.LightGray
+                        )
                     }
                 }
             }
@@ -195,7 +212,7 @@ fun WearGameScreen(roomState: WearSyncRoomPayload?) {
                         .height(36.dp)
                 ) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("返回 / 取消", fontSize = 12.sp)
+                        Text(text = stringResource(R.string.btn_back_cancel), fontSize = 12.sp)
                     }
                 }
             }
@@ -217,10 +234,10 @@ fun WearGameScreen(roomState: WearSyncRoomPayload?) {
             item {
                 ListHeader {
                     Text(
-                        text = "🎱 记录进球",
+                        text = stringResource(R.string.record_pocket),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFFFD700),
+                        color = PoolPokerColors.PoolGold,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -235,7 +252,11 @@ fun WearGameScreen(roomState: WearSyncRoomPayload?) {
                         .padding(vertical = 2.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("选择进球玩家:", fontSize = 10.sp, color = Color.Gray)
+                    Text(
+                        text = stringResource(R.string.select_pocket_player),
+                        fontSize = 10.sp,
+                        color = Color.Gray
+                    )
                     Spacer(modifier = Modifier.height(4.dp))
                     Column(
                         modifier = Modifier.fillMaxWidth(),
@@ -269,7 +290,12 @@ fun WearGameScreen(roomState: WearSyncRoomPayload?) {
             }
 
             item {
-                Text("点击入袋球号 (1-15):", fontSize = 10.sp, color = Color.Gray, modifier = Modifier.padding(top = 6.dp, bottom = 4.dp))
+                Text(
+                    text = stringResource(R.string.select_ball_number),
+                    fontSize = 10.sp,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(top = 6.dp, bottom = 4.dp)
+                )
             }
 
             // 1-15 Ball Badges (3 balls per row with realistic solid/striped billiard ball badges)
@@ -319,7 +345,7 @@ fun WearGameScreen(roomState: WearSyncRoomPayload?) {
                         .height(36.dp)
                 ) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("返回 / 取消", fontSize = 12.sp)
+                        Text(text = stringResource(R.string.btn_back_cancel), fontSize = 12.sp)
                     }
                 }
             }
@@ -338,8 +364,8 @@ fun WearGameScreen(roomState: WearSyncRoomPayload?) {
             item {
                 ListHeader {
                     Text(
-                        text = "🎉 胜利！",
-                        color = Color(0xFFFFD700),
+                        text = stringResource(R.string.victory_title),
+                        color = PoolPokerColors.PoolGold,
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
                         textAlign = TextAlign.Center,
@@ -349,7 +375,12 @@ fun WearGameScreen(roomState: WearSyncRoomPayload?) {
             }
             item {
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("手牌已清空！胜局已定！", fontSize = 13.sp, color = Color.White, textAlign = TextAlign.Center)
+                Text(
+                    text = stringResource(R.string.victory_message),
+                    fontSize = 13.sp,
+                    color = Color.White,
+                    textAlign = TextAlign.Center
+                )
             }
         }
         return
@@ -366,7 +397,7 @@ fun WearGameScreen(roomState: WearSyncRoomPayload?) {
         item {
             ListHeader {
                 Text(
-                    text = "🏠 房号: ${roomState.roomCode}",
+                    text = stringResource(R.string.room_code_header, roomState.roomCode),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
@@ -378,15 +409,16 @@ fun WearGameScreen(roomState: WearSyncRoomPayload?) {
 
         // Display current watch player's name
         item {
+            val myPlayerName = roomState.myPlayerName ?: stringResource(R.string.watch_player_default)
             Box(
                 modifier = Modifier
                     .padding(bottom = 6.dp)
-                    .background(Color(0xFF1E1E1E), shape = RoundedCornerShape(12.dp))
+                    .background(PoolPokerColors.CardBlack, shape = RoundedCornerShape(12.dp))
                     .padding(horizontal = 10.dp, vertical = 4.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "👤 ${roomState.myPlayerName ?: "手表玩家"}",
+                    text = stringResource(R.string.watch_player_prefix, myPlayerName),
                     fontSize = 11.sp,
                     color = Color.White,
                     fontWeight = FontWeight.Bold
@@ -420,7 +452,7 @@ fun WearGameScreen(roomState: WearSyncRoomPayload?) {
                     .height(38.dp)
             ) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("🎱 记录进球", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(text = stringResource(R.string.record_pocket), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -437,7 +469,7 @@ fun WearGameScreen(roomState: WearSyncRoomPayload?) {
                     .padding(vertical = 1.dp)
             ) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("⚠️ 记录犯规", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(text = stringResource(R.string.record_foul), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -453,7 +485,7 @@ fun WearGameScreen(roomState: WearSyncRoomPayload?) {
                     .height(38.dp)
             ) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("↩️ 撤回上一步", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(text = stringResource(R.string.retract_ball), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -467,7 +499,7 @@ fun BilliardBallBadge(
     size: Dp = 32.dp
 ) {
     val isStriped = ballNumber in 9..15
-    val ballColor = getBallBackgroundColor(ballNumber)
+    val ballColor = PoolPokerColors.getBallColor(ballNumber)
     val innerCircleSize = size * 0.54f
 
     Box(
@@ -543,50 +575,27 @@ fun WearSingleCardItem(
                     text = "${card.suit} ${card.rank}",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = getSuitTextColor(card.suitType)
+                    color = PoolPokerColors.getSuitColor(card.suitType)
                 )
             }
 
             // Status Badge / Action Text
             if (isPocketed) {
                 Text(
-                    text = "已进球",
+                    text = stringResource(R.string.card_pocketed),
                     fontSize = 10.sp,
-                    color = Color.Yellow,
+                    color = PoolPokerColors.StatusPocketed,
                     fontWeight = FontWeight.SemiBold
                 )
             } else {
                 Text(
-                    text = "点击消牌 ➔",
+                    text = stringResource(R.string.card_tap_to_clear),
                     fontSize = 10.sp,
-                    color = Color(0xFFFFD700),
+                    color = PoolPokerColors.StatusClearGold,
                     fontWeight = FontWeight.Bold
                 )
             }
         }
-    }
-}
-
-fun getSuitTextColor(suitType: SuitType): Color {
-    return when (suitType) {
-        SuitType.HEART, SuitType.DIAMOND -> Color(0xFFFF5252)
-        SuitType.SPADE, SuitType.CLUB -> Color.White
-        SuitType.JOKER_SMALL -> Color(0xFFFFD700)
-        SuitType.JOKER_BIG -> Color(0xFFFF4081)
-    }
-}
-
-fun getBallBackgroundColor(ballNumber: Int): Color {
-    return when (ballNumber) {
-        1, 9 -> Color(0xFFFFB300)   // Yellow (1 solid, 9 stripe)
-        2, 10 -> Color(0xFF1E88E5)  // Blue (2 solid, 10 stripe)
-        3, 11 -> Color(0xFFE53935)  // Red (3 solid, 11 stripe)
-        4, 12 -> Color(0xFF8E24AA)  // Purple (4 solid, 12 stripe)
-        5, 13 -> Color(0xFFFB8C00)  // Orange (5 solid, 13 stripe)
-        6, 14 -> Color(0xFF43A047)  // Green (6 solid, 14 stripe)
-        7, 15 -> Color(0xFF8D6E63)  // Brown (7 solid, 15 stripe)
-        8 -> Color(0xFF212121)      // Black (8 solid)
-        else -> Color.DarkGray
     }
 }
 
@@ -644,8 +653,8 @@ fun triggerVibration(context: Context) {
 fun WearDirectConnectScreen() {
     var roomCode by remember { mutableStateOf("") }
     val serverUrl = BuildConfig.SERVER_URL
-    var statusText by remember { mutableStateOf("等待 Companion 或直连...") }
     val context = LocalContext.current
+    var statusText by remember { mutableStateOf(context.getString(R.string.status_waiting_companion)) }
 
     DisposableEffect(Unit) {
         WearDirectSocketManager.onStatusChanged = { status ->
@@ -667,10 +676,10 @@ fun WearDirectConnectScreen() {
         item {
             ListHeader {
                 Text(
-                    text = "🎱 PoolPoker 直连",
+                    text = stringResource(R.string.direct_connect_title),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFFFD700),
+                    color = PoolPokerColors.PoolGold,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -700,14 +709,14 @@ fun WearDirectConnectScreen() {
                     Box(
                         modifier = Modifier
                             .size(width = 28.dp, height = 32.dp)
-                            .background(Color(0xFF2A2A2A), shape = RoundedCornerShape(6.dp)),
+                            .background(PoolPokerColors.NumpadSlotBg, shape = RoundedCornerShape(6.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = digit,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (digit != "_") Color(0xFFFFD700) else Color.Gray
+                            color = if (digit != "_") PoolPokerColors.PoolGold else Color.Gray
                         )
                     }
                 }
@@ -732,9 +741,9 @@ fun WearDirectConnectScreen() {
                         val isConfirm = key == "✓"
                         val isBackspace = key == "⌫"
                         val keyBgColor = when {
-                            isConfirm -> Color(0xFF43A047) // Green for confirm
-                            isBackspace -> Color(0xFFE53935) // Red for backspace
-                            else -> Color(0xFFFFD700) // Gold for numbers
+                            isConfirm -> PoolPokerColors.NumpadConfirmGreen
+                            isBackspace -> PoolPokerColors.NumpadBackspaceRed
+                            else -> PoolPokerColors.PoolGold
                         }
 
                         Box(
@@ -747,7 +756,7 @@ fun WearDirectConnectScreen() {
                                         "⌫" -> if (roomCode.isNotEmpty()) roomCode = roomCode.dropLast(1)
                                         "✓" -> {
                                             if (roomCode.length == 4) {
-                                                statusText = "正在连接服务器..."
+                                                statusText = context.getString(R.string.status_connecting)
                                                 WearDirectSocketManager.connect(context, roomCode, serverUrl)
                                             }
                                         }
@@ -755,7 +764,7 @@ fun WearDirectConnectScreen() {
                                             if (roomCode.length < 4) {
                                                 roomCode += key
                                                 if (roomCode.length == 4) {
-                                                    statusText = "正在连接服务器..."
+                                                    statusText = context.getString(R.string.status_connecting)
                                                     WearDirectSocketManager.connect(context, roomCode, serverUrl)
                                                 }
                                             }
@@ -767,13 +776,13 @@ fun WearDirectConnectScreen() {
                             when (key) {
                                 "⌫" -> Icon(
                                     imageVector = Icons.AutoMirrored.Filled.Backspace,
-                                    contentDescription = "退格",
+                                    contentDescription = stringResource(R.string.cd_backspace),
                                     tint = Color.White,
                                     modifier = Modifier.size(18.dp)
                                 )
                                 "✓" -> Icon(
                                     imageVector = Icons.Default.Check,
-                                    contentDescription = "确认",
+                                    contentDescription = stringResource(R.string.cd_confirm),
                                     tint = Color.White,
                                     modifier = Modifier.size(20.dp)
                                 )

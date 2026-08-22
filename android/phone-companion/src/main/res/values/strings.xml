@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PoolPoker Companion</string>
+    <string name="app_title">🎱 PoolPoker Phone Companion</string>
+    <string name="app_subtitle">Watch Sync Companion App</string>
+    <string name="label_server_url">Server URL</string>
+    <string name="label_player_name">Player Name</string>
+    <string name="btn_connect">Connect to Server</string>
+    <string name="status_disconnected">Disconnected</string>
+    <string name="status_format">Status: %1$s</string>
+    <string name="status_connected_url">Connected to server (%1$s)</string>
+    <string name="status_room_created">Created room %1$s</string>
+    <string name="status_connect_error">Connection error: %1$s</string>
+    <string name="btn_create_room">Create Room</string>
+    <string name="label_room_code">4-Digit Code</string>
+    <string name="btn_join">Join</string>
+    <string name="room_status_format">🏠 Room: %1$s | Status: %2$s</string>
+    <string name="pocketed_balls_format">Pocketed Balls: %1$s</string>
+    <string name="btn_start_game">Start Game</string>
+    <string name="label_member_list">Member List:</string>
+    <string name="card_count_left_format">Cards Left: %1$d</string>
+    <string name="default_companion_name">Phone Companion</string>
+</resources>

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PoolPoker Wear</string>
+    <string name="room_title">🏠 Room: %1$s</string>
+    <string name="room_code_header">🏠 Room: %1$s</string>
+    <string name="waiting_for_host">Waiting for host to start...</string>
+    <string name="game_over">🏆 Game Over</string>
+    <string name="winner_format">Winner: %1$s</string>
+    <string name="unknown_winner">Unknown</string>
+    <string name="select_foul_player">⚠️ Select Fouled Player</string>
+    <string name="card_count_format">%1$d cards</string>
+    <string name="btn_back_cancel">Back / Cancel</string>
+    <string name="record_pocket">🎱 Record Pocket</string>
+    <string name="select_pocket_player">Select Scored Player:</string>
+    <string name="select_ball_number">Tap Pocketed Ball (1-15):</string>
+    <string name="victory_title">🎉 Victory!</string>
+    <string name="victory_message">Hand cleared! Victory is yours!</string>
+    <string name="watch_player_prefix">👤 %1$s</string>
+    <string name="watch_player_default">Watch Player</string>
+    <string name="card_pocketed">Pocketed</string>
+    <string name="card_tap_to_clear">Tap to Clear ➔</string>
+    <string name="record_foul">⚠️ Record Foul</string>
+    <string name="retract_ball">↩️ Undo Last Step</string>
+    <string name="direct_connect_title">🎱 PoolPoker Direct</string>
+    <string name="status_waiting_companion">Waiting for Companion or Direct Connection...</string>
+    <string name="status_connecting">Connecting to server...</string>
+    <string name="status_connected_direct">Directly connected to server</string>
+    <string name="status_disconnected">Disconnected</string>
+    <string name="err_network_unreachable">Network unreachable</string>
+    <string name="status_failed_format">Failed: %1$s</string>
+    <string name="status_connect_failed_format">Connection failed: %1$s</string>
+    <string name="cd_backspace">Backspace</string>
+    <string name="cd_confirm">Confirm</string>
+</resources>

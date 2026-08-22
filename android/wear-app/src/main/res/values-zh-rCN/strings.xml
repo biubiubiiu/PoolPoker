@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PoolPoker Wear</string>
+    <string name="room_title">🏠 房间: %1$s</string>
+    <string name="room_code_header">🏠 房号: %1$s</string>
+    <string name="waiting_for_host">等待房主开始游戏...</string>
+    <string name="game_over">🏆 游戏结束</string>
+    <string name="winner_format">胜者: %1$s</string>
+    <string name="unknown_winner">未知</string>
+    <string name="select_foul_player">⚠️ 选择犯规玩家</string>
+    <string name="card_count_format">%1$d张牌</string>
+    <string name="btn_back_cancel">返回 / 取消</string>
+    <string name="record_pocket">🎱 记录进球</string>
+    <string name="select_pocket_player">选择进球玩家:</string>
+    <string name="select_ball_number">点击入袋球号 (1-15):</string>
+    <string name="victory_title">🎉 胜利！</string>
+    <string name="victory_message">手牌已清空！胜局已定！</string>
+    <string name="watch_player_prefix">👤 %1$s</string>
+    <string name="watch_player_default">手表玩家</string>
+    <string name="card_pocketed">已进球</string>
+    <string name="card_tap_to_clear">点击消牌 ➔</string>
+    <string name="record_foul">⚠️ 记录犯规</string>
+    <string name="retract_ball">↩️ 撤回上一步</string>
+    <string name="direct_connect_title">🎱 PoolPoker 直连</string>
+    <string name="status_waiting_companion">等待 Companion 或直连...</string>
+    <string name="status_connecting">正在连接服务器...</string>
+    <string name="status_connected_direct">已直连服务器</string>
+    <string name="status_disconnected">连接断开</string>
+    <string name="err_network_unreachable">网络无法访问</string>
+    <string name="status_failed_format">失败: %1$s</string>
+    <string name="status_connect_failed_format">连接失败: %1$s</string>
+    <string name="cd_backspace">退格</string>
+    <string name="cd_confirm">确认</string>
+</resources>

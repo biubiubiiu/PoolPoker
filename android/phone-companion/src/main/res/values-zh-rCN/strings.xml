@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PoolPoker Companion</string>
+    <string name="app_title">🎱 PoolPoker Phone Companion</string>
+    <string name="app_subtitle">手表协同中继应用</string>
+    <string name="label_server_url">服务器地址</string>
+    <string name="label_player_name">玩家昵称</string>
+    <string name="btn_connect">连接到服务器</string>
+    <string name="status_disconnected">未连接</string>
+    <string name="status_format">状态: %1$s</string>
+    <string name="status_connected_url">已连接到服务器 (%1$s)</string>
+    <string name="status_room_created">已创建房间 %1$s</string>
+    <string name="status_connect_error">连接出错: %1$s</string>
+    <string name="btn_create_room">创建房间</string>
+    <string name="label_room_code">4位房间码</string>
+    <string name="btn_join">加入</string>
+    <string name="room_status_format">🏠 房间: %1$s | 状态: %2$s</string>
+    <string name="pocketed_balls_format">已进球: %1$s</string>
+    <string name="btn_start_game">开始游戏</string>
+    <string name="label_member_list">成员列表:</string>
+    <string name="card_count_left_format">剩余牌数: %1$d</string>
+    <string name="default_companion_name">手机挂载端</string>
+</resources>

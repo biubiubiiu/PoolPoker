@@ -23,7 +23,7 @@ object CompanionSocketManager {
 
     var serverUrl: String = BuildConfig.SERVER_URL
     var userId: String = ""
-    var userName: String = "Android Player"
+    var userName: String = "Phone Companion"
     var currentRoomCode: String? = null
     var sessionToken: String? = null
     var latestRoomState: RoomModel? = null
@@ -43,7 +43,7 @@ object CompanionSocketManager {
 
     fun connect(context: Context, url: String, name: String, onConnected: () -> Unit = {}) {
         serverUrl = url
-        userName = name
+        userName = name.ifBlank { context.getString(R.string.default_companion_name) }
         userId = getOrCreateUserId(context)
         try {
             if (socket?.connected() == true) {
@@ -57,20 +57,20 @@ object CompanionSocketManager {
             socket = IO.socket(serverUrl, opts)
             socket?.on(Socket.EVENT_CONNECT) {
                 Log.d(TAG, "Socket connected to $serverUrl")
-                onStatusChanged?.invoke("已连接到服务器 ($serverUrl)")
+                onStatusChanged?.invoke(context.getString(R.string.status_connected_url, serverUrl))
                 onConnected()
             }
 
             socket?.on(Socket.EVENT_DISCONNECT) {
                 Log.d(TAG, "Socket disconnected")
-                onStatusChanged?.invoke("未连接")
+                onStatusChanged?.invoke(context.getString(R.string.status_disconnected))
             }
 
             socket?.on("room_created") { args ->
                 if (args.isNotEmpty()) {
                     val data = args[0] as JSONObject
                     currentRoomCode = data.optString("roomCode")
-                    onStatusChanged?.invoke("已创建房间 $currentRoomCode")
+                    onStatusChanged?.invoke(context.getString(R.string.status_room_created, currentRoomCode ?: ""))
                 }
             }
 
@@ -91,7 +91,7 @@ object CompanionSocketManager {
             socket?.connect()
         } catch (e: Exception) {
             Log.e(TAG, "Socket connection error", e)
-            onStatusChanged?.invoke("连接出错: ${e.message}")
+            onStatusChanged?.invoke(context.getString(R.string.status_connect_error, e.message ?: ""))
         }
     }
 
