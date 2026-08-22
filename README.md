@@ -50,7 +50,14 @@ npm start
 npm run dev
 ```
 
-### 4. 自动化 E2E 集成测试 (Playwright)
+### 4. 单元测试 (Vitest)
+使用 Vitest 运行服务端核心领域逻辑、撤回深拷贝与计分规则的单元测试：
+```bash
+npm run test:unit       # 运行全量单元测试
+npm run test:unit:watch # 开发模式（监视文件变化自动重测）
+```
+
+### 5. 自动化 E2E 集成测试 (Playwright)
 使用 Playwright 自动化测试完整的多人双窗口对局流程：
 ```bash
 npm run test:e2e

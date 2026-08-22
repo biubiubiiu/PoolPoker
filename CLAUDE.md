@@ -16,15 +16,17 @@ npm run dev:frontend # Vite dev server only (port 5173, proxies /socket.io → :
 npm run build        # vue-tsc type-check + Vite production build → dist/
 npm start            # npm run build && tsx server/index.ts
 npm run preview      # serve the built dist/
+npm run test:unit    # Vitest unit tests for server domain logic
 npm run test:e2e     # Playwright end-to-end tests (single chromium project)
 npm run lint         # biome check .
 npm run format       # biome format --write .
 ```
 
+- **Run unit tests**: `npm run test:unit` or `npm run test:unit:watch` (test files located in `server/__tests__/*.spec.ts`).
 - **Run a single Playwright test**: `npx playwright test -g "<test name>"` (spec is `e2e/poolpoker.spec.ts`).
 - The e2e config auto-starts the server via `npm start` (reuses an existing server on `http://127.0.0.1:3000`).
 - **Husky** runs on commit: `pre-commit` → `vue-tsc --noEmit` + `lint-staged` (biome); `commit-msg` → commitlint (conventional commits required).
-- No unit test framework is configured — the only tests are the Playwright e2e suite.
+- Unit tests use **Vitest** for fast deterministic domain logic testing. Playwright is used for E2E tests.
 
 ## Architecture
 
