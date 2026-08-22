@@ -57,7 +57,7 @@ const emit = defineEmits<{
 <template>
   <div class="glass-panel rounded-2xl p-4 shadow-xl">
     <h3 class="text-xs font-bold text-amber-300 mb-2 flex items-center justify-between">
-      <span><i class="fa-solid fa-list-ol mr-1 text-emerald-400"></i> 全局赛况 (54张扑克牌库)</span>
+      <span><i class="fa-solid fa-list-ol mr-1 text-emerald-400"></i> 全局赛况</span>
       <span class="text-[10px] text-gray-400" v-if="room.deckCount !== undefined">牌库剩余 {{ room.deckCount }} 张扑克</span>
     </h3>
 
@@ -79,13 +79,12 @@ const emit = defineEmits<{
       </div>
     </div>
 
-    <!-- 已打出的球号列表 (按点数 1~15 升序) -->
+    <!-- 已打进的球号列表 (按点数 1~15 升序) -->
     <div class="mb-3 bg-black/40 p-2.5 rounded-xl border border-white/5">
       <div class="flex items-center justify-between text-[11px] mb-1.5">
         <span class="text-gray-300 font-bold flex items-center gap-1">
-          <i class="fa-solid fa-circle-check text-emerald-400"></i> 已打出球号
+          <i class="fa-solid fa-circle-check text-emerald-400"></i> 已打进球号
         </span>
-        <span class="text-[10px] text-gray-400">共 {{ room.pocketedBallNumbers ? room.pocketedBallNumbers.length : 0 }} 个球号</span>
       </div>
 
       <div v-if="room.pocketedBallNumbers && room.pocketedBallNumbers.length > 0" class="flex flex-wrap gap-1.5 items-center">
@@ -98,7 +97,7 @@ const emit = defineEmits<{
         </span>
       </div>
       <div v-else class="text-[10px] text-gray-500 italic">
-        暂无打出的球
+        暂无打进的球
       </div>
     </div>
 
