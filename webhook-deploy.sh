@@ -79,38 +79,66 @@ echo ""
 
 python3 - << 'PYTHON'
 import os, subprocess, threading, sys
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 
 class DeployHandler(BaseHTTPRequestHandler):
+    # 设置单次连接超时时间（10秒），防止公网扫描器/死连接卡死服务
+    timeout = 10
+
     def do_POST(self):
-        # 立即返回 200，部署在后台线程执行
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
-        self.wfile.write(b'{"status":"deploying"}')
-        env = os.environ.copy()
-        threading.Thread(
-            target=lambda: subprocess.run(
-                ['bash', env['SCRIPT_PATH'], '--deploy'],
-                env=env
-            ),
-            daemon=True
-        ).start()
+        try:
+            # 1. 消耗 Request Body，避免 TCP socket 残留数据导致 RST
+            content_length = int(self.headers.get('Content-Length', 0))
+            if content_length > 0:
+                self.rfile.read(content_length)
+
+            # 2. 返回 200 响应
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Connection', 'close')
+            self.end_headers()
+            self.wfile.write(b'{"status":"deploying"}')
+            self.wfile.flush()
+
+            # 3. 异步启动部署，并加 5 分钟超时防护，防止 git pull 卡死
+            env = os.environ.copy()
+            def run_deploy():
+                try:
+                    subprocess.run(
+                        ['bash', env['SCRIPT_PATH'], '--deploy'],
+                        env=env,
+                        timeout=300  # 最多等待 5 分钟
+                    )
+                except subprocess.TimeoutExpired:
+                    sys.stderr.write("[ERROR] 部署超时 (300s)\n")
+                except Exception as e:
+                    sys.stderr.write(f"[ERROR] 部署异常: {e}\n")
+
+            threading.Thread(target=run_deploy, daemon=True).start()
+        except Exception as e:
+            sys.stderr.write(f"[ERROR] do_POST 处理失败: {e}\n")
 
     def do_GET(self):
-        # 健康检查接口
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
-        self.wfile.write(b'{"status":"ok"}')
+        try:
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(b'{"status":"ok"}')
+        except Exception:
+            pass
 
     def log_message(self, fmt, *args):
-        sys.stdout.write(f"[{self.log_date_time_string()}] {fmt % args}\n")
-        sys.stdout.flush()
+        # 捕获 stdout 异常，防止终端断开时 BrokenPipeError 崩溃
+        try:
+            sys.stdout.write(f"[{self.log_date_time_string()}] {fmt % args}\n")
+            sys.stdout.flush()
+        except Exception:
+            pass
 
 port = int(os.environ['PORT'])
-server = HTTPServer(('0.0.0.0', port), DeployHandler)
-print(f'监听 0.0.0.0:{port}', flush=True)
+# 使用 ThreadingHTTPServer 支持多线程并发
+server = ThreadingHTTPServer(('0.0.0.0', port), DeployHandler)
+print(f'监听 0.0.0.0:{port} (多线程模式)', flush=True)
 try:
     server.serve_forever()
 except KeyboardInterrupt:
