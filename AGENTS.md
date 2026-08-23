@@ -43,7 +43,7 @@ server/socketHandlers.ts  →  gameEngine.ts / pokerDeck.ts / roomManager.ts
 - **Android & Wear OS** (`android/`):
   - `:shared-models`: Kotlin data models (`WearSyncRoomPayload`, `WearActionPayload`) and DataLayer contracts.
   - `:phone-companion`: Android phone companion service using Wearable DataLayer & Socket.IO.
-  - `:wear-app`: Native Wear OS app built with Jetpack Compose for Wear OS (`ScalingLazyColumn`, NumPad direct join, 2-column card grid, vertical action buttons).
+  - `:wear-app`: Native Wear OS app built with Jetpack Compose for Wear OS (Single-Activity + `SwipeToDismissBox`, modularized UI in `com.poolpoker.wear.ui`: `GameCardScreen`, `WearMainGameContent`, `WearModalScreens`, `WearSingleCardItem`, `BilliardBallBadge`, `WearDirectConnectScreen`).
 - **Backend** (`server/`): Node.js + Express + Socket.IO, run via `tsx`. All room state is held in-memory in `roomManager.ts` (`rooms: Record<string, ServerRoom>`). `socketHandlers.ts` is the single mutation entry point.
 - **Shared** (`shared/types/`): `game.ts` (domain models) and `socket.ts` (event contract). Both frontend and backend import these types to keep fields in sync.
 
@@ -59,6 +59,7 @@ These are non-obvious and must be preserved when editing:
 - **CSPRNG only.** All randomness uses `node:crypto` (`crypto.randomInt` for shuffle/room codes, `crypto.randomUUID` for tokens). Never use `Math.random`.
 - **Win condition is ball-number-based, not card-based.** The global "already-pocketed ball numbers" set is the union of `accidentalBalls` + every player's `pocketedCards` (`getPocketedBallNumbers`). A player wins when none of their remaining cards map to an unpocketed ball number. The UI greys out (dims) cards whose ball number is already pocketed ("已进球·无需打出") — a deliberate design that shows "no need to play" without revealing other hands.
 - **Host authority.** `update_settings` and `start_game` are host-only; the host is resolved via the `socketIndex` reverse index (`socketId → { roomCode, userId }`). On host leave, hosting transfers to the first remaining player; empty rooms are deleted.
+- **Wear OS Swipe-to-Dismiss Navigation.** Sub-screens in Wear OS (`WearFoulModalScreen`, `WearPocketModalScreen`) must be wrapped with `SwipeToDismissBox` and `BackHandler` in Single-Activity scope. Swiping back or pressing hardware back closes the active modal and returns to `WearMainGameContent` ("返回上一级"), aligning with the cancel button without popping the Activity to watch desktop.
 - **Local Domain Configuration.** Server URLs for Android/Wear OS are loaded from `android/gradle.properties.local` (`POOLPOKER_SERVER_URL`, git-ignored) and injected via `BuildConfig.SERVER_URL`.
 
 ## Configuration
@@ -74,4 +75,6 @@ These are non-obvious and must be preserved when editing:
 
 ## Docs
 
-`docs/overview.md` is the authoritative deep-dive: full data-flow diagram, per-file responsibilities, and implementation history. `docs/implement_log.md` records round-by-round implementation decisions. Consult these before making architectural changes; keep them in sync for substantive work.
+- `docs/overview.md` is the authoritative deep-dive: full data-flow diagram, per-file responsibilities, and implementation history.
+- `docs/wear_app_architecture.md` covers the native Wear OS app architecture, `com.poolpoker.wear.ui` module breakdown, and swipe-to-dismiss gesture navigation rules.
+- `docs/implement_log.md` records round-by-round implementation decisions. Consult these before making architectural changes; keep them in sync for substantive work.
