@@ -15,7 +15,7 @@ import { useSocket } from '@/composables/useSocket';
 
 const { userId, playerName, avatars, selectedAvatar, selectedBallConfigKey, getFinalPlayerName } = usePlayerProfile();
 
-const { socket } = useSocket();
+const { socket, serverUrl, updateServerUrl } = useSocket();
 
 const {
   room,
@@ -50,6 +50,7 @@ const {
   selectedAvatar,
   selectedBallConfigKey,
   getFinalPlayerName,
+  serverUrl,
 });
 
 const showRulesModal = ref(false);
@@ -70,11 +71,13 @@ const showRulesModal = ref(false);
                :room="room"
                :userId="userId"
                :isHost="isHost"
+               :serverUrl="serverUrl"
                v-model:playerName="playerName"
                v-model:selectedAvatar="selectedAvatar"
                v-model:selectedBallConfigKey="selectedBallConfigKey"
                :avatars="avatars"
                :ballConfigOptions="ballConfigOptions"
+               @update:serverUrl="updateServerUrl"
                @create-room="handleCreateRoom"
                @join-room="handleJoinRoom"
                @adjust-cards="handleAdjustCards"

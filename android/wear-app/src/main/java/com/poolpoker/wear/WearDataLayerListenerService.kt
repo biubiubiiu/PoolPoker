@@ -38,5 +38,9 @@ class WearDataLayerListenerService : WearableListenerService() {
         fun updateStateManually(payload: WearSyncRoomPayload) {
             _roomStateFlow.value = payload
         }
+
+        fun clearState() {
+            _roomStateFlow.value = null
+        }
     }
 }

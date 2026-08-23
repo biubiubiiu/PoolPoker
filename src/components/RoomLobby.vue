@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Room } from '@shared/types/game';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 const props = defineProps<{
   room: Room | null;
@@ -11,11 +11,13 @@ const props = defineProps<{
   avatars: string[];
   selectedBallConfigKey: string;
   ballConfigOptions: Array<{ key: string; name: string }>;
+  serverUrl?: string;
 }>();
 const emit = defineEmits<{
   (e: 'update:playerName', name: string): void;
   (e: 'update:selectedAvatar', avatar: string): void;
   (e: 'update:selectedBallConfigKey', key: string): void;
+  (e: 'update:serverUrl', url: string): void;
   (e: 'join-room', code: string): void;
   (e: 'create-room'): void;
   (e: 'adjust-cards', delta: number): void;
@@ -24,6 +26,22 @@ const emit = defineEmits<{
 
 const tab = ref<'join' | 'create'>('join');
 const joinCode = ref('');
+
+const isTauriEnv = computed(() => {
+  return typeof window !== 'undefined' && ('__TAURI__' in window || '__TAURI_INTERNALS__' in window);
+});
+
+const showServerConfig = ref(false);
+const inputServerUrl = ref(props.serverUrl || '');
+
+const applyServerUrl = () => {
+  emit('update:serverUrl', inputServerUrl.value.trim());
+};
+
+const clearServerUrl = () => {
+  inputServerUrl.value = '';
+  emit('update:serverUrl', '');
+};
 
 const onJoin = () => {
   if (!joinCode.value.trim()) {
@@ -78,6 +96,33 @@ const onJoin = () => {
         >
           <option v-for="cfg in ballConfigOptions" :key="cfg.key" :value="cfg.key">{{ cfg.name }}</option>
         </select>
+      </div>
+
+      <!-- 服务器通信地址配置 (仅在 Tauri 移动端 App 环境或已有自定义配置时显示) -->
+      <div v-if="isTauriEnv || props.serverUrl" class="mt-4 pt-3 border-t border-white/10">
+        <button @click="showServerConfig = !showServerConfig" class="text-xs text-emerald-400/80 hover:text-emerald-300 flex items-center justify-between w-full font-semibold">
+          <span>🌐 后端服务器地址配置 {{ props.serverUrl ? `(${props.serverUrl})` : '(默认同源)' }}</span>
+          <span class="text-[10px] text-gray-400">{{ showServerConfig ? '收起 ▲' : '展开 ▼' }}</span>
+        </button>
+        <div v-if="showServerConfig" class="mt-3 space-y-3 bg-black/40 p-3 rounded-xl border border-white/10">
+          <div>
+            <label class="block text-[11px] text-gray-300 mb-1">后端服务器 URL (如局域网电脑 IP / 独立域名)</label>
+            <input
+              v-model="inputServerUrl"
+              type="text"
+              placeholder="例: http://192.168.18.227:3000"
+              class="w-full bg-black/50 border border-emerald-600/40 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-400"
+            />
+          </div>
+          <div class="flex gap-2">
+            <button @click="applyServerUrl" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs py-1.5 rounded-lg font-bold transition-all">
+              保存并连接
+            </button>
+            <button @click="clearServerUrl" class="px-3 bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs py-1.5 rounded-lg transition-all">
+              重置
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 

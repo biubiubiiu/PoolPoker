@@ -95,15 +95,17 @@ data class RoomModel(
 
 // Sync payload sent over Wear OS Data Layer API
 data class WearSyncRoomPayload(
-    val roomCode: String,
-    val status: RoomStatus,
-    val isMyTurn: Boolean,
-    val currentTurnPlayerName: String,
-    val myCards: List<CardModel>,
-    val pocketedBallNumbers: List<Int>,
+    val roomCode: String = "",
+    val status: RoomStatus = RoomStatus.WAITING,
+    val isMyTurn: Boolean = false,
+    val currentTurnPlayerName: String = "",
+    val myCards: List<CardModel> = emptyList(),
+    val pocketedBallNumbers: List<Int> = emptyList(),
     val winnerName: String? = null,
     val players: List<WearPlayerSummary> = emptyList(),
     val myPlayerName: String? = null,
+    @SerializedName("userId", alternate = ["myUserId"]) val myUserId: String? = null,
+    val serverUrl: String? = null,
     val timestamp: Long = System.currentTimeMillis()
 ) {
     fun toJson(): String = Gson().toJson(this)

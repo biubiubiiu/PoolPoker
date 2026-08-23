@@ -46,5 +46,12 @@ gradle.properties.local
 .cxx/
 captures/
 
+# Tauri & Rust
+src-tauri/target/
+src-tauri/gen/schemas/
+*.so
+android/tauri.settings.gradle
+tauri.settings.gradle
+
 # 临时生成文件
 *.tmp

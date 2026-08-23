@@ -17,6 +17,23 @@ class WearMainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Request Bluetooth Connect runtime permissions on Android 12+ (API 31+)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            val permissions = arrayOf(
+                android.Manifest.permission.BLUETOOTH_CONNECT,
+                android.Manifest.permission.BLUETOOTH_SCAN
+            )
+            val missing = permissions.filter {
+                checkSelfPermission(it) != android.content.pm.PackageManager.PERMISSION_GRANTED
+            }
+            if (missing.isNotEmpty()) {
+                requestPermissions(missing.toTypedArray(), 101)
+            }
+        }
+
+        // Start Bluetooth RFCOMM listener for phone room credentials
+        WearBluetoothClient.startListeningForPhoneCredentials(this)
+
         setContent {
             PoolPokerWearTheme {
                 val roomState by WearDataLayerListenerService.roomStateFlow.collectAsState()
@@ -44,5 +61,10 @@ class WearMainActivity : ComponentActivity() {
                 WearGameScreen(roomState = roomState)
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        WearBluetoothClient.stop()
     }
 }

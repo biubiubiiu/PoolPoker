@@ -250,3 +250,20 @@
 - **验收**：`npm run build`（vue-tsc + vite）通过；变更文件 Biome 检查通过。
 - **commit**：未提交（工作区改动）
 
+### 第26轮：Tauri Android 打包与 Wear OS 协同通信整合 [2026-08-24]
+- **输入**：完善 @android，通过 Tauri 打包 Web 应用至 Android，整合 phone-companion DataLayer 逻辑，提供 Android 与 Wear OS 手表协同通信功能。
+- **探索与决策**：
+  - 接入 Tauri v2（`src-tauri/`），配置 Web 静态产物路径（`dist/`）。采用顶层归一化 Android 多模块方案（Option 1），彻底摆脱软链接。
+  - 顶层 `android/` 为唯一 Android 根工程，`settings.gradle.kts` 统一管理 `:app`（Tauri 移动端壳）、`:wear-app`（Wear OS 手表端）、`:phone-companion`（独立 Companion）与 `:shared-models`（共享模型）。
+  - `:app` 继承 `TauriActivity`（`MainActivity.kt`）与 `WearableListenerService`（`WearableDataLayerService.kt`），直接引用 `:shared-models` 依赖，并通过 `TauriWearSyncPlugin.kt` 向 Wear OS `/poolpoker/sync_room` 发送状态。
+  - 前端封装 `useWearSync` composable，并仅在移动端 App 环境下差异化提供「后端服务器地址配置」入口。
+- **最终改动**：
+  - `package.json` — 修改：新增 Tauri CLI 与 API 依赖，构建脚本调整为直接编译 `android/` 的 `:app` 模块。
+  - `src-tauri/` — 新增：`Cargo.toml` / `tauri.conf.json` / `build.rs` / `src/lib.rs` / `src/main.rs` 及应用图标。删除 `src-tauri/gen` 软链接。
+  - `android/app/` — 新增：Tauri Android 应用主模块配置（`build.gradle.kts` / `AndroidManifest.xml` / `MainActivity.kt` / `TauriWearSyncPlugin.kt` / `WearableDataLayerService.kt`）。
+  - `src/composables/useWearSync.ts` — 新增：Tauri Android 平台 Wear OS 状态同步 Composable。
+  - `src/components/RoomLobby.vue` — 修改：增加 `isTauriEnv` 判空，在移动端 App 下显示后端服务器 URL 设置入口。
+- **验收**：`npm run format`、`npm run build` (`vue-tsc` + `vite build`)、`npm run test:unit` (18 个单元测试全部通过)。
+- **commit**：未提交（工作区改动）
+
+

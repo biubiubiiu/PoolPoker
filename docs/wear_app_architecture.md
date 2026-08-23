@@ -34,7 +34,7 @@ WearDataLayerListenerService.roomStateFlow / WearDirectSocketManager
 
 为了保持代码的可维护性与模块解耦，界面解耦拆分为 6 个职责明确的模块：
 
-### 2.1 顶级路由与手势容器 ([`GameCardScreen.kt`](file:///Users/raymond/Desktop/Workspace/dev/PoolPoker/android/wear-app/src/main/java/com/poolpoker/wear/ui/GameCardScreen.kt))
+### 2.1 顶级路由与手势容器 ([`GameCardScreen.kt`](../android/wear-app/src/main/java/com/poolpoker/wear/ui/GameCardScreen.kt))
 - `WearGameScreen(roomState: WearSyncRoomPayload?)`:
   - 核心状态分发器：处理 `roomState == null` (跳转直连连接页)、`WAITING` (等待开局)、`ENDED/FINISHED` (对局结算) 与 `PLAYING` (进行中)。
   - 管理 `showPocketModal` 与 `showFoulModal` 状态。
@@ -42,23 +42,23 @@ WearDataLayerListenerService.roomStateFlow / WearDirectSocketManager
 - `sendActionToPhone(context, action)`: 统一的操作发送入口（优先使用 Direct Socket，次选 Wearable DataLayer 消息传递）。
 - `triggerVibration(context)`: 触觉震动反馈工具。
 
-### 2.2 游戏主界面 ([`WearMainGameContent.kt`](file:///Users/raymond/Desktop/Workspace/dev/PoolPoker/android/wear-app/src/main/java/com/poolpoker/wear/ui/WearMainGameContent.kt))
+### 2.2 游戏主界面 ([`WearMainGameContent.kt`](../android/wear-app/src/main/java/com/poolpoker/wear/ui/WearMainGameContent.kt))
 - `WearMainGameContent`:
   - 渲染房间号与玩家昵称 Header。
   - 使用 `ScalingLazyColumn` 按球号升序显示玩家当前手牌。
   - 底部提供垂直堆叠的物理大按钮（「记录进球」、「记录犯规」、「撤回进球」），适配圆形表盘边缘触控。
 
-### 2.3 裁判弹层选择器 ([`WearModalScreens.kt`](file:///Users/raymond/Desktop/Workspace/dev/PoolPoker/android/wear-app/src/main/java/com/poolpoker/wear/ui/WearModalScreens.kt))
+### 2.3 裁判弹层选择器 ([`WearModalScreens.kt`](../android/wear-app/src/main/java/com/poolpoker/wear/ui/WearModalScreens.kt))
 - `WearFoulModalScreen`: 裁判选择犯规玩家的选择列表。
 - `WearPocketModalScreen`: 裁判选择进球玩家与 1-15 号球矩阵选择器。
 
-### 2.4 手牌列表项 ([`WearSingleCardItem.kt`](file:///Users/raymond/Desktop/Workspace/dev/PoolPoker/android/wear-app/src/main/java/com/poolpoker/wear/ui/WearSingleCardItem.kt))
+### 2.4 手牌列表项 ([`WearSingleCardItem.kt`](../android/wear-app/src/main/java/com/poolpoker/wear/ui/WearSingleCardItem.kt))
 - `WearSingleCardItem`: 展示单张扑克牌的花色、点数与「已进球/点击消牌」状态。
 
-### 2.5 台球徽章组件 ([`BilliardBallBadge.kt`](file:///Users/raymond/Desktop/Workspace/dev/PoolPoker/android/wear-app/src/main/java/com/poolpoker/wear/ui/BilliardBallBadge.kt))
+### 2.5 台球徽章组件 ([`BilliardBallBadge.kt`](../android/wear-app/src/main/java/com/poolpoker/wear/ui/BilliardBallBadge.kt))
 - `BilliardBallBadge`: 独立纯 UI 组件，支持 1-8 号全色台球与 9-15 号花色台球（中间带状球色 + 白色数字圆盘）的精细化渲染。
 
-### 2.6 九宫格直连页面 ([`WearDirectConnectScreen.kt`](file:///Users/raymond/Desktop/Workspace/dev/PoolPoker/android/wear-app/src/main/java/com/poolpoker/wear/ui/WearDirectConnectScreen.kt))
+### 2.6 九宫格直连页面 ([`WearDirectConnectScreen.kt`](../android/wear-app/src/main/java/com/poolpoker/wear/ui/WearDirectConnectScreen.kt))
 - `WearDirectConnectScreen`: 当手表脱离手机独立使用时，提供 4 位房间号的九宫格数字键盘快速加入房间。
 
 ---

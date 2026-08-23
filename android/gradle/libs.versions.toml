@@ -4,6 +4,7 @@ kotlin = "2.4.10"
 
 # AndroidX & Compose
 coreKtx = "1.19.0"
+appcompat = "1.8.0"
 lifecycleRuntimeKtx = "2.11.0"
 activityCompose = "1.13.0"
 composeBom = "2026.08.00"
@@ -25,6 +26,7 @@ targetSdk = "34"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 
@@ -45,7 +47,7 @@ androidx-wear-compose-navigation = { group = "androidx.wear.compose", name = "co
 # Google Play Services
 play-services-wearable = { group = "com.google.android.gms", name = "play-services-wearable", version.ref = "playServicesWearable" }
 
-# Socket.IO & Gson
+# Socket.IO, Gson & Tauri
 socket-io-client = { group = "io.socket", name = "socket.io-client", version.ref = "socketIoClient" }
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 

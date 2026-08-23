@@ -21,6 +21,10 @@ pnpm run test:unit    # Vitest unit tests for server domain logic
 pnpm run test:e2e     # Playwright end-to-end tests (single chromium project)
 pnpm run lint         # biome check .
 pnpm run format       # biome format --write .
+npm run tauri:build        # Tauri desktop production build
+npm run build:so           # compile Rust .so for arm64 & x86_64 and inject to android jniLibs
+npm run tauri:android      # Tauri Android debug APK build (:app:assembleDebug)
+npm run tauri:android:build# Tauri Android standalone release APK build (:app:assembleRelease)
 ```
 
 - **Run unit tests**: `pnpm run test:unit` or `pnpm run test:unit:watch` (test files located in `server/__tests__/*.spec.ts`).
@@ -34,17 +38,18 @@ pnpm run format       # biome format --write .
 Multi-client architecture supporting Web browsers, Android Phone Companion, and native Wear OS watches:
 
 ```
-Browser (Vue 3 components) / Wear OS (:wear-app) / Companion (:phone-companion)
+Browser (Vue 3 components) / Wear OS (:wear-app) / Companion (:phone-companion) / Android App (:app)
   → Socket.IO emit / Data Layer API (contract in shared/types/socket.ts & :shared-models)
 server/socketHandlers.ts  →  gameEngine.ts / pokerDeck.ts / roomManager.ts
   → broadcastRoomState → room_updated (multi-socket per userId) → Reactive UI re-render
 ```
 
-- **Web Frontend** (`src/`): Vue 3 + TypeScript + Vite + Tailwind CSS. All business logic lives in three composables (`useGameRoom`, `useSocket`, `usePlayerProfile`); components (`src/components/*.vue`) handle presentation + events.
+- **Web Frontend & Tauri** (`src/`, `src-tauri/`): Vue 3 + TypeScript + Vite + Tailwind CSS. Business logic lives in composables (`useGameRoom`, `useSocket`, `usePlayerProfile`, `useWearSync`); components handle presentation + events. Tauri v2 packages the Web frontend into Android APK/AAB (`android/app`) and desktop applications.
 - **Android & Wear OS** (`android/`):
+  - `:app`: Tauri Android App module extending `TauriActivity` with `TauriWearSyncPlugin` and `WearableDataLayerService`.
   - `:shared-models`: Kotlin data models (`WearSyncRoomPayload`, `WearActionPayload`) and DataLayer contracts.
-  - `:phone-companion`: Android phone companion service using Wearable DataLayer & Socket.IO.
-  - `:wear-app`: Native Wear OS app built with Jetpack Compose for Wear OS (Single-Activity + `SwipeToDismissBox`, modularized UI in `com.poolpoker.wear.ui`: `GameCardScreen`, `WearMainGameContent`, `WearModalScreens`, `WearSingleCardItem`, `BilliardBallBadge`, `WearDirectConnectScreen`).
+  - `:phone-companion`: Android companion services using Wearable DataLayer & Socket.IO.
+  - `:wear-app`: Native Wear OS app built with Jetpack Compose for Wear OS (Single-Activity + `SwipeToDismissBox`, modularized UI in `com.poolpoker.wear.ui`).
 - **Backend** (`server/`): Node.js + Express + Socket.IO, run via `tsx`. All room state is held in-memory in `roomManager.ts` (`rooms: Record<string, ServerRoom>`). `socketHandlers.ts` is the single mutation entry point.
 - **Shared** (`shared/types/`): `game.ts` (domain models) and `socket.ts` (event contract). Both frontend and backend import these types to keep fields in sync.
 
@@ -78,4 +83,5 @@ These are non-obvious and must be preserved when editing:
 
 - `docs/overview.md` is the authoritative deep-dive: full data-flow diagram, per-file responsibilities, and implementation history.
 - `docs/wear_app_architecture.md` covers the native Wear OS app architecture, `com.poolpoker.wear.ui` module breakdown, and swipe-to-dismiss gesture navigation rules.
+- `docs/android_tauri_architecture.md` covers the Android Gradle multi-module architecture, Tauri v2 Android APK packaging, and native Wear OS DataLayer sync.
 - `docs/implement_log.md` records round-by-round implementation decisions. Consult these before making architectural changes; keep them in sync for substantive work.

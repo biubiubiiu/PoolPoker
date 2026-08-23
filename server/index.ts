@@ -14,6 +14,16 @@ import { isWecomPushDisabled, sendCrashReportToWecom, setWecomPushDisabled } fro
 const app = express();
 const server = http.createServer(app);
 
+app.use((_req: Request, res: Response, next: NextFunction) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  if (_req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 app.use(express.json());
 
 const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, {

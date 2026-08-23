@@ -180,4 +180,6 @@ PoolPoker/
 
 | 文档 | 内容 |
 |------|------|
+| [android_tauri_architecture.md](android_tauri_architecture.md) | Android 移动端 & Tauri 架构设计（Tauri v2 打包 APK、顶层 Gradle 多模块、Wear OS DataLayer 状态同步、R8 混淆规则） |
+| [wear_app_architecture.md](wear_app_architecture.md) | Wear OS 手表端架构（Jetpack Compose for Wear OS 模块划分、单 Activity 架构、Swipe-To-Dismiss 侧滑手势导航规范） |
 | [implement_log.md](implement_log.md) | 实现步骤日志（按轮次记录需求、探索与决策、最终改动、commit） |

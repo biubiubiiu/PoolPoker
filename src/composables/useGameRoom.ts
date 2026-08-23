@@ -21,10 +21,16 @@ export interface UseGameRoomOptions {
   selectedAvatar: Ref<string>;
   selectedBallConfigKey: Ref<string>;
   getFinalPlayerName: () => string;
+  serverUrl?: Ref<string>;
 }
 
 export function useGameRoom(options: UseGameRoomOptions) {
-  const { socket, userId, playerName, selectedAvatar, selectedBallConfigKey, getFinalPlayerName } = options;
+  const { socket, userId, playerName, selectedAvatar, selectedBallConfigKey, getFinalPlayerName, serverUrl } = options;
+
+  const getApiUrl = (endpointPath: string) => {
+    const base = serverUrl?.value ? serverUrl.value.trim().replace(/\/+$/, '') : '';
+    return `${base}${endpointPath}`;
+  };
 
   const room = ref<Room | null>(null);
   const showRestartConfirm = ref<boolean>(false);
@@ -32,6 +38,35 @@ export function useGameRoom(options: UseGameRoomOptions) {
   const showRefereeFoulModal = ref<boolean>(false);
   const refereeTargetUserId = ref<string>('');
   const ballConfigs = ref<Record<string, BallConfigItem>>({});
+
+  const syncNativeRoomSession = async (code: string | null) => {
+    if (typeof window !== 'undefined' && ('__TAURI__' in window || '__TAURI_INTERNALS__' in window)) {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const payload = code
+          ? JSON.stringify({
+              event: 'room_credentials',
+              roomCode: code,
+              userId: userId.value,
+              myUserId: userId.value,
+              serverUrl: serverUrl?.value || '',
+            })
+          : JSON.stringify({ event: 'leave_room' });
+        await invoke('sync_wear_state', { payload });
+      } catch (err) {
+        console.warn('[NativeSync] Failed to sync room session:', err);
+      }
+    }
+  };
+
+  watch(
+    () => room.value?.code,
+    (newCode, oldCode) => {
+      if (newCode !== oldCode) {
+        syncNativeRoomSession(newCode || null);
+      }
+    }
+  );
 
   const triggerConfetti = () => {
     confetti({
@@ -46,7 +81,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
     if (!savedRoomCode) return;
 
     try {
-      const res = await fetch(`/api/rooms/${savedRoomCode}?userId=${encodeURIComponent(userId.value)}`);
+      const res = await fetch(getApiUrl(`/api/rooms/${savedRoomCode}?userId=${encodeURIComponent(userId.value)}`));
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.room) {
@@ -75,12 +110,9 @@ export function useGameRoom(options: UseGameRoomOptions) {
     }
   };
 
-  onMounted(async () => {
-    fetchLatestRoomState();
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
+  const fetchBallConfigs = async () => {
     try {
-      const response = await fetch('/api/ball-configs');
+      const response = await fetch(getApiUrl('/api/ball-configs'));
       if (!response.ok) {
         throw new Error(`获取球色配置失败: ${response.status}`);
       }
@@ -92,7 +124,23 @@ export function useGameRoom(options: UseGameRoomOptions) {
     } catch (err) {
       console.error('[BallConfigs Error]', err);
     }
+  };
+
+  onMounted(async () => {
+    fetchLatestRoomState();
+    fetchBallConfigs();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
   });
+
+  watch(
+    () => serverUrl?.value,
+    (newUrl) => {
+      if (newUrl !== undefined) {
+        fetchBallConfigs();
+        fetchLatestRoomState();
+      }
+    }
+  );
 
   onUnmounted(() => {
     document.removeEventListener('visibilitychange', handleVisibilityChange);

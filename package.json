@@ -16,7 +16,13 @@
     "test:unit:watch": "vitest",
     "lint": "biome check .",
     "format": "biome format --write .",
-    "prepare": "husky"
+    "prepare": "husky",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "build:so": "tsx scripts/build-so.ts",
+    "tauri:android": "npm run build && npm run build:so && cd android && ./gradlew :app:assembleDebug --no-daemon",
+    "tauri:android:build": "npm run build && npm run build:so && cd android && ./gradlew :app:assembleRelease --no-daemon"
   },
   "packageManager": "pnpm@11.22.0",
   "engines": {
@@ -38,6 +44,7 @@
   "license": "ISC",
   "dependencies": {
     "@fortawesome/fontawesome-free": "^7.3.1",
+    "@tauri-apps/api": "^2.11.1",
     "canvas-confetti": "^1.9.4",
     "express": "^4.19.2",
     "js-yaml": "^4.1.0",
@@ -52,6 +59,7 @@
     "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@tailwindcss/vite": "^4.3.3",
+    "@tauri-apps/cli": "^2.11.4",
     "@types/canvas-confetti": "^1.9.0",
     "@types/express": "^5.0.6",
     "@types/js-yaml": "^4.0.9",

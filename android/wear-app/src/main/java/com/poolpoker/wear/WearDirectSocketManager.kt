@@ -176,4 +176,18 @@ object WearDirectSocketManager {
             socket?.emit("referee_draw_penalty", payload)
         }
     }
+
+    fun disconnect() {
+        try {
+            if (socket?.connected() == true) {
+                socket?.disconnect()
+            }
+            socket = null
+            isConnected = false
+            currentRoomCode = null
+            WearDataLayerListenerService.clearState()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error disconnecting socket", e)
+        }
+    }
 }

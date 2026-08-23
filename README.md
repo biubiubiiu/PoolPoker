@@ -56,17 +56,24 @@ pnpm start
 pnpm run dev
 ```
 
-### 4. Wear OS & Companion App 编译安装 (Android Studio)
-项目包含 Android 多模块结构 (`android/`)：
-- `:shared-models`：Kotlin 领域模型与 Wearable Data Layer 通信协议。
-- `:phone-companion`：手机 Companion 模块（用于 Wearable 状态同步中继）。
-- `:wear-app`：Wear OS 手表原生 Compose 应用。
+### 4. Android 移动端 & Wear OS App 编译打包
+项目在 `android/` 目录下采用了统一的原生 Gradle 多模块结构：
+- `:app`：基于 Tauri v2 封装的 Android 移动端应用，集成 WebView 壳、后台地址配置与 Wear OS 同步插件。
+- `:wear-app`：基于 Jetpack Compose 构建的 Wear OS 手表原生应用。
+- `:shared-models`：Kotlin 共享数据模型与 Wearable DataLayer 协议。
 
-如需配置服务器地址，请在 `android/gradle.properties.local`（已 Git 忽略）中设置：
-```properties
-POOLPOKER_SERVER_URL=http://your-server-domain:3000
+> 💡 **首次克隆或环境开发说明**：
+> `android/tauri.settings.gradle` 属于 Tauri 根据开发者本机 Cargo 路径自动生成的依赖配置文件（已提交 Git 忽略）。
+> - **命令行一键编译/自动初始化**：直接运行 `npm run tauri:android` 或 `npm run tauri:android:build`，Tauri 会自动建立环境链接并生成 `tauri.settings.gradle`。
+> - **Android Studio 直接打开**：直接打开 `android/` 根目录。`settings.gradle.kts` 已做容错处理，即使尚未生成 `tauri.settings.gradle`，也可独立编译运行 `:wear-app` 与 `:shared-models` 模块。
+
+**命令行打包命令**：
+```bash
+npm run tauri:android        # 编译生成 Debug 测试 APK
+npm run tauri:android:build  # 编译生成独立脱机 Release APK (R8 混淆 + 自动签名)
 ```
-在 Android Studio 中打开 `android` 目录，选择 `:wear-app` 或 `:phone-companion` 点击 **Run ▶** 即可部署安装到手表或手机设备。
+- 生成的 Release APK 位于 `android/app/build/outputs/apk/release/app-release.apk`，在 5G 移动网络或无网状态下均可直接秒开。
+- 在 Android Studio 中直接打开 `android` 目录即可在单窗口中调试或运行 `:app` / `:wear-app` 模块。详情参见 [Android & Tauri 移动端架构文档](docs/android_tauri_architecture.md)。
 
 ### 5. 单元测试 (Vitest)
 使用 Vitest 运行服务端核心领域逻辑、撤回深拷贝与计分规则的单元测试：
