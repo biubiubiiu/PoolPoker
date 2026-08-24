@@ -2,10 +2,10 @@
 
 > 朋友线下打台球聚会神器 —— 基于 54 张扑克发牌与球号映射的实时对战应用！
 
-[![Node.js](https://img.shields.io/badge/Node.js-v22-brightgreen)](https://nodejs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-v24-brightgreen)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-v11-orange)](https://pnpm.io/)
 [![Vue.js](https://img.shields.io/badge/Vue.js-v3.0-emerald)](https://vuejs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-v5.4-blue)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-v5.8-blue)](https://www.typescriptlang.org/)
 [![Wear OS](https://img.shields.io/badge/Wear%20OS-Compose-green)](https://developer.android.com/wear)
 [![Vite](https://img.shields.io/badge/Vite-v8.2-purple)](https://vitejs.dev/)
 [![TailwindCSS](https://img.shields.io/badge/TailwindCSS-v4.3-sky)](https://tailwindcss.com/)

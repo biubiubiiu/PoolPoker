@@ -17,12 +17,12 @@ fi
 
 if command -v nvm &> /dev/null && [ -f .nvmrc ]; then
     echo "🔄 检测到 .nvmrc，切换 Node.js 版本..."
-    nvm use || true
+    nvm use || nvm install
 fi
 
 # 2. 检查 Node.js 环境
 if ! command -v node &> /dev/null; then
-    echo "❌ 错误: 未安装 Node.js，请先安装 Node.js (推荐 v18+)"
+    echo "❌ 错误: 未安装 Node.js，请先安装 Node.js (推荐 v24+)"
     exit 1
 fi
 
