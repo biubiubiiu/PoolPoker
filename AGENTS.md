@@ -9,23 +9,24 @@ PoolPoker (球霸扑克) — a real-time multiplayer web & Wear OS game for offl
 ## Commands
 
 ```bash
-npm install          # install dependencies
-npm run dev          # run backend (tsx watch) + frontend (Vite HMR) concurrently
-npm run dev:backend  # backend only, watch mode (server/index.ts, port 3000)
-npm run dev:frontend # Vite dev server only (port 5173, proxies /socket.io → :3000)
-npm run build        # vue-tsc type-check + Vite production build → dist/
-npm start            # npm run build && tsx server/index.ts
-npm run preview      # serve the built dist/
-npm run test:unit    # Vitest unit tests for server domain logic
-npm run test:e2e     # Playwright end-to-end tests (single chromium project)
-npm run lint         # biome check .
-npm run format       # biome format --write .
+nvm use               # switch Node.js version specified in .nvmrc
+pnpm install          # install dependencies
+pnpm run dev          # run backend (tsx watch) + frontend (Vite HMR) concurrently
+pnpm run dev:backend  # backend only, watch mode (server/index.ts, port 3000)
+pnpm run dev:frontend # Vite dev server only (port 5173, proxies /socket.io → :3000)
+pnpm run build        # vue-tsc type-check + Vite production build → dist/
+pnpm start            # pnpm run build && tsx server/index.ts
+pnpm run preview      # serve the built dist/
+pnpm run test:unit    # Vitest unit tests for server domain logic
+pnpm run test:e2e     # Playwright end-to-end tests (single chromium project)
+pnpm run lint         # biome check .
+pnpm run format       # biome format --write .
 ```
 
-- **Run unit tests**: `npm run test:unit` or `npm run test:unit:watch` (test files located in `server/__tests__/*.spec.ts`).
-- **Run a single Playwright test**: `npx playwright test -g "<test name>"` (spec is `e2e/poolpoker.spec.ts`).
-- The e2e config auto-starts the server via `npm start` (reuses an existing server on `http://127.0.0.1:3000`).
-- **Husky** runs on commit: `pre-commit` → `vue-tsc --noEmit` + `lint-staged` (biome); `commit-msg` → commitlint (conventional commits required).
+- **Run unit tests**: `pnpm run test:unit` or `pnpm run test:unit:watch` (test files located in `server/__tests__/*.spec.ts`).
+- **Run a single Playwright test**: `pnpm exec playwright test -g "<test name>"` (spec is `e2e/poolpoker.spec.ts`).
+- The e2e config auto-starts the server via `pnpm start` (reuses an existing server on `http://127.0.0.1:3000`).
+- **Husky** runs on commit: `pre-commit` → `pnpm exec vue-tsc --noEmit` + `pnpm exec lint-staged` (biome); `commit-msg` → commitlint (conventional commits required).
 - Unit tests use **Vitest** for fast deterministic domain logic testing. Playwright is used for E2E tests.
 
 ## Architecture

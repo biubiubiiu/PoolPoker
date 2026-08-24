@@ -5,10 +5,10 @@
   "main": "server/index.ts",
   "type": "module",
   "scripts": {
-    "start": "npm run build && tsx server/index.ts",
+    "start": "pnpm run build && tsx server/index.ts",
     "dev:backend": "tsx watch server/index.ts",
     "dev:frontend": "vite",
-    "dev": "concurrently -k -p \"[{name}]\" -n \"Backend,Frontend\" -c \"yellow,cyan\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev": "concurrently -k -p \"[{name}]\" -n \"Backend,Frontend\" -c \"yellow,cyan\" \"pnpm run dev:backend\" \"pnpm run dev:frontend\"",
     "build": "vue-tsc && vite build",
     "preview": "vite preview",
     "test:e2e": "playwright test",
@@ -17,6 +17,11 @@
     "lint": "biome check .",
     "format": "biome format --write .",
     "prepare": "husky"
+  },
+  "packageManager": "pnpm@11.22.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=10.0.0"
   },
   "lint-staged": {
     "*.{ts,js,vue,json}": [

@@ -31,6 +31,13 @@ if [[ "$1" == "--deploy" ]]; then
 
     cd "$APP_DIR" || { echo "错误：无法进入目录 $APP_DIR"; exit 1; }
 
+    # 0. 加载 nvm 环境 (若存在)
+    if [ -s "$HOME/.nvm/nvm.sh" ]; then
+        . "$HOME/.nvm/nvm.sh"
+    elif [ -s "$NVM_DIR/nvm.sh" ]; then
+        . "$NVM_DIR/nvm.sh"
+    fi
+
     # 1. 拉取最新代码
     echo "[1/3] git pull ..."
     git pull || { echo "错误：git pull 失败"; exit 1; }
