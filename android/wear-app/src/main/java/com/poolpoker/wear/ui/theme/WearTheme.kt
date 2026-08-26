@@ -19,15 +19,15 @@ object PoolPokerColors {
     val NumpadConfirmGreen = Color(0xFF43A047)
     val NumpadBackspaceRed = Color(0xFFE53935)
 
-    // Ball Badges Color Tokens (1-15)
-    val Ball1Yellow = Color(0xFFFFB300)
-    val Ball2Blue = Color(0xFF1E88E5)
-    val Ball3Red = Color(0xFFE53935)
-    val Ball4Purple = Color(0xFF8E24AA)
-    val Ball5Orange = Color(0xFFFB8C00)
-    val Ball6Green = Color(0xFF43A047)
-    val Ball7Brown = Color(0xFF8D6E63)
-    val Ball8Black = Color(0xFF212121)
+    // Ball Badges Color Tokens (1-15, aligned with ball_configs.json "xingpai" theme)
+    val Ball1Yellow = Color(0xFFF5C01A)
+    val Ball2Blue = Color(0xFF1A4B9C)
+    val Ball3Red = Color(0xFFD92525)
+    val Ball4Pink = Color(0xFFF45FA4)
+    val Ball5Orange = Color(0xFFF27415)
+    val Ball6Green = Color(0xFF137B3E)
+    val Ball7Maroon = Color(0xFF691D24)
+    val Ball8Black = Color(0xFF111111)
     val BallDefault = Color.DarkGray
 
     // Suit Color Tokens
@@ -45,10 +45,10 @@ object PoolPokerColors {
             1, 9 -> Ball1Yellow
             2, 10 -> Ball2Blue
             3, 11 -> Ball3Red
-            4, 12 -> Ball4Purple
+            4, 12 -> Ball4Pink
             5, 13 -> Ball5Orange
             6, 14 -> Ball6Green
-            7, 15 -> Ball7Brown
+            7, 15 -> Ball7Maroon
             8 -> Ball8Black
             else -> BallDefault
         }
