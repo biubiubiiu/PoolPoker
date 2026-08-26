@@ -15,6 +15,9 @@ android {
         localProps.load(localFile.inputStream())
     }
     val serverUrl = localProps.getProperty("POOLPOKER_SERVER_URL") ?: "https://www.shyren.xyz:3000"
+    val watchPlayerName = localProps.getProperty("POOLPOKER_WATCH_PLAYER_NAME")
+        ?: localProps.getProperty("POOLPOKER_WATCH_USER_NAME")
+        ?: ""
 
     defaultConfig {
         applicationId = "com.poolpoker.wear"
@@ -24,6 +27,7 @@ android {
         versionName = "1.0"
 
         buildConfigField("String", "SERVER_URL", "\"$serverUrl\"")
+        buildConfigField("String", "WATCH_PLAYER_NAME", "\"${watchPlayerName.replace("\"", "\\\"")}\"")
     }
 
     buildTypes {

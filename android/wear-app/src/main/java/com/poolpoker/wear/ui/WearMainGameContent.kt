@@ -28,6 +28,7 @@ import com.poolpoker.shared.CardModel
 import com.poolpoker.shared.WearAction
 import com.poolpoker.shared.WearActionPayload
 import com.poolpoker.shared.WearSyncRoomPayload
+import com.poolpoker.wear.BuildConfig
 import com.poolpoker.wear.R
 import com.poolpoker.wear.ui.theme.PoolPokerColors
 
@@ -97,7 +98,8 @@ fun WearMainGameContent(
 
         // Display current watch player's name
         item {
-            val myPlayerName = roomState.myPlayerName ?: stringResource(R.string.watch_player_default)
+            val defaultWatchName = BuildConfig.WATCH_PLAYER_NAME.ifBlank { stringResource(R.string.watch_player_default) }
+            val myPlayerName = roomState.myPlayerName ?: defaultWatchName
             Box(
                 modifier = Modifier
                     .padding(bottom = 6.dp)

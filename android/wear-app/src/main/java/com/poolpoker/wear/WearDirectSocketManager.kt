@@ -26,7 +26,8 @@ object WearDirectSocketManager {
         serverUrl = url
         currentRoomCode = roomCode
         userId = customUserId ?: WearUserPrefs.getOrCreateUserId(context)
-        userName = context.getString(R.string.watch_player_default)
+        val configuredName = BuildConfig.WATCH_PLAYER_NAME
+        userName = if (configuredName.isNotBlank()) configuredName else context.getString(R.string.watch_player_default)
 
         try {
             if (socket?.connected() == true) {

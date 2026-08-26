@@ -66,13 +66,13 @@ These are non-obvious and must be preserved when editing:
 - **Win condition is ball-number-based, not card-based.** The global "already-pocketed ball numbers" set is the union of `accidentalBalls` + every player's `pocketedCards` (`getPocketedBallNumbers`). A player wins when none of their remaining cards map to an unpocketed ball number. The UI greys out (dims) cards whose ball number is already pocketed ("已进球·无需打出") — a deliberate design that shows "no need to play" without revealing other hands.
 - **Host authority.** `update_settings` and `start_game` are host-only; the host is resolved via the `socketIndex` reverse index (`socketId → { roomCode, userId }`). On host leave, hosting transfers to the first remaining player; empty rooms are deleted.
 - **Wear OS Swipe-to-Dismiss Navigation.** Sub-screens in Wear OS (`WearFoulModalScreen`, `WearPocketModalScreen`) must be wrapped with `SwipeToDismissBox` and `BackHandler` in Single-Activity scope. Swiping back or pressing hardware back closes the active modal and returns to `WearMainGameContent` ("返回上一级"), aligning with the cancel button without popping the Activity to watch desktop.
-- **Local Domain Configuration.** Server URLs for Android/Wear OS are loaded from `android/gradle.properties.local` (`POOLPOKER_SERVER_URL`, git-ignored) and injected via `BuildConfig.SERVER_URL`.
+- **Local Domain Configuration.** Server URLs and watch player names for Android/Wear OS are loaded from `android/gradle.properties.local` (`POOLPOKER_SERVER_URL`, `POOLPOKER_WATCH_PLAYER_NAME`, git-ignored) and injected via `BuildConfig`.
 
 ## Configuration
 
 - `config.yaml` — server runtime settings: `port` (default 3000), `room.default_cards_per_player` (5), `room.max_players` (8), `room.disconnect_timeout_ms` (1h). Loaded by `server/config.ts`; missing/invalid values fall back to defaults.
 - `ball_configs.json` — ball color themes (`default`, `xingpai`), each mapping ball numbers 0–15 to a `[hi, mid, lo]` gradient. Served via `GET /api/ball-configs`; missing/invalid `default` causes `process.exit(1)`.
-- `android/gradle.properties.local` — local environment properties for Android/Wear OS (`POOLPOKER_SERVER_URL`).
+- `android/gradle.properties.local` — local environment properties for Android/Wear OS (`POOLPOKER_SERVER_URL`, `POOLPOKER_WATCH_PLAYER_NAME`).
 
 ## HTTP API (Express, `server/index.ts`)
 
