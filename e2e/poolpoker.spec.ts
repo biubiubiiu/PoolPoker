@@ -42,6 +42,53 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await expect(nameInput).toHaveValue('Alice');
   });
 
+  test('1.1 Backend Server Settings Navigation, Multi-Address Saving & Switching', async ({ page }) => {
+    page.on('dialog', (d) => d.accept());
+    await page.addInitScript(() => {
+      (window as any).__TAURI__ = {};
+    });
+    await page.goto('/');
+    await page.waitForTimeout(500);
+
+    // 点击右上角设置按钮，跳转到服务器设置页面
+    const settingsBtn = page.locator('button:has-text("设置服务地址")');
+    await expect(settingsBtn).toBeVisible();
+    await settingsBtn.click();
+
+    // 验证展示后端服务地址设置页面
+    await expect(page.locator('h2:has-text("后端服务地址设置")')).toBeVisible();
+    await expect(page.locator('text=默认同源 (Same Origin)')).toBeVisible();
+
+    // 添加新的服务器地址
+    const urlInput = page.locator('input[placeholder*="http://192.168.18.227:3000"]');
+    const nameInput = page.locator('input[placeholder*="备注名称"]');
+    const saveBtn = page.locator('button:has-text("保存并切换使用")');
+
+    await urlInput.fill('http://192.168.18.227:3000');
+    await nameInput.fill('测试局域网');
+    await saveBtn.click();
+
+    // 验证新添加的服务器项在列表中显示并被选中
+    await expect(page.locator('text=测试局域网')).toBeVisible();
+    await expect(page.locator('text=http://192.168.18.227:3000').first()).toBeVisible();
+
+    const savedUrl = await page.evaluate(() => localStorage.getItem('poolpoker_server_url'));
+    expect(savedUrl).toBe('http://192.168.18.227:3000');
+
+    // 删除刚保存的服务器地址
+    const deleteBtn = page.locator('button[title="删除地址"]').first();
+    await deleteBtn.click();
+
+    // 验证已恢复为默认同源
+    const restoredUrl = await page.evaluate(() => localStorage.getItem('poolpoker_server_url'));
+    expect(restoredUrl).toBeNull();
+
+    // 点击返回大厅
+    const backBtn = page.locator('button:has-text("返回大厅")');
+    await backBtn.click();
+    await expect(page.locator('h1:has-text("PoolPoker · 球霸扑克")')).toBeVisible();
+  });
+
   test('2. Multi-player Lobby Sync & Rules Adjustment (useGameRoom + Socket.io)', async ({ browser }) => {
     const hostContext = await browser.newContext();
     const guestContext = await browser.newContext();

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Room } from '@shared/types/game';
 import { computed, ref } from 'vue';
+import type { ServerUrlConfig } from '@/composables/useSocket';
 
 const props = defineProps<{
   room: Room | null;
@@ -12,18 +13,23 @@ const props = defineProps<{
   selectedBallConfigKey: string;
   ballConfigOptions: Array<{ key: string; name: string }>;
   serverUrl?: string;
+  savedServerUrls?: ServerUrlConfig[];
 }>();
+
 const emit = defineEmits<{
   (e: 'update:playerName', name: string): void;
   (e: 'update:selectedAvatar', avatar: string): void;
   (e: 'update:selectedBallConfigKey', key: string): void;
   (e: 'update:serverUrl', url: string): void;
+  (e: 'add-server-url', payload: { url: string; name?: string }): void;
+  (e: 'remove-server-url', id: string): void;
   (e: 'join-room', code: string): void;
   (e: 'create-room'): void;
   (e: 'adjust-cards', delta: number): void;
   (e: 'start-game'): void;
 }>();
 
+const currentView = ref<'lobby' | 'settings'>('lobby');
 const tab = ref<'join' | 'create'>('join');
 const joinCode = ref('');
 
@@ -31,16 +37,28 @@ const isTauriEnv = computed(() => {
   return typeof window !== 'undefined' && ('__TAURI__' in window || '__TAURI_INTERNALS__' in window);
 });
 
-const showServerConfig = ref(false);
-const inputServerUrl = ref(props.serverUrl || '');
+const newServerUrl = ref('');
+const newServerName = ref('');
 
-const applyServerUrl = () => {
-  emit('update:serverUrl', inputServerUrl.value.trim());
+const selectServerUrl = (url: string) => {
+  emit('update:serverUrl', url);
 };
 
-const clearServerUrl = () => {
-  inputServerUrl.value = '';
-  emit('update:serverUrl', '');
+const onAddServer = () => {
+  const url = newServerUrl.value.trim();
+  if (!url) return;
+  emit('add-server-url', {
+    url,
+    name: newServerName.value.trim() || undefined,
+  });
+  newServerUrl.value = '';
+  newServerName.value = '';
+};
+
+const onRemoveServer = (item: ServerUrlConfig) => {
+  if (confirm(`确定删除服务地址 "${item.name}" (${item.url}) 吗？`)) {
+    emit('remove-server-url', item.id);
+  }
 };
 
 const onJoin = () => {
@@ -53,9 +71,139 @@ const onJoin = () => {
 </script>
 
 <template>
+  <!-- View 0: 后端服务地址设置页面 -->
+  <div v-if="currentView === 'settings'" class="flex-1 flex flex-col justify-between py-4 space-y-4">
+    <!-- 顶部导航栏 -->
+    <div class="glass-panel rounded-2xl p-4 shadow-xl flex items-center justify-between">
+      <button @click="currentView = 'lobby'" 
+              class="px-3 py-1.5 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/40 text-emerald-300 font-bold text-xs rounded-xl flex items-center gap-1.5 transition active:scale-95 cursor-pointer">
+        <i class="fa-solid fa-arrow-left"></i>
+        <span>返回大厅</span>
+      </button>
+      <h2 class="text-sm font-extrabold text-amber-300 flex items-center gap-1.5">
+        <i class="fa-solid fa-gear text-amber-400"></i>
+        <span>后端服务地址设置</span>
+      </h2>
+      <div class="w-16"></div>
+    </div>
+
+    <!-- 当前生效服务提示 -->
+    <div class="glass-panel rounded-2xl p-3 shadow-xl text-xs text-gray-300 flex items-center justify-between">
+      <span class="text-gray-400">当前使用服务地址:</span>
+      <span class="font-mono text-amber-300 font-bold truncate max-w-[200px]">
+        {{ props.serverUrl ? props.serverUrl : '默认同源' }}
+      </span>
+    </div>
+
+    <!-- 已保存的服务地址列表 -->
+    <div class="glass-panel rounded-2xl p-4 shadow-xl flex-1 flex flex-col space-y-3">
+      <div class="flex items-center justify-between border-b border-white/10 pb-2">
+        <h3 class="text-xs font-bold text-gray-200 flex items-center gap-1.5">
+          <i class="fa-solid fa-server text-emerald-400"></i>
+          <span>快捷切换服务器</span>
+        </h3>
+        <span class="text-[10px] text-gray-400">点击不同选项即可切换</span>
+      </div>
+
+      <div class="space-y-2 flex-1 overflow-y-auto pr-1">
+        <!-- 默认同源选项 -->
+        <div @click="selectServerUrl('')"
+             :class="['p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between',
+                      !props.serverUrl 
+                        ? 'bg-emerald-950/60 border-amber-400/80 shadow-md' 
+                        : 'bg-black/40 border-white/10 hover:border-white/20']">
+          <div class="flex items-center space-x-3">
+            <div :class="['w-4 h-4 rounded-full border flex items-center justify-center shrink-0',
+                          !props.serverUrl ? 'border-amber-400 bg-amber-400 text-black' : 'border-gray-500']">
+              <i v-if="!props.serverUrl" class="fa-solid fa-check text-[10px]"></i>
+            </div>
+            <div>
+              <div class="font-bold text-xs text-white">默认同源 (Same Origin)</div>
+              <div class="text-[10px] text-gray-400">自动使用网页自带默认后端服务</div>
+            </div>
+          </div>
+          <span v-if="!props.serverUrl" class="text-[10px] bg-amber-400 text-black font-black px-2 py-0.5 rounded-full shrink-0">
+            当前使用
+          </span>
+        </div>
+
+        <!-- 自定义保存服务地址 -->
+        <div v-for="item in (props.savedServerUrls || [])" :key="item.id"
+             @click="selectServerUrl(item.url)"
+             :class="['p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2',
+                      props.serverUrl === item.url 
+                        ? 'bg-emerald-950/60 border-amber-400/80 shadow-md' 
+                        : 'bg-black/40 border-white/10 hover:border-white/20']">
+          <div class="flex items-center space-x-3 min-w-0 flex-1">
+            <div :class="['w-4 h-4 rounded-full border flex items-center justify-center shrink-0',
+                          props.serverUrl === item.url ? 'border-amber-400 bg-amber-400 text-black' : 'border-gray-500']">
+              <i v-if="props.serverUrl === item.url" class="fa-solid fa-check text-[10px]"></i>
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="font-bold text-xs text-white truncate">{{ item.name }}</div>
+              <div class="text-[10px] font-mono text-gray-400 truncate">{{ item.url }}</div>
+            </div>
+          </div>
+
+          <div class="flex items-center space-x-2 shrink-0">
+            <span v-if="props.serverUrl === item.url" class="text-[10px] bg-amber-400 text-black font-black px-2 py-0.5 rounded-full">
+              当前使用
+            </span>
+            <button @click.stop="onRemoveServer(item)" 
+                    title="删除地址" 
+                    class="w-7 h-7 bg-red-950/60 hover:bg-red-900/80 border border-red-500/40 text-red-300 rounded-lg flex items-center justify-center transition active:scale-95 cursor-pointer">
+              <i class="fa-solid fa-trash-can text-xs"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 添加新的服务地址表单 -->
+    <div class="glass-panel rounded-2xl p-4 shadow-xl space-y-3">
+      <h3 class="text-xs font-bold text-gray-200 flex items-center gap-1.5">
+        <i class="fa-solid fa-plus-circle text-amber-400"></i>
+        <span>添加新服务地址</span>
+      </h3>
+
+      <div class="space-y-2.5">
+        <div>
+          <label class="block text-[11px] text-gray-300 mb-1 font-semibold">服务地址 URL</label>
+          <input v-model="newServerUrl" 
+                 type="text" 
+                 placeholder="例: http://192.168.18.227:3000" 
+                 class="w-full bg-black/50 border border-emerald-600/40 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-400 font-mono">
+        </div>
+        <div>
+          <label class="block text-[11px] text-gray-300 mb-1 font-semibold">备注名称 (可选)</label>
+          <input v-model="newServerName" 
+                 type="text" 
+                 placeholder="备注名称 (例: 家中电脑 / 局域网服务器)" 
+                 maxlength="20" 
+                 class="w-full bg-black/50 border border-emerald-600/40 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-400">
+        </div>
+        <button @click="onAddServer" 
+                :disabled="!newServerUrl.trim()" 
+                class="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-black font-extrabold text-xs rounded-xl shadow transition active:scale-98 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-floppy-disk"></i>
+          <span>保存并切换使用</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- View 1: 登录/创建与加入 (未在房间中) -->
-  <div v-if="!room" class="flex-1 flex flex-col justify-center my-auto py-6">
-    <div class="text-center mb-8">
+  <div v-else-if="!room" class="flex-1 flex flex-col justify-center my-auto py-4 relative">
+    <!-- 右上角设置按钮 (仅在 Tauri 环境或已有自定义配置时显示) -->
+    <div v-if="isTauriEnv || props.serverUrl" class="flex justify-end mb-2">
+      <button @click="currentView = 'settings'" 
+              class="px-3 py-1.5 bg-black/40 hover:bg-black/60 border border-white/10 hover:border-amber-400/50 rounded-xl text-xs text-gray-300 hover:text-amber-300 font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-lg">
+        <i class="fa-solid fa-gear text-amber-400"></i>
+        <span>设置服务地址</span>
+      </button>
+    </div>
+
+    <div class="text-center mb-6">
       <div class="inline-block p-4 rounded-full bg-emerald-950/80 border border-emerald-500/30 mb-3 shadow-2xl gold-glow">
         <span class="text-5xl">🃏</span>
       </div>
@@ -96,33 +244,6 @@ const onJoin = () => {
         >
           <option v-for="cfg in ballConfigOptions" :key="cfg.key" :value="cfg.key">{{ cfg.name }}</option>
         </select>
-      </div>
-
-      <!-- 服务器通信地址配置 (仅在 Tauri 移动端 App 环境或已有自定义配置时显示) -->
-      <div v-if="isTauriEnv || props.serverUrl" class="mt-4 pt-3 border-t border-white/10">
-        <button @click="showServerConfig = !showServerConfig" class="text-xs text-emerald-400/80 hover:text-emerald-300 flex items-center justify-between w-full font-semibold">
-          <span>🌐 后端服务器地址配置 {{ props.serverUrl ? `(${props.serverUrl})` : '(默认同源)' }}</span>
-          <span class="text-[10px] text-gray-400">{{ showServerConfig ? '收起 ▲' : '展开 ▼' }}</span>
-        </button>
-        <div v-if="showServerConfig" class="mt-3 space-y-3 bg-black/40 p-3 rounded-xl border border-white/10">
-          <div>
-            <label class="block text-[11px] text-gray-300 mb-1">后端服务器 URL (如局域网电脑 IP / 独立域名)</label>
-            <input
-              v-model="inputServerUrl"
-              type="text"
-              placeholder="例: http://192.168.18.227:3000"
-              class="w-full bg-black/50 border border-emerald-600/40 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-400"
-            />
-          </div>
-          <div class="flex gap-2">
-            <button @click="applyServerUrl" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs py-1.5 rounded-lg font-bold transition-all">
-              保存并连接
-            </button>
-            <button @click="clearServerUrl" class="px-3 bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs py-1.5 rounded-lg transition-all">
-              重置
-            </button>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -167,9 +288,17 @@ const onJoin = () => {
         <h2 class="font-extrabold text-sm text-amber-300 flex items-center gap-1.5">
           <i class="fa-solid fa-users text-emerald-400"></i> 已加入玩家 ({{ room.players.length }}/8)
         </h2>
-        <span class="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-600/40 px-2 py-0.5 rounded-full">
-          等待房主开局
-        </span>
+        <div class="flex items-center gap-2">
+          <button v-if="isTauriEnv || props.serverUrl"
+                  @click="currentView = 'settings'" 
+                  title="设置服务地址"
+                  class="px-2 py-0.5 bg-black/40 hover:bg-black/60 border border-white/10 hover:border-amber-400/50 rounded-lg text-xs text-gray-300 hover:text-amber-300 flex items-center gap-1 transition active:scale-95 cursor-pointer">
+            <i class="fa-solid fa-gear text-amber-400"></i>
+          </button>
+          <span class="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-600/40 px-2 py-0.5 rounded-full">
+            等待房主开局
+          </span>
+        </div>
       </div>
 
       <div class="space-y-2 flex-1 overflow-y-auto pr-1">
