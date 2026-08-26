@@ -2,6 +2,7 @@ package com.poolpoker.wear
 
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothSocket
 import android.content.Context
 import android.util.Log
@@ -22,7 +23,8 @@ object WearBluetoothClient {
 
     fun startListeningForPhoneCredentials(context: Context) {
         if (isRunning) return
-        val adapter = BluetoothAdapter.getDefaultAdapter() ?: return
+        val bluetoothManager = context.getSystemService(BluetoothManager::class.java)
+        val adapter = bluetoothManager?.adapter ?: return
         if (!adapter.isEnabled) return
 
         isRunning = true

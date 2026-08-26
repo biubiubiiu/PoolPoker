@@ -35,7 +35,7 @@ class MainActivity : TauriActivity() {
             }
         }
 
-        BluetoothServerRelay.startListening()
+        BluetoothServerRelay.startListening(this)
     }
 
     override fun onRequestPermissionsResult(
@@ -45,7 +45,7 @@ class MainActivity : TauriActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == 101) {
-            BluetoothServerRelay.startListening()
+            BluetoothServerRelay.startListening(this)
         }
     }
 

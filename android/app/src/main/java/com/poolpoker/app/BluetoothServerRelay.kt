@@ -1,8 +1,10 @@
 package com.poolpoker.app
 
 import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothServerSocket
 import android.bluetooth.BluetoothSocket
+import android.content.Context
 import android.util.Log
 import java.io.IOException
 import java.util.UUID
@@ -21,10 +23,16 @@ object BluetoothServerRelay {
     private val executor = Executors.newCachedThreadPool()
     @Volatile private var isListening = false
     @Volatile var lastCredentialsPayload: String? = null
+    private var appContext: Context? = null
 
-    fun startListening() {
+    fun startListening(context: Context? = null) {
+        if (context != null) {
+            appContext = context.applicationContext
+        }
         if (isListening) return
-        val adapter = BluetoothAdapter.getDefaultAdapter() ?: return
+        val bluetoothManager = appContext?.getSystemService(BluetoothManager::class.java)
+        @Suppress("DEPRECATION")
+        val adapter = bluetoothManager?.adapter ?: BluetoothAdapter.getDefaultAdapter() ?: return
         if (!adapter.isEnabled) return
 
         isListening = true
