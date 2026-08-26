@@ -47,8 +47,8 @@ android {
 dependencies {
     implementation(project(":shared-models"))
     implementation(project(":tauri-android"))
-    implementation("androidx.webkit:webkit:1.14.0")
-    implementation("androidx.lifecycle:lifecycle-process:2.10.0")
+    implementation(libs.androidx.webkit)
+    implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.play.services.wearable)
