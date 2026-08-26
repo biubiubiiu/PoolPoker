@@ -22,9 +22,8 @@ pnpm run test:e2e     # Playwright end-to-end tests (single chromium project)
 pnpm run lint         # biome check .
 pnpm run format       # biome format --write .
 npm run tauri:build        # Tauri desktop production build
-npm run build:so           # compile Rust .so for arm64 & x86_64 and inject to android jniLibs
-npm run tauri:android      # Tauri Android debug APK build (:app:assembleDebug)
-npm run tauri:android:build# Tauri Android standalone release APK build (:app:assembleRelease)
+npm run tauri:android      # Tauri Android debug APK build (tauri android build --debug --apk)
+npm run tauri:android:build# Tauri Android standalone release APK build (tauri android build --apk)
 ```
 
 - **Run unit tests**: `pnpm run test:unit` or `pnpm run test:unit:watch` (test files located in `server/__tests__/*.spec.ts`).

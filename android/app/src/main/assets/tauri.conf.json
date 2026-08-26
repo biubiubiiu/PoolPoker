@@ -48,13 +48,8 @@
     "security": {
       "freezePrototype": false,
       "dangerousDisableAssetCspModification": false,
-      "assetProtocol": {
-        "scope": [],
-        "enable": false
-      },
-      "pattern": {
-        "use": "brownfield"
-      },
+      "assetProtocol": { "scope": [], "enable": false },
+      "pattern": { "use": "brownfield" },
       "capabilities": []
     },
     "macOSPrivateApi": false,
@@ -80,10 +75,7 @@
       "certificateThumbprint": null,
       "timestampUrl": null,
       "tsp": false,
-      "webviewInstallMode": {
-        "type": "downloadBootstrapper",
-        "silent": true
-      },
+      "webviewInstallMode": { "type": "downloadBootstrapper", "silent": true },
       "allowDowngrades": true,
       "minimumWebview2Version": null,
       "wix": null,
@@ -91,45 +83,22 @@
       "signCommand": null
     },
     "linux": {
-      "appimage": {
-        "bundleMediaFramework": false,
-        "files": {}
-      },
-      "deb": {
-        "files": {}
-      },
-      "rpm": {
-        "release": "1",
-        "epoch": 0,
-        "files": {}
-      }
+      "appimage": { "bundleMediaFramework": false, "files": {} },
+      "deb": { "files": {} },
+      "rpm": { "release": "1", "epoch": 0, "files": {} }
     },
     "macOS": {
       "files": {},
       "minimumSystemVersion": "10.13",
       "hardenedRuntime": true,
       "dmg": {
-        "windowSize": {
-          "width": 660,
-          "height": 400
-        },
-        "appPosition": {
-          "x": 180,
-          "y": 170
-        },
-        "applicationFolderPosition": {
-          "x": 480,
-          "y": 170
-        }
+        "windowSize": { "width": 660, "height": 400 },
+        "appPosition": { "x": 180, "y": 170 },
+        "applicationFolderPosition": { "x": 480, "y": 170 }
       }
     },
-    "iOS": {
-      "minimumSystemVersion": "14.0"
-    },
-    "android": {
-      "minSdkVersion": 24,
-      "autoIncrementVersionCode": false
-    }
+    "iOS": { "minimumSystemVersion": "14.0" },
+    "android": { "minSdkVersion": 24, "autoIncrementVersionCode": false }
   },
   "plugins": {}
 }

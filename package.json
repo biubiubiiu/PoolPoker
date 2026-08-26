@@ -20,9 +20,8 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
-    "build:so": "tsx scripts/build-so.ts",
-    "tauri:android": "npm run build && npm run build:so && cd android && ./gradlew :app:assembleDebug --no-daemon",
-    "tauri:android:build": "npm run build && npm run build:so && cd android && ./gradlew :app:assembleRelease --no-daemon"
+    "tauri:android": "tauri android build --debug --apk",
+    "tauri:android:build": "tauri android build --apk"
   },
   "packageManager": "pnpm@11.22.0",
   "engines": {

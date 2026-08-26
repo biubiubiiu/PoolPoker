@@ -4,3 +4,10 @@ plugins {
     alias(libs.plugins.kotlin.compose) apply false
 }
 
+tasks.register("assembleUniversalRelease") {
+    dependsOn(":app:assembleRelease")
+}
+
+tasks.register("assembleUniversalDebug") {
+    dependsOn(":app:assembleDebug")
+}
