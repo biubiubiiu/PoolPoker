@@ -24,7 +24,7 @@ gson = "2.14.0"
 # SDK Configuration
 compileSdk = "37"
 minSdk = "26"
-targetSdk = "34"
+targetSdk = "37"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
