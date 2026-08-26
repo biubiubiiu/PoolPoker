@@ -57,7 +57,7 @@
     "enableGTKAppId": false
   },
   "build": {
-    "devUrl": "http://192.168.18.135:5173/",
+    "devUrl": "http://localhost:5173/",
     "frontendDist": "../dist",
     "beforeDevCommand": "npm run dev:frontend",
     "beforeBuildCommand": "npm run build",

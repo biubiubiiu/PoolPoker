@@ -4,12 +4,19 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-
 import android.util.Log
+
+import android.webkit.WebSettings
+import android.webkit.WebView
 import androidx.annotation.Keep
 
 @Keep
 class MainActivity : TauriActivity() {
+
+    override fun onWebViewCreate(webView: WebView) {
+        super.onWebViewCreate(webView)
+        webView.settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

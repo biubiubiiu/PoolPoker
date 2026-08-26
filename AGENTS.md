@@ -24,6 +24,8 @@ pnpm run format       # biome format --write .
 npm run tauri:build        # Tauri desktop production build
 npm run tauri:android      # Tauri Android debug APK build (tauri android build --debug --apk)
 npm run tauri:android:build# Tauri Android standalone release APK build (tauri android build --apk)
+npm run tauri:ios          # Tauri iOS dev mode on Xcode Simulator (tauri ios dev)
+npm run tauri:ios:build    # Tauri iOS production build (tauri ios build)
 ```
 
 - **Run unit tests**: `pnpm run test:unit` or `pnpm run test:unit:watch` (test files located in `server/__tests__/*.spec.ts`).
@@ -34,16 +36,16 @@ npm run tauri:android:build# Tauri Android standalone release APK build (tauri a
 
 ## Architecture
 
-Multi-client architecture supporting Web browsers, Android Phone Companion, and native Wear OS watches:
+Multi-client architecture supporting Web browsers, Android Phone Companion, iOS App, and native Wear OS watches:
 
 ```
-Browser (Vue 3 components) / Wear OS (:wear-app) / Companion (:phone-companion) / Android App (:app)
+Browser (Vue 3 components) / Wear OS (:wear-app) / Android App (:app) / iOS App (apple/)
   → Socket.IO emit / Data Layer API (contract in shared/types/socket.ts & :shared-models)
 server/socketHandlers.ts  →  gameEngine.ts / pokerDeck.ts / roomManager.ts
   → broadcastRoomState → room_updated (multi-socket per userId) → Reactive UI re-render
 ```
 
-- **Web Frontend & Tauri** (`src/`, `src-tauri/`): Vue 3 + TypeScript + Vite + Tailwind CSS. Business logic lives in composables (`useGameRoom`, `useSocket`, `usePlayerProfile`, `useWearSync`); components handle presentation + events. Tauri v2 packages the Web frontend into Android APK/AAB (`android/app`) and desktop applications.
+- **Web Frontend & Tauri** (`src/`, `src-tauri/`): Vue 3 + TypeScript + Vite + Tailwind CSS. Business logic lives in composables (`useGameRoom`, `useSocket`, `usePlayerProfile`, `useWearSync`); components handle presentation + events. Tauri v2 packages the Web frontend into Android APK/AAB (`android/app`), iOS App (`apple/`, symlinked via `src-tauri/gen/apple -> ../../apple`), and desktop applications.
 - **Android & Wear OS** (`android/`):
   - `:app`: Tauri Android App module extending `TauriActivity` with `TauriWearSyncPlugin` and `WearableDataLayerService`.
   - `:shared-models`: Kotlin data models (`WearSyncRoomPayload`, `WearActionPayload`) and DataLayer contracts.

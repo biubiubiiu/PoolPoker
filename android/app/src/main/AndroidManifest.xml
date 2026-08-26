@@ -15,7 +15,7 @@
         android:label="PoolPoker"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
-        android:theme="@style/Theme.AppCompat.NoActionBar">
+        android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar">
         
         <activity
             android:name=".MainActivity"

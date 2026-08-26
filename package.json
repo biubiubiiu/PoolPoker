@@ -21,7 +21,9 @@
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "tauri:android": "tauri android build --debug --apk",
-    "tauri:android:build": "tauri android build --apk"
+    "tauri:android:build": "tauri android build --apk",
+    "tauri:ios": "tauri ios dev",
+    "tauri:ios:build": "tauri ios build"
   },
   "packageManager": "pnpm@11.22.0",
   "engines": {
@@ -44,6 +46,8 @@
   "dependencies": {
     "@fortawesome/fontawesome-free": "^7.3.1",
     "@tauri-apps/api": "^2.11.1",
+    "@tauri-apps/plugin-dialog": "~2.7.2",
+    "@tauri-apps/plugin-http": "~2.5.9",
     "canvas-confetti": "^1.9.4",
     "express": "^4.19.2",
     "js-yaml": "^4.1.0",

@@ -3,6 +3,7 @@ import type { SocketCallbackResponse } from '@shared/types/socket';
 import confetti from 'canvas-confetti';
 import type { Socket } from 'socket.io-client';
 import { computed, onMounted, onUnmounted, type Ref, ref, watch } from 'vue';
+import { showAlert, showConfirm } from '@/utils/dialog';
 
 export interface BallConfigItem {
   name: string;
@@ -76,12 +77,26 @@ export function useGameRoom(options: UseGameRoomOptions) {
     });
   };
 
+  const smartFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    let tauriErr: any = null;
+    if (typeof window !== 'undefined' && ('__TAURI__' in window || '__TAURI_INTERNALS__' in window)) {
+      try {
+        const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http');
+        return await tauriFetch(input, init);
+      } catch (err) {
+        tauriErr = err;
+        console.warn('[smartFetch] @tauri-apps/plugin-http fetch failed, falling back to browser fetch:', err);
+      }
+    }
+    return await fetch(input, init);
+  };
+
   const fetchLatestRoomState = async () => {
     const savedRoomCode = localStorage.getItem('billiards_room_code');
     if (!savedRoomCode) return;
 
     try {
-      const res = await fetch(getApiUrl(`/api/rooms/${savedRoomCode}?userId=${encodeURIComponent(userId.value)}`));
+      const res = await smartFetch(getApiUrl(`/api/rooms/${savedRoomCode}?userId=${encodeURIComponent(userId.value)}`));
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.room) {
@@ -111,8 +126,9 @@ export function useGameRoom(options: UseGameRoomOptions) {
   };
 
   const fetchBallConfigs = async () => {
+    const targetUrl = getApiUrl('/api/ball-configs');
     try {
-      const response = await fetch(getApiUrl('/api/ball-configs'));
+      const response = await smartFetch(targetUrl);
       if (!response.ok) {
         throw new Error(`获取球色配置失败: ${response.status}`);
       }
@@ -121,8 +137,8 @@ export function useGameRoom(options: UseGameRoomOptions) {
       if (!ballConfigs.value[selectedBallConfigKey.value]) {
         selectedBallConfigKey.value = data.defaultKey;
       }
-    } catch (err) {
-      console.error('[BallConfigs Error]', err);
+    } catch (err: any) {
+      console.error('[BallConfigs Error Detail]', err);
     }
   };
 
@@ -197,7 +213,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
     });
 
     s.on('error_message', (msg: string) => {
-      alert(msg);
+      showAlert(msg);
     });
   };
 
@@ -311,7 +327,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
       },
       (res: SocketCallbackResponse) => {
         if (!res.success) {
-          alert(res.message || '加入房间失败');
+          showAlert(res.message || '加入房间失败');
         } else if (res.roomCode) {
           localStorage.setItem('billiards_room_code', res.roomCode);
           if (res.sessionToken) {
@@ -341,18 +357,18 @@ export function useGameRoom(options: UseGameRoomOptions) {
   };
 
   // 5. 销牌 / 确认进球
-  const handleConfirmPocket = (card: Card) => {
+  const handleConfirmPocket = async (card: Card) => {
     if (room.value?.status !== 'playing') return;
 
     if (isCardDimmed(card)) {
-      alert(
+      await showAlert(
         `【${card.ballNumber}号球】已在场上被打进，你的卡片 [${card.suit}${card.rank}] 属于已进球免打卡，无需重复消去！`
       );
       return;
     }
 
     const confirmText = `确认已经打进 ${card.ballNumber} 号球，消去卡片 [${card.suit}${card.rank}] 吗？`;
-    if (window.confirm(confirmText)) {
+    if (await showConfirm(confirmText, '确认出牌')) {
       socket.value?.emit('pocket_ball', {
         roomCode: room.value.code,
         cardId: card.id,
@@ -361,9 +377,9 @@ export function useGameRoom(options: UseGameRoomOptions) {
   };
 
   // 6. 撤回上一步操作（整体回退到上一步状态）
-  const handleRetract = () => {
+  const handleRetract = async () => {
     if (!room.value) return;
-    if (window.confirm('确认撤回到上一步操作吗？将整体回退牌桌最近一次的操作。')) {
+    if (await showConfirm('确认撤回到上一步操作吗？将整体回退牌桌最近一次的操作。', '确认撤回')) {
       socket.value?.emit('retract_ball', { roomCode: room.value.code });
     }
   };
@@ -415,8 +431,8 @@ export function useGameRoom(options: UseGameRoomOptions) {
   };
 
   // 9. 离开房间
-  const handleLeaveRoom = () => {
-    if (window.confirm('确认离开房间吗？')) {
+  const handleLeaveRoom = async () => {
+    if (await showConfirm('确认离开房间吗？', '离开确认')) {
       if (room.value) {
         socket.value?.emit('leave_room', {
           roomCode: room.value.code,

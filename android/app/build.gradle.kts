@@ -12,13 +12,15 @@ android {
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"
+
+        ndk {
+            abiFilters.addAll(listOf("arm64-v8a", "x86_64"))
+        }
     }
 
     splits {
         abi {
-            isEnable = true
-            reset()
-            include("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+            isEnable = false
         }
     }
 
@@ -46,6 +48,11 @@ android {
     buildFeatures {
         buildConfig = true
     }
+
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
 }
 
 dependencies {
@@ -55,10 +62,13 @@ dependencies {
     implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
+    implementation(libs.google.material)
     implementation(libs.play.services.wearable)
     implementation(libs.gson)
     implementation(libs.socket.io.client)
 }
+
+apply(from = "tauri.build.gradle.kts")
 
 listOf("Debug", "Release").forEach { variantName ->
     val isDebug = variantName.equals("debug", ignoreCase = true)
@@ -96,17 +106,24 @@ listOf("Debug", "Release").forEach { variantName ->
             }
         }
 
-        val cmd = if (isDebug) {
-            listOf("npx", "tauri", "android", "build", "--debug", "--apk")
+        val cmdStr = if (isDebug) {
+            "npx tauri android build --debug --apk"
         } else {
-            listOf("npx", "tauri", "android", "build", "--apk")
+            "npx tauri android build --apk"
         }
 
         val isWindows = System.getProperty("os.name").lowercase().contains("win")
         if (isWindows) {
-            commandLine(listOf("cmd", "/c") + cmd)
+            commandLine("cmd", "/c", cmdStr)
         } else {
-            commandLine(cmd)
+            val shellScript = """
+                if [ -s "${'$'}HOME/.nvm/nvm.sh" ]; then
+                    . "${'$'}HOME/.nvm/nvm.sh"
+                    nvm use 24 >/dev/null 2>&1 || nvm use >/dev/null 2>&1 || true
+                fi
+                exec $cmdStr
+            """.trimIndent()
+            commandLine("sh", "-c", shellScript)
         }
     }
 

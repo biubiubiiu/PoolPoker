@@ -25,7 +25,10 @@ pub unsafe extern "C" fn Java_com_poolpoker_app_MainActivity_nativeInitJni(
     let jni_env = match jni::JNIEnv::from_raw(env) {
         Ok(e) => e,
         Err(e) => {
-            println!("[Tauri Rust] nativeInitJni: JNIEnv::from_raw failed: {:?}", e);
+            println!(
+                "[Tauri Rust] nativeInitJni: JNIEnv::from_raw failed: {:?}",
+                e
+            );
             return;
         }
     };
@@ -88,7 +91,10 @@ fn call_kotlin_broadcast(payload: &str) {
                     &fallback_vm
                 }
                 Err(e) => {
-                    println!("[Tauri Rust] JavaVM::from_raw failed from ndk_context: {:?}", e);
+                    println!(
+                        "[Tauri Rust] JavaVM::from_raw failed from ndk_context: {:?}",
+                        e
+                    );
                     return;
                 }
             }
@@ -108,7 +114,10 @@ fn call_kotlin_broadcast(payload: &str) {
         let target_cls = match env.find_class("com/poolpoker/app/MainActivity") {
             Ok(c) => c,
             Err(e) => {
-                println!("[Tauri Rust] JNI find_class com/poolpoker/app/MainActivity failed: {:?}", e);
+                println!(
+                    "[Tauri Rust] JNI find_class com/poolpoker/app/MainActivity failed: {:?}",
+                    e
+                );
                 if env.exception_check().unwrap_or(false) {
                     let _ = env.exception_clear();
                 }
@@ -146,7 +155,10 @@ fn call_kotlin_broadcast(payload: &str) {
 fn sync_wear_state(payload: String) -> Result<(), String> {
     #[cfg(target_os = "android")]
     {
-        println!("[Tauri Rust] Syncing state to Wear OS: {} bytes", payload.len());
+        println!(
+            "[Tauri Rust] Syncing state to Wear OS: {} bytes",
+            payload.len()
+        );
         call_kotlin_broadcast(&payload);
     }
     let _ = payload;
@@ -156,6 +168,8 @@ fn sync_wear_state(payload: String) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_http::init())
         .invoke_handler(tauri::generate_handler![is_android, sync_wear_state])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

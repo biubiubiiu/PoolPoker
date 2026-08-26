@@ -3,4 +3,5 @@ val implementation by configurations
 dependencies {
   implementation("androidx.lifecycle:lifecycle-process:2.10.0")
   implementation(project(":tauri-android"))
+  implementation(project(":tauri-plugin-dialog"))
 }

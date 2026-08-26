@@ -2,6 +2,7 @@
 import type { Room } from '@shared/types/game';
 import { computed, ref } from 'vue';
 import type { ServerUrlConfig } from '@/composables/useSocket';
+import { showAlert, showConfirm } from '@/utils/dialog';
 
 const props = defineProps<{
   room: Room | null;
@@ -12,6 +13,7 @@ const props = defineProps<{
   avatars: string[];
   selectedBallConfigKey: string;
   ballConfigOptions: Array<{ key: string; name: string }>;
+  ballConfigsStatus?: string;
   serverUrl?: string;
   savedServerUrls?: ServerUrlConfig[];
 }>();
@@ -55,15 +57,15 @@ const onAddServer = () => {
   newServerName.value = '';
 };
 
-const onRemoveServer = (item: ServerUrlConfig) => {
-  if (confirm(`确定删除服务地址 "${item.name}" (${item.url}) 吗？`)) {
+const onRemoveServer = async (item: ServerUrlConfig) => {
+  if (await showConfirm(`确定删除服务地址 "${item.name}" (${item.url}) 吗？`, '确认删除')) {
     emit('remove-server-url', item.id);
   }
 };
 
-const onJoin = () => {
+const onJoin = async () => {
   if (!joinCode.value.trim()) {
-    alert('请输入4位房间码');
+    await showAlert('请输入4位房间码', '提示');
     return;
   }
   emit('join-room', joinCode.value.trim());
