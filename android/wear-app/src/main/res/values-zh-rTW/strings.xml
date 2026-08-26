@@ -31,4 +31,13 @@
     <string name="status_connect_failed_format">連接失敗: %1$s</string>
     <string name="cd_backspace">退格</string>
     <string name="cd_confirm">確認</string>
+    <string name="turn_order_label">順序: %1$s</string>
+    <string name="turn_order_prefix">🎯 順序: %1$s</string>
+    <string name="score_delta_plus">+%1$d分</string>
+    <string name="score_delta_minus">%1$d分</string>
+    <string name="total_score_format">總分: %1$d</string>
+    <string name="card_category_scored">已消除</string>
+    <string name="card_category_free">免打卡</string>
+    <string name="card_category_remaining">未消除</string>
+    <string name="winner_badge">🏆 勝出</string>
 </resources>

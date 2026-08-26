@@ -40,6 +40,28 @@ object PoolPokerColors {
     val StatusPocketed = Color.Yellow
     val StatusClearGold = Color(0xFFFFD700)
 
+    // Game Settlement Color Tokens
+    val ScoreDeltaPositiveText = Color(0xFF6EE7B7)
+    val ScoreDeltaPositiveBg = Color(0xFF064E3B)
+    val ScoreDeltaNegativeText = Color(0xFFFCA5A5)
+    val ScoreDeltaNegativeBg = Color(0xFF7F1D1D)
+
+    val CategoryScoredText = Color(0xFF34D399)
+    val CategoryScoredBg = Color(0xFF064E3B)
+    val CategoryScoredBorder = Color(0xFF059669)
+    val CategoryScoredChipText = Color(0xFFA7F3D0)
+
+    val CategoryFreeText = Color(0xFF38BDF8)
+    val CategoryFreeBg = Color(0xFF0C4A6E)
+    val CategoryFreeBorder = Color(0xFF0284C7)
+    val CategoryFreeChipText = Color(0xFFBAE6FD)
+
+    val CategoryRemainingText = Color(0xFFF87171)
+    val CategoryRemainingBg = Color(0xFF7F1D1D)
+    val CategoryRemainingBorder = Color(0xFFDC2626)
+    val CategoryRemainingChipText = Color(0xFFFCA5A5)
+    val CategoryRemainingPenaltyText = Color(0xFFF87171)
+
     fun getBallColor(ballNumber: Int): Color {
         return when (ballNumber) {
             1, 9 -> Ball1Yellow

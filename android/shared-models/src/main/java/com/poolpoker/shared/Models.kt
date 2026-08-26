@@ -66,11 +66,21 @@ data class PlayerModel(
     val totalScore: Int = 0
 )
 
+data class RoundScoreEntry(
+    val userId: String = "",
+    val delta: Int = 0
+)
+
 data class WearPlayerSummary(
     val userId: String,
     val name: String,
     val avatar: String,
-    val cardCount: Int = 0
+    val cardCount: Int = 0,
+    val cards: List<CardModel> = emptyList(),
+    val pocketedCards: List<CardModel> = emptyList(),
+    val isWinner: Boolean = false,
+    val totalScore: Int = 0,
+    val scoreDelta: Int? = null
 )
 
 data class RoomSettingsModel(
@@ -90,7 +100,8 @@ data class RoomModel(
     val pocketedBallNumbers: List<Int> = emptyList(),
     val roundCount: Int = 0,
     val deckCount: Int = 0,
-    val settings: RoomSettingsModel = RoomSettingsModel()
+    val settings: RoomSettingsModel = RoomSettingsModel(),
+    val lastRoundScores: List<RoundScoreEntry> = emptyList()
 )
 
 // Sync payload sent over Wear OS Data Layer API
@@ -99,6 +110,7 @@ data class WearSyncRoomPayload(
     val status: RoomStatus = RoomStatus.WAITING,
     val isMyTurn: Boolean = false,
     val currentTurnPlayerName: String = "",
+    val turnOrder: List<String> = emptyList(),
     val myCards: List<CardModel> = emptyList(),
     val pocketedBallNumbers: List<Int> = emptyList(),
     val winnerName: String? = null,
@@ -106,6 +118,7 @@ data class WearSyncRoomPayload(
     val myPlayerName: String? = null,
     @SerializedName("userId", alternate = ["myUserId"]) val myUserId: String? = null,
     val serverUrl: String? = null,
+    val lastRoundScores: List<RoundScoreEntry> = emptyList(),
     val timestamp: Long = System.currentTimeMillis()
 ) {
     fun toJson(): String = Gson().toJson(this)

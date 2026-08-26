@@ -72,12 +72,18 @@ object WearDirectSocketManager {
                         val currentTurnPlayer = room.players.find { it.userId == currentTurnUserId }
                         val isMyTurn = (currentTurnUserId == userId)
 
+                        val roundScoreMap = room.lastRoundScores.associate { it.userId to it.delta }
                         val playerSummaries = room.players.map { p ->
                             WearPlayerSummary(
                                 userId = p.userId,
                                 name = p.name,
                                 avatar = p.avatar,
-                                cardCount = p.cardCount
+                                cardCount = p.cardCount,
+                                cards = p.cards,
+                                pocketedCards = p.pocketedCards,
+                                isWinner = p.isWinner,
+                                totalScore = p.totalScore,
+                                scoreDelta = roundScoreMap[p.userId]
                             )
                         }
 
@@ -86,11 +92,13 @@ object WearDirectSocketManager {
                             status = room.status,
                             isMyTurn = isMyTurn,
                             currentTurnPlayerName = currentTurnPlayer?.name ?: "",
+                            turnOrder = room.turnOrder,
                             myCards = myPlayer?.cards ?: emptyList(),
                             pocketedBallNumbers = room.pocketedBallNumbers,
                             winnerName = room.players.find { it.isWinner }?.name,
                             players = playerSummaries,
                             myPlayerName = myPlayer?.name ?: userName,
+                            lastRoundScores = room.lastRoundScores,
                             timestamp = System.currentTimeMillis()
                         )
 

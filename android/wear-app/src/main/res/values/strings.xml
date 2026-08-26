@@ -31,4 +31,13 @@
     <string name="status_connect_failed_format">Connection failed: %1$s</string>
     <string name="cd_backspace">Backspace</string>
     <string name="cd_confirm">Confirm</string>
+    <string name="turn_order_label">Order: %1$s</string>
+    <string name="turn_order_prefix">🎯 Order: %1$s</string>
+    <string name="score_delta_plus">+%1$d pts</string>
+    <string name="score_delta_minus">%1$d pts</string>
+    <string name="total_score_format">Total: %1$d</string>
+    <string name="card_category_scored">Cleared</string>
+    <string name="card_category_free">Free</string>
+    <string name="card_category_remaining">Remaining</string>
+    <string name="winner_badge">🏆 Winner</string>
 </resources>

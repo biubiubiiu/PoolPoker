@@ -96,10 +96,21 @@ fun WearMainGameContent(
             }
         }
 
-        // Display current watch player's name
+        // Display player turn order
         item {
-            val defaultWatchName = BuildConfig.WATCH_PLAYER_NAME.ifBlank { stringResource(R.string.watch_player_default) }
-            val myPlayerName = roomState.myPlayerName ?: defaultWatchName
+            val turnOrderNames = if (roomState.turnOrder.isNotEmpty()) {
+                roomState.turnOrder.mapNotNull { userId ->
+                    roomState.players.find { it.userId == userId }?.name
+                }
+            } else {
+                roomState.players.map { it.name }
+            }
+            val turnOrderText = if (turnOrderNames.isNotEmpty()) {
+                turnOrderNames.joinToString(" → ")
+            } else {
+                roomState.myPlayerName ?: BuildConfig.WATCH_PLAYER_NAME.ifBlank { stringResource(R.string.watch_player_default) }
+            }
+
             Box(
                 modifier = Modifier
                     .padding(bottom = 6.dp)
@@ -108,10 +119,11 @@ fun WearMainGameContent(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = stringResource(R.string.watch_player_prefix, myPlayerName),
+                    text = stringResource(R.string.turn_order_prefix, turnOrderText),
                     fontSize = 11.sp,
                     color = Color.White,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
                 )
             }
         }
