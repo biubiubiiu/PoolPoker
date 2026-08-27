@@ -36,7 +36,7 @@ public struct LaunchScreenView: View {
                         .frame(width: 100, height: 100)
                         .shadow(color: Color.black.opacity(0.4), radius: 10, x: 0, y: 5)
                         .scaleEffect(isAnimating ? 1.05 : 0.95)
-                        .animation(Animation.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: isAnimating)
+                        .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: isAnimating)
 
                     Text("8")
                         .font(.system(size: 48, weight: .black, design: .rounded))
@@ -57,7 +57,7 @@ public struct LaunchScreenView: View {
 
                 // 底部加载指示器
                 ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    .tint(.white)
                     .scaleEffect(1.2)
                     .padding(.bottom, 40)
             }
@@ -68,8 +68,6 @@ public struct LaunchScreenView: View {
     }
 }
 
-struct LaunchScreenView_Previews: PreviewProvider {
-    static var previews: some View {
-        LaunchScreenView()
-    }
+#Preview {
+    LaunchScreenView()
 }

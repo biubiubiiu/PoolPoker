@@ -2,7 +2,7 @@ name: poolpoker
 options:
   bundleIdPrefix: com.poolpoker.app
   deploymentTarget:
-    iOS: 14.0
+    iOS: 16.0
 fileGroups: [../src]
 configs:
   debug: debug
@@ -53,7 +53,8 @@ targets:
         CFBundleShortVersionString: 1.0.0
         CFBundleVersion: "1.0.0"
         NSAppTransportSecurity:
-          NSAllowsArbitraryLoads: true
+          NSAllowsLocalNetworking: true
+          NSAllowsArbitraryLoadsInWebContent: true
         NSLocalNetworkUsageDescription: PoolPoker 需要访问局域网以连接开发服务器与游戏房间。
         NSBonjourServices:
           - _http._tcp.
