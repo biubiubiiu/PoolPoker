@@ -15,7 +15,9 @@
         "title": "PoolPoker (球霸扑克)",
         "width": 800,
         "height": 900,
-        "resizable": true
+        "resizable": true,
+        "theme": "Dark",
+        "backgroundColor": "#0b1912"
       }
     ],
     "security": {
