@@ -3,7 +3,7 @@ options:
   bundleIdPrefix: com.poolpoker.app
   deploymentTarget:
     iOS: 14.0
-fileGroups: [../../src]
+fileGroups: [../src]
 configs:
   debug: debug
   release: release
@@ -35,12 +35,11 @@ targets:
       - path: assets
         buildPhase: resources
         type: folder
-      - path: LaunchScreen.storyboard
     info:
       path: poolpoker_iOS/Info.plist
       properties:
         LSRequiresIPhoneOS: true
-        UILaunchStoryboardName: LaunchScreen
+        UILaunchScreen: {}
         UIRequiredDeviceCapabilities: [arm64, metal]
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
@@ -85,7 +84,19 @@ targets:
       - sdk: UIKit.framework
       - sdk: WebKit.framework
     preBuildScripts:
-      - script: pnpm tauri ios xcode-script -v --platform ${PLATFORM_DISPLAY_NAME:?} --sdk-root ${SDKROOT:?} --framework-search-paths "${FRAMEWORK_SEARCH_PATHS:?}" --header-search-paths "${HEADER_SEARCH_PATHS:?}" --gcc-preprocessor-definitions "${GCC_PREPROCESSOR_DEFINITIONS:-}" --configuration ${CONFIGURATION:?} ${FORCE_COLOR} ${ARCHS:?}
+      - script: |
+          export PATH="$PATH:/opt/homebrew/bin:/usr/local/bin:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node 2>/dev/null | tail -n 1)/bin:$HOME/.local/share/pnpm:$HOME/.cargo/bin"
+          if [ -f "$HOME/.zshrc" ]; then source "$HOME/.zshrc" 2>/dev/null || true; fi
+          pnpm tauri ios xcode-script -v --platform "${PLATFORM_DISPLAY_NAME:?}" --sdk-root "${SDKROOT:?}" --framework-search-paths "${FRAMEWORK_SEARCH_PATHS:?}" --header-search-paths "${HEADER_SEARCH_PATHS:?}" --gcc-preprocessor-definitions "${GCC_PREPROCESSOR_DEFINITIONS:-}" --configuration "${CONFIGURATION:?}" ${FORCE_COLOR} ${ARCHS:?} || {
+            if [ -f "$SRCROOT/Externals/arm64/${CONFIGURATION}/libapp.a" ] || [ -f "$SRCROOT/Externals/x86_64/${CONFIGURATION}/libapp.a" ]; then
+              echo "warning: Tauri CLI dev server is not running (Connection refused). Falling back to existing libapp.a static library."
+              echo "warning: Run 'pnpm run tauri:ios' in terminal for full live reload support."
+              exit 0
+            else
+              echo "error: Tauri CLI dev server is not running and libapp.a missing. Please run 'pnpm run tauri:ios' in terminal first."
+              exit 1
+            fi
+          }
         name: Build Rust Code
         basedOnDependencyAnalysis: false
         outputFiles:

@@ -13,32 +13,48 @@
 		491716A0A2A5BBA2D3070179 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FD1449EA6F211B59E739C9E0 /* Assets.xcassets */; };
 		53BA7B79108509B4C5A88EEB /* libapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D41D9D37F8BEFCD21370C442 /* libapp.a */; };
 		7BAE149A70266CDADBC510F7 /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CA56DA66FD94A99318CA4B92 /* WebKit.framework */; };
-		8600149FB8A97AB9A529C08A /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = ABED7261714515BBD42EA511 /* LaunchScreen.storyboard */; };
 		9E500DA384FC1FC4AE4F96C9 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4867ED4AC496203BF31258BE /* UIKit.framework */; };
 		9ED4290527422DCD860D69C0 /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 43B843AA3809A46755EFA922 /* MetalKit.framework */; };
 		A0F6F65CCF9F91310B827CA4 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 089ACCD440E1A6B2B32EEA3B /* QuartzCore.framework */; };
+		C63C0BC5432F93F5AFDB9244 /* libapp.a in Resources */ = {isa = PBXBuildFile; fileRef = A3400366B982B211CD19C140 /* libapp.a */; };
 		CF2E61D23F03BC62493F1911 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = B1D950B32ABE36124496A632 /* assets */; };
 		CFD956F26E4B8CF6A5AC6F08 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BE64EC480980599D01421337 /* Metal.framework */; };
+		DD813E33CBBBE082FAE5339D /* LaunchScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C81EBECE8421318ABA804B13 /* LaunchScreenView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		089ACCD440E1A6B2B32EEA3B /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
+		0DC035413E90DD3092EA62D7 /* useGameRoom.ts */ = {isa = PBXFileReference; path = useGameRoom.ts; sourceTree = "<group>"; };
 		11169BFD1843766FE2399720 /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
+		114CB9FE8ED57163CA958871 /* RestartModal.vue */ = {isa = PBXFileReference; path = RestartModal.vue; sourceTree = "<group>"; };
+		1A7D4AF79AF704551627F1B5 /* GameHeader.vue */ = {isa = PBXFileReference; path = GameHeader.vue; sourceTree = "<group>"; };
+		1EDE7C6C5AF6092920B45E31 /* PokerCard.vue */ = {isa = PBXFileReference; path = PokerCard.vue; sourceTree = "<group>"; };
 		22F75D582AED0A711AE69CBD /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
-		341FFDC4EFF23A57566D3DD3 /* main.rs */ = {isa = PBXFileReference; path = main.rs; sourceTree = "<group>"; };
+		265229D3208BABF2471F8B1C /* GameLogs.vue */ = {isa = PBXFileReference; path = GameLogs.vue; sourceTree = "<group>"; };
+		2BCD7009D4DDF2C4EC6CE275 /* dialog.ts */ = {isa = PBXFileReference; path = dialog.ts; sourceTree = "<group>"; };
+		334A80F55889756065870C16 /* RefereePocketModal.vue */ = {isa = PBXFileReference; path = RefereePocketModal.vue; sourceTree = "<group>"; };
+		388D79B9F7F48850BE166419 /* RoomLobby.vue */ = {isa = PBXFileReference; path = RoomLobby.vue; sourceTree = "<group>"; };
 		43B843AA3809A46755EFA922 /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
 		4867ED4AC496203BF31258BE /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
 		48D3AAC67060EACAD8F3434D /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
+		4ED9B4A454EF1495E3CB5361 /* BilliardsTable.vue */ = {isa = PBXFileReference; path = BilliardsTable.vue; sourceTree = "<group>"; };
+		558E802AFB6505312AA9395B /* main.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = main.css; sourceTree = "<group>"; };
 		5C75A90F0308C3FDD7B701C1 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
-		9BEF14B696EE4928C5C8F57F /* lib.rs */ = {isa = PBXFileReference; path = lib.rs; sourceTree = "<group>"; };
-		ABED7261714515BBD42EA511 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		73492674D5BC0E268174E775 /* useSocket.ts */ = {isa = PBXFileReference; path = useSocket.ts; sourceTree = "<group>"; };
+		9F6940AA0B5083AC9F55FFAD /* App.vue */ = {isa = PBXFileReference; path = App.vue; sourceTree = "<group>"; };
+		A3400366B982B211CD19C140 /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
 		B1D950B32ABE36124496A632 /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = SOURCE_ROOT; };
 		B491DF3C209E8763DED5DC36 /* poolpoker_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = poolpoker_iOS.entitlements; sourceTree = "<group>"; };
 		BE64EC480980599D01421337 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		C02697BDA965D41BC5B32A68 /* usePlayerProfile.ts */ = {isa = PBXFileReference; path = usePlayerProfile.ts; sourceTree = "<group>"; };
+		C81EBECE8421318ABA804B13 /* LaunchScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchScreenView.swift; sourceTree = "<group>"; };
 		CA56DA66FD94A99318CA4B92 /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
 		D09CF97F97097F4E0D8B4ABB /* poolpoker_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = poolpoker_iOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D41D9D37F8BEFCD21370C442 /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
+		DA6165FCBFAC4FC46C74C536 /* main.ts */ = {isa = PBXFileReference; path = main.ts; sourceTree = "<group>"; };
 		E34E7DFCF2391F0E79A78A3C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		ECE94D94052D0EE3B7A686FA /* VictoryModal.vue */ = {isa = PBXFileReference; path = VictoryModal.vue; sourceTree = "<group>"; };
+		FC4D4149E53676586427EDE6 /* RefereeFoulModal.vue */ = {isa = PBXFileReference; path = RefereeFoulModal.vue; sourceTree = "<group>"; };
 		FD1449EA6F211B59E739C9E0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -61,6 +77,22 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		025F4D2B0ED39AA948AC38DE /* components */ = {
+			isa = PBXGroup;
+			children = (
+				4ED9B4A454EF1495E3CB5361 /* BilliardsTable.vue */,
+				1A7D4AF79AF704551627F1B5 /* GameHeader.vue */,
+				265229D3208BABF2471F8B1C /* GameLogs.vue */,
+				1EDE7C6C5AF6092920B45E31 /* PokerCard.vue */,
+				FC4D4149E53676586427EDE6 /* RefereeFoulModal.vue */,
+				334A80F55889756065870C16 /* RefereePocketModal.vue */,
+				114CB9FE8ED57163CA958871 /* RestartModal.vue */,
+				388D79B9F7F48850BE166419 /* RoomLobby.vue */,
+				ECE94D94052D0EE3B7A686FA /* VictoryModal.vue */,
+			);
+			path = components;
+			sourceTree = "<group>";
+		};
 		2ADFA0F5999E4AB76DF928AF /* bindings */ = {
 			isa = PBXGroup;
 			children = (
@@ -69,12 +101,27 @@
 			path = bindings;
 			sourceTree = "<group>";
 		};
+		30F62D6A59B2D2C772C49DB8 /* utils */ = {
+			isa = PBXGroup;
+			children = (
+				2BCD7009D4DDF2C4EC6CE275 /* dialog.ts */,
+			);
+			path = utils;
+			sourceTree = "<group>";
+		};
+		36098571D06B07A4C94519FF /* arm64 */ = {
+			isa = PBXGroup;
+			children = (
+				DA14E5B3340727313FDD1B83 /* debug */,
+			);
+			path = arm64;
+			sourceTree = "<group>";
+		};
 		3CD0CCE7231864EDADC1608E = {
 			isa = PBXGroup;
 			children = (
 				B1D950B32ABE36124496A632 /* assets */,
 				FD1449EA6F211B59E739C9E0 /* Assets.xcassets */,
-				ABED7261714515BBD42EA511 /* LaunchScreen.storyboard */,
 				98BFF0DB21FFACA71A152023 /* Externals */,
 				D005443C476036173227C865 /* poolpoker_iOS */,
 				DE027CED9592826557D3976A /* Sources */,
@@ -95,15 +142,25 @@
 		7971D527849EEE32B3788D86 /* poolpoker */ = {
 			isa = PBXGroup;
 			children = (
+				C81EBECE8421318ABA804B13 /* LaunchScreenView.swift */,
 				48D3AAC67060EACAD8F3434D /* main.mm */,
 				2ADFA0F5999E4AB76DF928AF /* bindings */,
 			);
 			path = poolpoker;
 			sourceTree = "<group>";
 		};
+		8A3953F681E4D2AC3FE58385 /* styles */ = {
+			isa = PBXGroup;
+			children = (
+				558E802AFB6505312AA9395B /* main.css */,
+			);
+			path = styles;
+			sourceTree = "<group>";
+		};
 		98BFF0DB21FFACA71A152023 /* Externals */ = {
 			isa = PBXGroup;
 			children = (
+				36098571D06B07A4C94519FF /* arm64 */,
 			);
 			path = Externals;
 			sourceTree = "<group>";
@@ -111,11 +168,15 @@
 		9F02D8E01A2775FEDC9AD823 /* src */ = {
 			isa = PBXGroup;
 			children = (
-				9BEF14B696EE4928C5C8F57F /* lib.rs */,
-				341FFDC4EFF23A57566D3DD3 /* main.rs */,
+				9F6940AA0B5083AC9F55FFAD /* App.vue */,
+				DA6165FCBFAC4FC46C74C536 /* main.ts */,
+				025F4D2B0ED39AA948AC38DE /* components */,
+				D0BD41A30108302861945ECD /* composables */,
+				8A3953F681E4D2AC3FE58385 /* styles */,
+				30F62D6A59B2D2C772C49DB8 /* utils */,
 			);
 			name = src;
-			path = ../../src;
+			path = ../src;
 			sourceTree = "<group>";
 		};
 		D005443C476036173227C865 /* poolpoker_iOS */ = {
@@ -125,6 +186,16 @@
 				B491DF3C209E8763DED5DC36 /* poolpoker_iOS.entitlements */,
 			);
 			path = poolpoker_iOS;
+			sourceTree = "<group>";
+		};
+		D0BD41A30108302861945ECD /* composables */ = {
+			isa = PBXGroup;
+			children = (
+				0DC035413E90DD3092EA62D7 /* useGameRoom.ts */,
+				C02697BDA965D41BC5B32A68 /* usePlayerProfile.ts */,
+				73492674D5BC0E268174E775 /* useSocket.ts */,
+			);
+			path = composables;
 			sourceTree = "<group>";
 		};
 		D5E138217A337EEB0F4942E4 /* Frameworks */ = {
@@ -142,12 +213,27 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		DA14E5B3340727313FDD1B83 /* debug */ = {
+			isa = PBXGroup;
+			children = (
+				A3400366B982B211CD19C140 /* libapp.a */,
+			);
+			path = debug;
+			sourceTree = "<group>";
+		};
 		DE027CED9592826557D3976A /* Sources */ = {
 			isa = PBXGroup;
 			children = (
 				7971D527849EEE32B3788D86 /* poolpoker */,
 			);
 			path = Sources;
+			sourceTree = "<group>";
+		};
+		"TEMP_F1FA0966-82EA-4909-92B3-54936A983545" /* x86_64 */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = x86_64;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -209,8 +295,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				491716A0A2A5BBA2D3070179 /* Assets.xcassets in Resources */,
-				8600149FB8A97AB9A529C08A /* LaunchScreen.storyboard in Resources */,
 				CF2E61D23F03BC62493F1911 /* assets in Resources */,
+				C63C0BC5432F93F5AFDB9244 /* libapp.a in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -236,7 +322,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "pnpm tauri ios xcode-script -v --platform ${PLATFORM_DISPLAY_NAME:?} --sdk-root ${SDKROOT:?} --framework-search-paths \"${FRAMEWORK_SEARCH_PATHS:?}\" --header-search-paths \"${HEADER_SEARCH_PATHS:?}\" --gcc-preprocessor-definitions \"${GCC_PREPROCESSOR_DEFINITIONS:-}\" --configuration ${CONFIGURATION:?} ${FORCE_COLOR} ${ARCHS:?}";
+			shellScript = "export PATH=\"$PATH:/opt/homebrew/bin:/usr/local/bin:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node 2>/dev/null | tail -n 1)/bin:$HOME/.local/share/pnpm:$HOME/.cargo/bin\"\nif [ -f \"$HOME/.zshrc\" ]; then source \"$HOME/.zshrc\" 2>/dev/null || true; fi\npnpm tauri ios xcode-script -v --platform \"${PLATFORM_DISPLAY_NAME:?}\" --sdk-root \"${SDKROOT:?}\" --framework-search-paths \"${FRAMEWORK_SEARCH_PATHS:?}\" --header-search-paths \"${HEADER_SEARCH_PATHS:?}\" --gcc-preprocessor-definitions \"${GCC_PREPROCESSOR_DEFINITIONS:-}\" --configuration \"${CONFIGURATION:?}\" ${FORCE_COLOR} ${ARCHS:?} || {\n  if [ -f \"$SRCROOT/Externals/arm64/${CONFIGURATION}/libapp.a\" ] || [ -f \"$SRCROOT/Externals/x86_64/${CONFIGURATION}/libapp.a\" ]; then\n    echo \"warning: Tauri CLI dev server is not running (Connection refused). Falling back to existing libapp.a static library.\"\n    echo \"warning: Run 'pnpm run tauri:ios' in terminal for full live reload support.\"\n    exit 0\n  else\n    echo \"error: Tauri CLI dev server is not running and libapp.a missing. Please run 'pnpm run tauri:ios' in terminal first.\"\n    exit 1\n  fi\n}\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -245,6 +331,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DD813E33CBBBE082FAE5339D /* LaunchScreenView.swift in Sources */,
 				1B96EAD42A3A1BACA3DB3540 /* main.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
