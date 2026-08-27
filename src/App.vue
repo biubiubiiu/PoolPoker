@@ -57,7 +57,7 @@ const showRulesModal = ref(false);
 </script>
 
 <template>
-  <div class="flex-1 flex flex-col max-w-md mx-auto w-full px-4 py-3 relative min-h-screen" :style="ballColorStyle">
+  <div class="flex-1 flex flex-col max-w-md mx-auto w-full safe-area-spacing relative min-h-dvh" :style="ballColorStyle">
     
     <!-- 顶部状态栏 -->
     <GameHeader v-if="room"

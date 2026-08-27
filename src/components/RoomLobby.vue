@@ -74,7 +74,7 @@ const onJoin = async () => {
 
 <template>
   <!-- View 0: 后端服务地址设置页面 -->
-  <div v-if="currentView === 'settings'" class="flex-1 flex flex-col justify-between py-4 space-y-4">
+  <div v-if="currentView === 'settings'" class="flex-1 flex flex-col justify-between py-2 space-y-4">
     <!-- 顶部导航栏 -->
     <div class="glass-panel rounded-2xl p-4 shadow-xl flex items-center justify-between">
       <button @click="currentView = 'lobby'" 
@@ -195,7 +195,7 @@ const onJoin = async () => {
   </div>
 
   <!-- View 1: 登录/创建与加入 (未在房间中) -->
-  <div v-else-if="!room" class="flex-1 flex flex-col justify-center my-auto py-4 relative">
+  <div v-else-if="!room" class="flex-1 flex flex-col justify-center my-auto py-2 relative">
     <!-- 右上角设置按钮 (仅在 Tauri 环境或已有自定义配置时显示) -->
     <div v-if="isTauriEnv || props.serverUrl" class="flex justify-end mb-2">
       <button @click="currentView = 'settings'" 

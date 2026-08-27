@@ -32,12 +32,17 @@
 /* ==========================================================================
    2. 基础应用画布 (App Canvas)
    ========================================================================== */
-html,
-body {
-  color-scheme: dark;
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
 }
 
-body {
+html,
+body,
+#app {
+  color-scheme: dark;
   background-color: var(--table-bg-color);
   background-image:
     radial-gradient(var(--table-pattern-color) 15%, transparent 16%),
@@ -46,9 +51,28 @@ body {
   background-position:
     0 0,
     15px 15px;
+  background-attachment: fixed;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100dvh;
+}
+
+body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
+}
+
+/* iOS Safe Area Padding Utility */
+.safe-area-spacing {
+  padding-top: max(0.75rem, calc(0.75rem + var(--sat)));
+  padding-bottom: max(0.75rem, calc(0.75rem + var(--sab)));
+  padding-left: max(1rem, calc(1rem + var(--sal)));
+  padding-right: max(1rem, calc(1rem + var(--sar)));
 }
 
 /* 移动端下拉菜单选项主题兼容 */
