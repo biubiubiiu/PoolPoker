@@ -6,6 +6,9 @@
 [![pnpm](https://img.shields.io/badge/pnpm-v11-orange)](https://pnpm.io/)
 [![Vue.js](https://img.shields.io/badge/Vue.js-v3.0-emerald)](https://vuejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-v5.8-blue)](https://www.typescriptlang.org/)
+[![Tauri](https://img.shields.io/badge/Tauri-v2.0-blue?logo=tauri)](https://tauri.app/)
+[![iOS](https://img.shields.io/badge/iOS-App-black?logo=apple)](https://developer.apple.com/ios/)
+[![Android](https://img.shields.io/badge/Android-App-green?logo=android)](https://developer.android.com/)
 [![Wear OS](https://img.shields.io/badge/Wear%20OS-Compose-green)](https://developer.android.com/wear)
 [![Vite](https://img.shields.io/badge/Vite-v8.2-purple)](https://vitejs.dev/)
 [![TailwindCSS](https://img.shields.io/badge/TailwindCSS-v4.3-sky)](https://tailwindcss.com/)
@@ -15,10 +18,13 @@
 
 ## 🌟 项目亮点
 
-- **🃏 54 张全副扑克牌库**：包含 52 张正牌（4种花色 × A~K）+ 小王 🃏 + 大王 👑。
-- **🎱 真实球号映射**：A~K 自动对应 1~13 号台球，大小王对应 14、15 号球；固定包含 8 号黑八。
+- **🃏 54 张全副扑克牌库**：包含 52 张正牌（4种花色 × A\~K）+ 小王 🃏 + 大王 👑。
+- **🎱 真实球号映射**：A\~K 自动对应 1\~13 号台球，大小王对应 14、15 号球；固定包含 8 号黑八。
 - **🔢 4 位数字房间号**：快捷创建与数字键盘扫码/输入加入，极简零门槛。
 - **⚡ 实时低延迟同步**：基于 WebSocket (Socket.IO)，销牌、罚牌与战况实时秒级广播。
+- **📱 移动端 iOS & Android 原生打包与深度适配**：
+  - 基于 Tauri v2 封装，完美覆盖 iOS (`apple/`) 与 Android (`android/app`) 跨端应用。
+  - **iOS 深度适配**：支持 Safe Area（刘海屏 / 灵动岛 / Home 底部条避让）、基于 `@tauri-apps/plugin-dialog` 接入 iOS 原生 `UIAlertController` 对话框，以及移动端网络后端 Server 地址自由配置。
 - **⌚ 独立 Wear OS 手表应用 (`android/wear-app`)**：
   - 基于 Kotlin + Jetpack Compose for Wear OS 构建。
   - 支持房间号直接连入房间，或通过 Phone Companion (`android/phone-companion`) 手机伴侣蓝牙联动。
@@ -56,21 +62,26 @@ pnpm start
 pnpm run dev
 ```
 
-### 4. Android 移动端 & Wear OS App 编译打包
-项目在 `android/` 目录下采用了统一的原生 Gradle 多模块结构：
-- `:app`：基于 Tauri v2 封装的 Android 移动端应用，集成 WebView 壳、后台地址配置与 Wear OS 同步插件。
-- `:wear-app`：基于 Jetpack Compose 构建的 Wear OS 手表原生应用。
-- `:shared-models`：Kotlin 共享数据模型与 Wearable DataLayer 协议。
+### 4. 移动端 (Android / iOS) & Wear OS App 编译打包
+项目采用 Tauri v2 进行跨平台移动端打包适配：
+- **iOS 移动端 App** (`apple/` 或 `src-tauri/gen/apple`)：支持 iOS 模拟器/真机调试与打包，内置 Xcode 工程并完整适配 Safe Area 避让与原生弹窗。
+- **Android 移动端 App** (`android/app`)：基于 Tauri v2 封装的 Android 主程序，集成 Wear OS 数据播种与 DataLayer 同步。
+- **Wear OS 手表应用** (`android/wear-app`)：基于 Jetpack Compose 构建的 Wear OS 手表原生应用。
 
-> 💡 **首次克隆或环境开发说明**：
-> `android/tauri.settings.gradle` 属于 Tauri 根据开发者本机 Cargo 路径自动生成的依赖配置文件（已提交 Git 忽略）。
-> - **命令行一键编译/自动初始化**：直接运行 `npm run tauri:android` 或 `npm run tauri:android:build`，Tauri 会自动建立环境链接并生成 `tauri.settings.gradle`。
-> - **Android Studio 直接打开**：直接打开 `android/` 根目录。`settings.gradle.kts` 已做容错处理，即使尚未生成 `tauri.settings.gradle`，也可独立编译运行 `:wear-app` 与 `:shared-models` 模块。
+> 💡 **环境与打包说明**：
+> - **iOS 平台**：开发需 macOS + Xcode 环境。运行 `npm run tauri:ios` 可自动拉起 Xcode 模拟器进行热更新调试；运行 `npm run tauri:ios:build` 编译 iOS 生产包。亦可使用 Xcode 打开 `apple/poolpoker.xcodeproj` 进行真机安装与签名。
+> - **Android 平台**：`android/tauri.settings.gradle` 由 Tauri 依据本机 Cargo 路径自动生成（已 Git 忽略）。命令行运行 `npm run tauri:android` 或 `npm run tauri:android:build` 会自动建立关联。
+> - **Android Studio 打开**：可直接打开 `android/` 根工程独立调试与运行 `:app` / `:wear-app`。详情参见 [Android & Tauri 移动端架构文档](docs/android_tauri_architecture.md)。
 
-**命令行打包命令**：
+**命令行打包与调试命令**：
 ```bash
+# Android 打包
 npm run tauri:android        # 编译生成 Debug 测试 APK
 npm run tauri:android:build  # 编译生成独立脱机 Release APK (R8 混淆 + 自动签名)
+
+# iOS 打包与调试
+npm run tauri:ios            # 开启 iOS 模拟器/真机 Dev 调试 (tauri ios dev)
+npm run tauri:ios:build      # 编译生成 iOS 正式包 (tauri ios build)
 ```
 - 生成的 Release APK 位于 `android/app/build/outputs/apk/release/app-release.apk`，在 5G 移动网络或无网状态下均可直接秒开。
 - 在 Android Studio 中直接打开 `android` 目录即可在单窗口中调试或运行 `:app` / `:wear-app` 模块。详情参见 [Android & Tauri 移动端架构文档](docs/android_tauri_architecture.md)。

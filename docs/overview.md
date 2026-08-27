@@ -33,8 +33,9 @@
 
 ### 目录结构
 
-```
-PoolPoker/
+├── apple/                   # iOS 原生工程 (Tauri v2 iOS 打包与 Xcode 配置)
+├── android/                 # Android 多模块工程 (:app / :wear-app / :shared-models)
+├── src-tauri/               # Tauri v2 配置文件与 Rust 核心桥接层
 ├── server/                  # 后端 (TypeScript)
 │   ├── index.ts             # Express + Socket.IO 启动、静态托管、/api 路由
 │   ├── config.ts            # config.yaml 与 ball_configs.json 加载
@@ -49,11 +50,12 @@ PoolPoker/
 ├── shared/types/            # 前后端共享类型
 │   ├── game.ts              # Card/Player/Room/ServerRoom/BallConfig 等
 │   └── socket.ts            # 事件 payload 与 Client/Server 事件接口
-├── src/                     # 前端 (Vue 3 + TS + Vite)
+├── src/                     # 前端 (Vue 3 + TS + Vite + 移动端/iOS 适配)
 │   ├── composables/         # usePlayerProfile / useSocket / useGameRoom
 │   ├── components/          # RoomLobby/BilliardsTable/PokerCard/VictoryModal 等
+│   ├── utils/dialog.ts      # 跨平台原生弹窗封装 (@tauri-apps/plugin-dialog)
 │   ├── App.vue              # 页面组装与弹窗编排
-│   └── styles/main.css
+│   └── styles/main.css      # iOS Safe Area 留白避让 & 物理实体球牌防反色保护
 ├── public/enter_robot.html  # 机器人 Webhook 链接设置页面（独立于 SPA）
 ├── e2e/poolpoker.spec.ts    # Playwright 端到端测试
 ├── ball_configs.json        # 球色主题配置（default / xingpai）
