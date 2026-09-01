@@ -1,121 +1,241 @@
 # 🎱 PoolPoker · 球霸扑克
 
-> 朋友线下打台球聚会神器 —— 基于 54 张扑克发牌与球号映射的实时对战应用！
+> 朋友线下打台球聚会神器 —— 基于 54 张扑克牌发牌与台球球号映射的跨端实时对战应用。
 
-[![Node.js](https://img.shields.io/badge/Node.js-v24-brightgreen)](https://nodejs.org/)
-[![pnpm](https://img.shields.io/badge/pnpm-v11-orange)](https://pnpm.io/)
-[![Vue.js](https://img.shields.io/badge/Vue.js-v3.0-emerald)](https://vuejs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-v5.8-blue)](https://www.typescriptlang.org/)
+🌐 **语言 / Language**: **简体中文** | [English](README_EN.md)
+
+[![Node.js](https://img.shields.io/badge/Node.js-v24-brightgreen?logo=nodedotjs)](https://nodejs.org/)
+[![pnpm](https://img.shields.io/badge/pnpm-v11-orange?logo=pnpm)](https://pnpm.io/)
+[![Vue.js](https://img.shields.io/badge/Vue.js-v3.0-emerald?logo=vuedotjs)](https://vuejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-v5.8-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![Tauri](https://img.shields.io/badge/Tauri-v2.0-blue?logo=tauri)](https://tauri.app/)
-[![iOS](https://img.shields.io/badge/iOS-App-black?logo=apple)](https://developer.apple.com/ios/)
 [![Android](https://img.shields.io/badge/Android-App-green?logo=android)](https://developer.android.com/)
-[![Wear OS](https://img.shields.io/badge/Wear%20OS-Compose-green)](https://developer.android.com/wear)
-[![Vite](https://img.shields.io/badge/Vite-v8.2-purple)](https://vitejs.dev/)
-[![TailwindCSS](https://img.shields.io/badge/TailwindCSS-v4.3-sky)](https://tailwindcss.com/)
-[![Socket.IO](https://img.shields.io/badge/Socket.IO-v4.7-blue)](https://socket.io/)
+[![iOS](https://img.shields.io/badge/iOS-App-black?logo=apple)](https://developer.apple.com/)
+[![Wear OS](https://img.shields.io/badge/Wear%20OS-Compose-green?logo=wearos)](https://developer.android.com/wear)
 
 ---
 
-## 🌟 项目亮点
+## 目录
 
-- **🃏 54 张全副扑克牌库**：包含 52 张正牌（4种花色 × A\~K）+ 小王 🃏 + 大王 👑。
-- **🎱 真实球号映射**：A\~K 自动对应 1\~13 号台球，大小王对应 14、15 号球；固定包含 8 号黑八。
-- **🔢 4 位数字房间号**：快捷创建与数字键盘扫码/输入加入，极简零门槛。
-- **⚡ 实时低延迟同步**：基于 WebSocket (Socket.IO)，销牌、罚牌与战况实时秒级广播。
-- **📱 移动端 iOS & Android 原生打包与深度适配**：
-  - 基于 Tauri v2 封装，完美覆盖 iOS (`apple/`) 与 Android (`android/app`) 跨端应用。
-  - **iOS 深度适配**：支持 Safe Area（刘海屏 / 灵动岛 / Home 底部条避让）、基于 `@tauri-apps/plugin-dialog` 接入 iOS 原生 `UIAlertController` 对话框，以及移动端网络后端 Server 地址自由配置。
-- **⌚ 独立 Wear OS 手表应用 (`android/wear-app`)**：
-  - 基于 Kotlin + Jetpack Compose for Wear OS 构建。
-  - 支持房间号直接连入房间，或通过 Phone Companion (`android/phone-companion`) 手机伴侣蓝牙联动。
-- **💻 现代前端工程化**：使用 Vue 3 + TypeScript + Vite + Tailwind CSS 组件化架构开发，采用 `nvm` + `pnpm` 环境与包管理。
-- **🚀 快捷构建与运行**：自带 `config.yaml` 配置文件与一键构建启动脚本 `run.sh`。
+- [项目简介](#项目简介)
+- [核心特性](#核心特性)
+- [系统架构](#系统架构)
+- [环境准备](#环境准备)
+- [快速上手](#快速上手)
+  - [1. 快捷启动脚本](#1-快捷启动脚本)
+  - [2. 本地开发模式](#2-本地开发模式)
+  - [3. 生产构建与运行](#3-生产构建与运行)
+  - [4. 移动端与 Wear OS 编译打包](#4-移动端与-wear-os-编译打包)
+- [测试与代码质量](#测试与代码质量)
+- [配置说明](#配置说明)
+- [相关文档](#相关文档)
 
 ---
 
-## 🚀 快速启动
+## 项目简介
 
-### 1. Web 后端与前端启动 (推荐)
-直接运行根目录下的 `run.sh` 脚本，将自动调取 nvm 环境、依赖安装、前端打包与服务启动：
+**PoolPoker (球霸扑克)** 是一款专为线下台球聚会设计的卡牌对战与计分应用。
+
+游戏规则融合了扑克发牌与台球球号映射机制：全副 54 张扑克牌发给玩家，其中 A~K 精确映射为 1~13 号台球，大小王映射为 14、15 号台球（必含 8 号黑八）。玩家通过 4 位数字房间号快捷建房与加入，在打台球进球后打出对应扑克牌清空手牌，首位打光所有有效卡牌的玩家获胜。
+
+应用采用全端同步设计，支持 Web 浏览器、iOS/Android 移动端应用以及 Wear OS 智能手表实时联动。
+
+---
+
+## 核心特性
+
+- 🃏 **扑克与球号映射**：全副 54 张扑克牌（52 张正牌 + 大小王）对应 1~15 号台球及黑八。
+- 🔢 **4 位数字快捷建房**：极简房间号，零门槛建房与加入。
+- ⚡ **多端实时低延迟同步**：基于 Socket.IO 实时同步消牌、罚牌与局势。
+- 📱⌚ **全端跨平台支持**：支持 Web 浏览器、iOS/Android App（基于 Tauri v2 封装）及 Wear OS 手表原生应用（Jetpack Compose）。
+- 🔒 **状态无缝重连**：持久化身份凭证，刷新页面或重启 App 后自动恢复手牌与房间状态。
+
+---
+
+## 系统架构
+
+应用采用前端多端展示 + 后端单点领域逻辑控制的全栈架构：
+
+```text
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              客户端 (Clients)                            │
+│  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐  ┌───────────┐  │
+│  │ Vue 3 Web    │   │ iOS App      │   │ Android App  │  │ Wear OS   │  │
+│  │ (Browser)    │   │ (Tauri v2)   │   │ (Tauri v2)   │  │ App       │  │
+│  └──────┬───────┘   └──────┬───────┘   └──────┬───────┘  └─────┬─────┘  │
+└─────────┼──────────────────┼──────────────────┼────────────────┼────────┘
+          │                  │                  │                │
+          └──────────────────┴────────┬─────────┴────────────────┘
+                                      │ WebSocket / DataLayer
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                            后端服务 (Server)                            │
+│                     server/socketHandlers.ts                            │
+│                                     │                                   │
+│           ┌─────────────────────────┼─────────────────────────┐         │
+│           ▼                         ▼                         ▼         │
+│   gameEngine.ts               pokerDeck.ts              roomManager.ts  │
+│ (领域规则与胜负判定)         (洗牌与发牌逻辑)         (房间状态管理与私钥广播) │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### 技术栈一览
+
+| 模块 | 技术选型 | 说明 |
+| :--- | :--- | :--- |
+| **Web 前端** | Vue 3 + TypeScript + Vite + Tailwind CSS | 组件化响应式 UI 界面 |
+| **移动端容器** | Tauri v2 | 封装 iOS/Android 原生 Application |
+| **手表端应用** | Kotlin + Jetpack Compose for Wear OS | 独立 Wear OS 智能手表原生应用 |
+| **后端服务** | Node.js + Express + Socket.IO | 内存状态房间管理与领域服务 |
+| **质量保障** | Vitest + Playwright + Biome | 单元测试、端到端集成测试与代码风格检查 |
+
+---
+
+## 环境准备
+
+在开始开发或构建前，请确保开发环境满足以下要求：
+
+- **Node.js**: `>= 24.0.0` (推荐使用 `nvm` 管理)
+- **pnpm**: `>= 10.0.0` (推荐通过 `corepack enable` 或 `npm i -g pnpm` 安装)
+- **Android 开发环境 (可选)**: JDK 17+ 与 Android SDK (用于编译 `:app` 与 `:wear-app`)
+- **iOS 开发环境 (可选)**: macOS 系统与 Xcode 15+ (用于编译 iOS App)
+- **Rust 工具链 (可选)**: Cargo & Rust (用于 Tauri CLI 编译)
+
+---
+
+## 快速上手
+
+### 1. 快捷启动脚本
+
+运行根目录下的 `run.sh` 脚本，将自动初始化环境、安装依赖、构建前端并启动服务端：
+
 ```bash
 chmod +x run.sh
 ./run.sh
 ```
 
-### 2. 手动构建与运行
+启动完成后，打开浏览器访问 `http://localhost:3000` 即可开始体验。
+
+### 2. 本地开发模式
+
+同时开启后端服务 (端口 `3000`) 与前端 Vite 开发服务器 (端口 `5173`)，支持热重载 (HMR)：
 
 ```bash
-# 1. 加载推荐的 Node.js 版本并安装依赖
+# 切换至推荐 Node.js 版本并安装依赖
 nvm use
 pnpm install
 
-# 2. 构建前端 (Vite + TypeScript)
-pnpm run build
-
-# 3. 启动服务端
-pnpm start
-```
-
-### 3. 本地开发模式
-如需同时开启后端服务与前端 Vite 热重载调试：
-```bash
+# 启动前后端并行开发服务
 pnpm run dev
 ```
 
-### 4. 移动端 (Android / iOS) & Wear OS App 编译打包
-项目采用 Tauri v2 进行跨平台移动端打包适配：
-- **iOS 移动端 App** (`apple/` 或 `src-tauri/gen/apple`)：支持 iOS 模拟器/真机调试与打包，内置 Xcode 工程并完整适配 Safe Area 避让与原生弹窗。
-- **Android 移动端 App** (`android/app`)：基于 Tauri v2 封装的 Android 主程序，集成 Wear OS 数据播种与 DataLayer 同步。
-- **Wear OS 手表应用** (`android/wear-app`)：基于 Jetpack Compose 构建的 Wear OS 手表原生应用。
+如需单独运行前后端服务：
+- 后端服务：`pnpm run dev:backend`
+- 前端服务：`pnpm run dev:frontend`
 
-> 💡 **环境与打包说明**：
-> - **iOS 平台**：开发需 macOS + Xcode 环境。运行 `npm run tauri:ios` 可自动拉起 Xcode 模拟器进行热更新调试；运行 `npm run tauri:ios:build` 编译 iOS 生产包。亦可使用 Xcode 打开 `apple/poolpoker.xcodeproj` 进行真机安装与签名。
-> - **Android 平台**：`android/tauri.settings.gradle` 由 Tauri 依据本机 Cargo 路径自动生成（已 Git 忽略）。命令行运行 `npm run tauri:android` 或 `npm run tauri:android:build` 会自动建立关联。
-> - **Android Studio 打开**：可直接打开 `android/` 根工程独立调试与运行 `:app` / `:wear-app`。详情参见 [Android & Tauri 移动端架构文档](docs/android_tauri_architecture.md)。
+### 3. 生产构建与运行
 
-**命令行打包与调试命令**：
+编译前端静态资源并以生产模式启动 Express/Socket.IO 服务：
+
 ```bash
-# Android 打包
-npm run tauri:android        # 编译生成 Debug 测试 APK
-npm run tauri:android:build  # 编译生成独立脱机 Release APK (R8 混淆 + 自动签名)
+# 构建前端 (Vue 3 + TypeScript)
+pnpm run build
 
-# iOS 打包与调试
-npm run tauri:ios            # 开启 iOS 模拟器/真机 Dev 调试 (tauri ios dev)
-npm run tauri:ios:build      # 编译生成 iOS 正式包 (tauri ios build)
-```
-- 生成的 Release APK 位于 `android/app/build/outputs/apk/release/app-release.apk`，在 5G 移动网络或无网状态下均可直接秒开。
-- 在 Android Studio 中直接打开 `android` 目录即可在单窗口中调试或运行 `:app` / `:wear-app` 模块。详情参见 [Android & Tauri 移动端架构文档](docs/android_tauri_architecture.md)。
-
-### 5. 单元测试 (Vitest)
-使用 Vitest 运行服务端核心领域逻辑、撤回深拷贝与计分规则的单元测试：
-```bash
-pnpm run test:unit       # 运行全量单元测试
-pnpm run test:unit:watch # 开发模式（监视文件变化自动重测）
+# 启动生产服务端
+pnpm start
 ```
 
-### 6. 自动化 E2E 集成测试 (Playwright)
-使用 Playwright 自动化测试完整的多人双窗口对局流程：
+### 4. 移动端与 Wear OS 编译打包
+
+项目使用 Tauri v2 将 Web 前端封装为 Android 与 iOS 移动应用：
+
+#### Android 打包 (`android/`)
+```bash
+# 编译生成 Debug 测试 APK
+npm run tauri:android
+
+# 编译生成 Release 正式 APK (包含 R8 代码混淆与签名)
+npm run tauri:android:build
+```
+> 💡 打包生成的 Release APK 位于 `android/app/build/outputs/apk/release/app-release.apk`。亦可在 Android Studio 中直接打开 `android/` 目录进行多模块联合调试。
+
+#### iOS 打包与调试 (`apple/`)
+```bash
+# 启动 iOS 模拟器/真机调试模式
+npm run tauri:ios
+
+# 构建 iOS 生产安装包
+npm run tauri:ios:build
+```
+
+---
+
+## 测试与代码质量
+
+项目遵循严格的代码测试与规范校验流程：
+
+### 单元测试 (Vitest)
+运行服务端领域逻辑、房间状态派生与计分规则的单元测试：
+```bash
+pnpm run test:unit         # 运行单次全量测试
+pnpm run test:unit:watch   # 开发模式 (监视文件变动)
+```
+
+### 自动化 E2E 集成测试 (Playwright)
+自动化模拟多浏览器窗口房间对局与实时交互：
 ```bash
 pnpm run test:e2e
 ```
 
-启动完成后，用浏览器或手机访问控制台提示的地址（默认 `http://localhost:3000`）即可开始游戏！
+### 代码风格与规范校验 (Biome)
+```bash
+pnpm run lint              # 检查代码规范与类型错误
+pnpm run format            # 自动格式化代码
+```
 
 ---
 
-## ⚙️ 配置文件说明 (`config.yaml`)
+## 配置说明
 
-编辑 `config.yaml` 轻松修改服务端运行参数：
-
+### `config.yaml`
+服务端运行时主配置文件：
 ```yaml
-# 应用名称与标题
 app_name: "PoolPoker · 球霸扑克"
+port: 3000                  # 服务运行端口
 
-# 服务运行端口
-port: 3000
-
-# 游戏房间默认设置
 room:
-  default_cards_per_player: 5
-  max_players: 8
+  default_cards_per_player: 5 # 玩家默认发牌数
+  max_players: 8             # 房间最大人数限制
+  disconnect_timeout_ms: 3600000 # 玩家掉线超时清理时间 (毫秒)
 ```
+
+### `ball_configs.json`
+定义台球色彩主题与渐变样式（支持 `default` 标准色与 `xingpai` 星牌配色）：
+```json
+{
+  "themes": {
+    "default": {
+      "balls": {
+        "1": ["#FFFF00", "#E6E600", "#999900"],
+        "8": ["#333333", "#1A1A1A", "#000000"]
+      }
+    }
+  }
+}
+```
+
+### `android/gradle.properties.local`
+用于配置 Android / Wear OS 原生端运行环境（默认已被 `.gitignore` 忽略）：
+```properties
+POOLPOKER_SERVER_URL=http://192.168.1.100:3000
+POOLPOKER_WATCH_PLAYER_NAME=手表玩家
+```
+
+---
+
+## 相关文档
+
+- 📖 **[系统设计与架构全景文档](docs/overview.md)**：包含完整的数据流图、数据模型契约与状态流转规则。
+- 📱 **[Android & Tauri 移动端架构文档](docs/android_tauri_architecture.md)**：包含 Android 多模块配置、DataLayer 通信与 Tauri v2 构架。
+- ⌚ **[Wear OS 手表原生应用架构文档](docs/wear_app_architecture.md)**：包含 Compose for Wear OS 布局结构与手势导航规范。
+- 📝 **[版本演进与实现日志](docs/implement_log.md)**：记录项目各阶段的设计决策与修改履历。
