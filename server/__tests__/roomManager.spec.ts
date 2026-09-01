@@ -1,6 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Card, ServerRoom } from '../../shared/types/game';
-import { getClientRoomState, rooms } from '../roomManager';
+import {
+  cancelRoomCleanup,
+  checkAndManageRoomCleanup,
+  getClientRoomState,
+  roomCleanupTimers,
+  rooms,
+} from '../roomManager';
 
 function createDummyCard(id: string, rank: string, ballNumber: number): Card {
   return {
@@ -94,5 +100,140 @@ describe('roomManager getClientRoomState', () => {
     }
 
     delete rooms[roomCode];
+  });
+});
+
+describe('roomManager room cleanup timers', () => {
+  it('should schedule room cleanup when all players are offline and disband after timeout', () => {
+    vi.useFakeTimers();
+    const roomCode = 'test-room-disband-1';
+    rooms[roomCode] = {
+      code: roomCode,
+      status: 'waiting',
+      hostUserId: 'u1',
+      hostSocketId: 's1',
+      settings: { cardsPerPlayer: 5, maxPlayers: 8, includeBlackEight: true, ballConfigKey: 'default' },
+      players: [
+        {
+          id: 's1',
+          userId: 'u1',
+          name: 'P1',
+          avatar: '😀',
+          isHost: true,
+          online: false,
+          cards: [],
+          pocketedCards: [],
+          cardCount: 0,
+          activeCardCount: 0,
+          wins: 0,
+          isWinner: false,
+          totalScore: 0,
+        },
+      ],
+      deck: [],
+      accidentalBalls: [],
+      breakBalls: [],
+      winners: [],
+      turnOrder: [],
+      roundCount: 0,
+      logs: [],
+      lastRoundScores: [],
+      gameHistory: [],
+    } as ServerRoom;
+
+    checkAndManageRoomCleanup(roomCode, 3600000);
+    expect(roomCleanupTimers.has(roomCode)).toBe(true);
+    expect(rooms[roomCode]).toBeDefined();
+
+    // Advance 30 mins -> room still exists
+    vi.advanceTimersByTime(1800000);
+    expect(rooms[roomCode]).toBeDefined();
+
+    // Advance another 30 mins (total 1 hour) -> room is disbanded
+    vi.advanceTimersByTime(1800000);
+    expect(rooms[roomCode]).toBeUndefined();
+    expect(roomCleanupTimers.has(roomCode)).toBe(false);
+
+    vi.useRealTimers();
+  });
+
+  it('should cancel cleanup timer when a player reconnects', () => {
+    vi.useFakeTimers();
+    const roomCode = 'test-room-rejoin-1';
+    rooms[roomCode] = {
+      code: roomCode,
+      status: 'waiting',
+      hostUserId: 'u1',
+      hostSocketId: 's1',
+      settings: { cardsPerPlayer: 5, maxPlayers: 8, includeBlackEight: true, ballConfigKey: 'default' },
+      players: [
+        {
+          id: 's1',
+          userId: 'u1',
+          name: 'P1',
+          avatar: '😀',
+          isHost: true,
+          online: false,
+          cards: [],
+          pocketedCards: [],
+          cardCount: 0,
+          activeCardCount: 0,
+          wins: 0,
+          isWinner: false,
+          totalScore: 0,
+        },
+      ],
+      deck: [],
+      accidentalBalls: [],
+      breakBalls: [],
+      winners: [],
+      turnOrder: [],
+      roundCount: 0,
+      logs: [],
+      lastRoundScores: [],
+      gameHistory: [],
+    } as ServerRoom;
+
+    checkAndManageRoomCleanup(roomCode, 3600000);
+    expect(roomCleanupTimers.has(roomCode)).toBe(true);
+
+    // Player reconnects
+    rooms[roomCode].players[0].online = true;
+    checkAndManageRoomCleanup(roomCode);
+
+    expect(roomCleanupTimers.has(roomCode)).toBe(false);
+
+    // Advance 1 hour -> room should NOT be deleted
+    vi.advanceTimersByTime(3600000);
+    expect(rooms[roomCode]).toBeDefined();
+
+    cancelRoomCleanup(roomCode);
+    delete rooms[roomCode];
+    vi.useRealTimers();
+  });
+
+  it('should immediately delete empty rooms when players length is 0', () => {
+    const roomCode = 'test-room-empty-1';
+    rooms[roomCode] = {
+      code: roomCode,
+      status: 'waiting',
+      hostUserId: 'u1',
+      hostSocketId: 's1',
+      settings: { cardsPerPlayer: 5, maxPlayers: 8, includeBlackEight: true, ballConfigKey: 'default' },
+      players: [],
+      deck: [],
+      accidentalBalls: [],
+      breakBalls: [],
+      winners: [],
+      turnOrder: [],
+      roundCount: 0,
+      logs: [],
+      lastRoundScores: [],
+      gameHistory: [],
+    } as ServerRoom;
+
+    checkAndManageRoomCleanup(roomCode);
+    expect(rooms[roomCode]).toBeUndefined();
+    expect(roomCleanupTimers.has(roomCode)).toBe(false);
   });
 });

@@ -24,7 +24,7 @@ import { addLog, checkGameWinners, computeTurnOrder, handleGameFinished } from '
 import { recordGameStep, undoGameStep } from './gameState';
 import { logSocketDisconnect } from './logger';
 import { create54PokerDeck, shuffle } from './pokerDeck';
-import { broadcastRoomState, generateRoomCode, rooms, socketIndex } from './roomManager';
+import { broadcastRoomState, checkAndManageRoomCleanup, generateRoomCode, rooms, socketIndex } from './roomManager';
 
 export function registerSocketHandlers(io: Server, socket: Socket): void {
   // 1. 创建房间
@@ -159,6 +159,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     socket.join(roomCode);
 
     if (callback) callback({ success: true, roomCode, sessionToken: player.sessionToken });
+    checkAndManageRoomCleanup(roomCode);
     broadcastRoomState(io, roomCode);
   });
 
@@ -198,6 +199,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     addLog(room, `🔄 玩家 ${player.name} 恢复了房间连接`);
 
     if (callback) callback({ success: true, roomCode, sessionToken: player.sessionToken });
+    checkAndManageRoomCleanup(roomCode);
     broadcastRoomState(io, roomCode);
   });
 
@@ -534,6 +536,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     socket.leave(roomCode);
     socketIndex.delete(socket.id);
 
+    checkAndManageRoomCleanup(roomCode);
     broadcastRoomState(io, roomCode);
   });
 
@@ -544,16 +547,22 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     const session = socketIndex.get(socket.id);
     if (session) {
       const { roomCode, userId } = session;
+      socketIndex.delete(socket.id);
       const room = rooms[roomCode];
       if (room) {
-        const player = room.players.find((p) => p.userId === userId);
-        if (player) {
-          player.online = false;
-          addLog(room, `⚡ 玩家 ${player.name} 掉线/网络中断`);
-          broadcastRoomState(io, roomCode);
+        const hasOtherSocket = Array.from(socketIndex.values()).some(
+          (s) => s.roomCode === roomCode && s.userId === userId
+        );
+        if (!hasOtherSocket) {
+          const player = room.players.find((p) => p.userId === userId);
+          if (player) {
+            player.online = false;
+            addLog(room, `⚡ 玩家 ${player.name} 掉线/网络中断`);
+            broadcastRoomState(io, roomCode);
+          }
         }
+        checkAndManageRoomCleanup(roomCode);
       }
-      socketIndex.delete(socket.id);
     }
   });
 }
