@@ -449,6 +449,7 @@ fun sendActionToPhone(context: Context, action: WearActionPayload) {
                     WearDirectSocketManager.refereeDrawPenalty(action.roomCode, targetUserId)
                 }
             }
+            WearAction.BREAK_POCKET -> action.ballNumber?.let { WearDirectSocketManager.breakPocket(action.roomCode, it) }
         }
         return
     }

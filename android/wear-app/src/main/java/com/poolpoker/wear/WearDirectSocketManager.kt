@@ -186,6 +186,16 @@ object WearDirectSocketManager {
         }
     }
 
+    fun breakPocket(roomCode: String, ballNumber: Int) {
+        if (socket?.connected() == true) {
+            val payload = JSONObject().apply {
+                put("roomCode", roomCode)
+                put("ballNumber", ballNumber)
+            }
+            socket?.emit("break_pocket", payload)
+        }
+    }
+
     fun disconnect() {
         try {
             if (socket?.connected() == true) {

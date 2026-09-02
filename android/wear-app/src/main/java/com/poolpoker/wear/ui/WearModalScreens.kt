@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -113,6 +114,14 @@ fun WearFoulModalScreen(
     }
 }
 
+const val TARGET_BREAK_POCKET = "__BREAK_POCKET__"
+
+private data class PocketTargetOption(
+    val id: String,
+    val label: String,
+    val isBreak: Boolean = false
+)
+
 @Composable
 fun WearPocketModalScreen(
     roomState: WearSyncRoomPayload,
@@ -123,7 +132,12 @@ fun WearPocketModalScreen(
 ) {
     val context = LocalContext.current
     val players = roomState.players
-    val currentTargetId = selectedTargetUserId ?: players.firstOrNull()?.userId ?: ""
+    val breakLabel = stringResource(R.string.option_break_pocket)
+    val targetOptions = remember(players, breakLabel) {
+        players.map { PocketTargetOption(id = it.userId, label = it.name) } +
+            PocketTargetOption(id = TARGET_BREAK_POCKET, label = breakLabel, isBreak = true)
+    }
+    val currentTargetId = selectedTargetUserId ?: players.firstOrNull()?.userId ?: TARGET_BREAK_POCKET
 
     ScalingLazyColumn(
         modifier = Modifier
@@ -145,7 +159,7 @@ fun WearPocketModalScreen(
             }
         }
 
-        // Target Player Selection Header
+        // Target Selection Header (Players + Break Shot option)
         item {
             Column(
                 modifier = Modifier
@@ -164,23 +178,23 @@ fun WearPocketModalScreen(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    players.chunked(2).forEach { chunk ->
+                    targetOptions.chunked(2).forEach { chunk ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally)
                         ) {
-                            chunk.forEach { p ->
-                                val isSelected = (p.userId == currentTargetId)
+                            chunk.forEach { target ->
+                                val isSelected = (target.id == currentTargetId)
                                 Button(
-                                    onClick = { onTargetUserIdSelected(p.userId) },
+                                    onClick = { onTargetUserIdSelected(target.id) },
                                     modifier = Modifier.height(28.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
-                                        Text(
-                                            text = if (isSelected) "✓ ${p.name}" else p.name,
-                                            fontSize = 10.sp,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                        )
+                                            Text(
+                                                text = if (isSelected) "✓ ${target.label}" else target.label,
+                                                fontSize = 10.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                            )
                                     }
                                 }
                             }
@@ -217,15 +231,21 @@ fun WearPocketModalScreen(
                                 .alpha(if (isAlreadyPocketed) 0.3f else 1.0f)
                                 .clickable(enabled = !isAlreadyPocketed) {
                                     triggerVibration(context)
-                                    sendActionToPhone(
-                                        context,
+                                    val actionPayload = if (currentTargetId == TARGET_BREAK_POCKET) {
+                                        WearActionPayload(
+                                            action = WearAction.BREAK_POCKET,
+                                            roomCode = roomState.roomCode,
+                                            ballNumber = ballNum
+                                        )
+                                    } else {
                                         WearActionPayload(
                                             action = WearAction.REFEREE_POCKET_BALL,
                                             roomCode = roomState.roomCode,
                                             targetUserId = currentTargetId,
                                             ballNumber = ballNum
                                         )
-                                    )
+                                    }
+                                    sendActionToPhone(context, actionPayload)
                                     onDismiss()
                                 },
                             contentAlignment = Alignment.Center

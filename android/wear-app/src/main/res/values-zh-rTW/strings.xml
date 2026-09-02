@@ -12,6 +12,7 @@
     <string name="btn_back_cancel">返回 / 取消</string>
     <string name="record_pocket">🎱 記錄進球</string>
     <string name="select_pocket_player">選擇進球玩家:</string>
+    <string name="option_break_pocket">🚀 開球進球</string>
     <string name="select_ball_number">點擊入袋球號 (1-15):</string>
     <string name="victory_title">🎉 勝利！</string>
     <string name="victory_message">手牌已清空！勝局已定！</string>

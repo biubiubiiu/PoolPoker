@@ -12,6 +12,7 @@
     <string name="btn_back_cancel">Back / Cancel</string>
     <string name="record_pocket">🎱 Record Pocket</string>
     <string name="select_pocket_player">Select Scored Player:</string>
+    <string name="option_break_pocket">🚀 Break Shot</string>
     <string name="select_ball_number">Tap Pocketed Ball (1-15):</string>
     <string name="victory_title">🎉 Victory!</string>
     <string name="victory_message">Hand cleared! Victory is yours!</string>
