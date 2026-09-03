@@ -20,10 +20,9 @@ import type {
   UpdateSettingsPayload,
 } from '../shared/types/socket';
 import { isValidBallConfigKey } from './config';
-import { addLog, checkGameWinners, computeTurnOrder, handleGameFinished } from './gameEngine';
-import { recordGameStep, undoGameStep } from './gameState';
+import { addLog } from './gameEngine';
+import { applyGameRoomCommand } from './gameRoomService';
 import { logSocketDisconnect } from './logger';
-import { create54PokerDeck, shuffle } from './pokerDeck';
 import { broadcastRoomState, checkAndManageRoomCleanup, generateRoomCode, rooms, socketIndex } from './roomManager';
 
 export function registerSocketHandlers(io: Server, socket: Socket): void {
@@ -228,145 +227,56 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     if (!room) return;
 
     const session = socketIndex.get(socket.id);
-    if (!session || session.userId !== room.hostUserId) return;
+    if (!session) return;
 
-    if (room.players.length === 0) return;
-
-    room.deck = shuffle(create54PokerDeck());
-    room.accidentalBalls = [];
-    room.breakBalls = [];
-    room.winners = [];
-    room.lastRoundScores = [];
-    room.roundCount += 1;
-    room.status = 'playing';
-
-    const count = room.settings.cardsPerPlayer || 5;
-
-    room.players.forEach((p) => {
-      p.cards = [];
-      p.pocketedCards = [];
-      p.isWinner = false;
-      for (let i = 0; i < count; i++) {
-        const card = room.deck.pop();
-        if (card) {
-          p.cards.push(card);
-        }
-      }
-      p.cardCount = p.cards.length;
-    });
-
-    room.turnOrder = computeTurnOrder(room);
-    room.lastTurnOrder = [...room.turnOrder];
-
-    // 每局开始游戏时清空撤回历史，并记录「发牌完成」的初始状态作为第 0 步基线
-    room.gameHistory = [];
-    recordGameStep(room);
-
-    addLog(room, `🎮 第 ${room.roundCount} 局游戏正式开始！每位玩家发牌 ${count} 张`);
-    broadcastRoomState(io, roomCode);
+    const result = applyGameRoomCommand(room, { type: 'start_game', actorUserId: session.userId });
+    if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
   });
 
   // 5. 击球消除卡牌（进球）
   socket.on('pocket_ball', (data: PocketBallPayload) => {
     const { roomCode, cardId } = data;
     const room = rooms[roomCode];
-    if (room?.status !== 'playing') return;
+    if (!room) return;
 
     const session = socketIndex.get(socket.id);
     if (!session) return;
 
-    const player = room.players.find((p) => p.userId === session.userId);
-    if (!player) return;
-
-    const cardIndex = player.cards.findIndex((c) => c.id === cardId);
-    if (cardIndex === -1) return;
-
-    const [pocketedCard] = player.cards.splice(cardIndex, 1);
-    player.pocketedCards.push(pocketedCard);
-
-    const actionText = `🎯 ${player.name} 打进 ${pocketedCard.ballNumber}号球，消去卡牌 [${pocketedCard.suit}${pocketedCard.rank}]`;
-    addLog(room, actionText);
-
-    const winners = checkGameWinners(room);
-    if (winners.length > 0) {
-      handleGameFinished(room, winners, player);
-    }
-
-    recordGameStep(room, actionText);
-    broadcastRoomState(io, roomCode);
+    const result = applyGameRoomCommand(room, { type: 'pocket_ball', actorUserId: session.userId, cardId });
+    if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
   });
 
   // 6. 犯规罚抽牌
   socket.on('draw_penalty', (data: DrawPenaltyPayload) => {
     const { roomCode } = data;
     const room = rooms[roomCode];
-    if (room?.status !== 'playing') return;
+    if (!room) return;
 
     const session = socketIndex.get(socket.id);
     if (!session) return;
 
-    const player = room.players.find((p) => p.userId === session.userId);
-    if (!player) return;
-
-    if (room.deck.length === 0) {
-      room.deck = shuffle(create54PokerDeck());
-      addLog(room, '🎴 牌堆已耗尽，洗混新扑克牌库补充牌堆！');
-    }
-
-    const penaltyCard = room.deck.pop();
-    let actionText: string | undefined;
-    if (penaltyCard) {
-      player.cards.push(penaltyCard);
-      actionText = `⚠️ ${player.name} 犯规，罚抽 1 张扑克牌`;
-      addLog(room, actionText);
-    }
-
-    recordGameStep(room, actionText);
-    broadcastRoomState(io, roomCode);
+    const result = applyGameRoomCommand(room, { type: 'draw_penalty', actorUserId: session.userId });
+    if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
   });
 
   // 7. 误进无关球 / 裁判登记球入袋
   socket.on('accidental_pocket', (data: AccidentalPocketPayload) => {
     const { roomCode, ballNumber } = data;
     const room = rooms[roomCode];
-    if (room?.status !== 'playing') return;
+    if (!room) return;
 
-    if (!room.accidentalBalls.includes(ballNumber)) {
-      room.accidentalBalls.push(ballNumber);
-      const actionText = `🎱 记录场上 ${ballNumber}号球判定为已进球`;
-      addLog(room, actionText);
-
-      const winners = checkGameWinners(room);
-      if (winners.length > 0) {
-        handleGameFinished(room, winners, null);
-      }
-
-      recordGameStep(room, actionText);
-    }
-
-    broadcastRoomState(io, roomCode);
+    const result = applyGameRoomCommand(room, { type: 'accidental_pocket', ballNumber });
+    if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
   });
 
   // 7.1 开球进球 - 记录场上球入袋，不归入任何玩家手牌
   socket.on('break_pocket', (data: BreakPocketPayload) => {
     const { roomCode, ballNumber } = data;
     const room = rooms[roomCode];
-    if (room?.status !== 'playing') return;
+    if (!room) return;
 
-    if (!room.breakBalls.includes(ballNumber)) {
-      room.breakBalls.push(ballNumber);
-      const actionText = `🚀 记录开球进球：${ballNumber}号球已进球`;
-      addLog(room, actionText);
-
-      const winners = checkGameWinners(room);
-      if (winners.length > 0) {
-        handleGameFinished(room, winners, null);
-      }
-
-      recordGameStep(room, actionText);
-    }
-
-    broadcastRoomState(io, roomCode);
+    const result = applyGameRoomCommand(room, { type: 'break_pocket', ballNumber });
+    if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
   });
 
   // 8. 撤回上一步操作（整体回退到上一步状态）
@@ -375,88 +285,33 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     const room = rooms[roomCode];
     if (!room) return;
 
-    const previous = undoGameStep(room);
-    if (!previous) {
-      addLog(room, '↩️ 没有可撤回的操作');
-    } else {
-      addLog(room, '↩️ 已撤回到上一步操作');
-    }
-
-    broadcastRoomState(io, roomCode);
+    const result = applyGameRoomCommand(room, { type: 'retract_ball' });
+    if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
   });
 
   // 9. 记录进球 - 帮指定玩家消卡或记录全场进球
   socket.on('referee_pocket_ball', (data: RefereePocketBallPayload) => {
     const { roomCode, targetUserId, ballNumber } = data;
     const room = rooms[roomCode];
-    if (room?.status !== 'playing') return;
+    if (!room) return;
 
-    const targetPlayer = room.players.find((p) => p.userId === targetUserId);
-    if (!targetPlayer) return;
-
-    const cardIndex = targetPlayer.cards.findIndex((c) => c.ballNumber === ballNumber);
-    if (cardIndex !== -1) {
-      const [pocketedCard] = targetPlayer.cards.splice(cardIndex, 1);
-      targetPlayer.pocketedCards.push(pocketedCard);
-      const refereePlayer = room.players.find((p) => p.id === socket.id);
-      const isSelfAction = refereePlayer && refereePlayer.userId === targetPlayer.userId;
-      let actionText = '';
-      if (isSelfAction) {
-        actionText = `🎯 ${targetPlayer.name} 打进 ${pocketedCard.ballNumber}号球，消去卡牌 [${pocketedCard.suit}${pocketedCard.rank}]`;
-      } else {
-        const refName = refereePlayer ? refereePlayer.name : '其他玩家';
-        actionText = `⚖️ ${refName} 为 ${targetPlayer.name} 记录打进并消除了手牌 [${pocketedCard.suit}${pocketedCard.rank} -> ${pocketedCard.ballNumber}号球]！`;
-      }
-      addLog(room, actionText);
-
-      const winners = checkGameWinners(room);
-      if (winners.length > 0) {
-        handleGameFinished(room, winners, targetPlayer);
-      }
-
-      recordGameStep(room, actionText);
-    } else {
-      if (!room.accidentalBalls.includes(ballNumber)) {
-        room.accidentalBalls.push(ballNumber);
-        const actionText = `🎱 记录 ${targetPlayer.name} 打进 ${ballNumber}号球（判定为全场已进球）`;
-        addLog(room, actionText);
-
-        const winners = checkGameWinners(room);
-        if (winners.length > 0) {
-          handleGameFinished(room, winners, null);
-        }
-
-        recordGameStep(room, actionText);
-      }
-    }
-
-    broadcastRoomState(io, roomCode);
+    const result = applyGameRoomCommand(room, {
+      type: 'referee_pocket_ball',
+      actorSocketId: socket.id,
+      targetUserId,
+      ballNumber,
+    });
+    if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
   });
 
   // 10. 裁判代记 - 帮指定玩家罚抽卡
   socket.on('referee_draw_penalty', (data: RefereeDrawPenaltyPayload) => {
     const { roomCode, targetUserId } = data;
     const room = rooms[roomCode];
-    if (room?.status !== 'playing') return;
+    if (!room) return;
 
-    const targetPlayer = room.players.find((p) => p.userId === targetUserId);
-    if (!targetPlayer) return;
-
-    if (room.deck.length === 0) {
-      room.deck = shuffle(create54PokerDeck());
-      addLog(room, '🎴 牌堆已耗尽，洗混新扑克牌库补充牌堆！');
-    }
-
-    const penaltyCard = room.deck.pop();
-    let actionText: string | undefined;
-    if (penaltyCard) {
-      targetPlayer.cards.push(penaltyCard);
-      actionText = `👨‍⚖️ 裁判代记：${targetPlayer.name} 犯规，罚抽 1 张扑克牌`;
-      addLog(room, actionText);
-    }
-
-    recordGameStep(room, actionText);
-    broadcastRoomState(io, roomCode);
+    const result = applyGameRoomCommand(room, { type: 'referee_draw_penalty', targetUserId });
+    if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
   });
 
   // 11. 请求重新开始
@@ -465,41 +320,19 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     const room = rooms[roomCode];
     if (!room) return;
 
-    addLog(room, '🔄 房主发起了重新开始本局对决');
-    broadcastRoomState(io, roomCode);
+    const result = applyGameRoomCommand(room, { type: 'request_restart' });
+    if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
   });
 
   // 12. 确认重新开始 / 重置房间
-  const handleRestartRoom = (roomCode: string) => {
-    const room = rooms[roomCode];
-    if (!room) return;
-
-    room.deck = [];
-    room.accidentalBalls = [];
-    room.breakBalls = [];
-    room.winners = [];
-    room.status = 'waiting';
-    room.gameHistory = [];
-
-    room.players.forEach((p) => {
-      p.cards = [];
-      p.pocketedCards = [];
-      p.isWinner = false;
-      p.cardCount = 0;
-      p.activeCardCount = 0;
-    });
-
-    addLog(room, '🔄 房主重置了游戏，回到发牌等待状态。');
-    broadcastRoomState(io, roomCode);
-  };
-
   socket.on('confirm_restart', (data: ConfirmRestartPayload) => {
     const { roomCode } = data;
     const room = rooms[roomCode];
     if (!room) return;
     const session = socketIndex.get(socket.id);
-    if (!session || session.userId !== room.hostUserId) return;
-    handleRestartRoom(roomCode);
+    if (!session) return;
+    const result = applyGameRoomCommand(room, { type: 'restart_game', actorUserId: session.userId });
+    if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
   });
 
   socket.on('restart_game', (data: RestartGamePayload) => {
@@ -507,8 +340,9 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     const room = rooms[roomCode];
     if (!room) return;
     const session = socketIndex.get(socket.id);
-    if (!session || session.userId !== room.hostUserId) return;
-    handleRestartRoom(roomCode);
+    if (!session) return;
+    const result = applyGameRoomCommand(room, { type: 'restart_game', actorUserId: session.userId });
+    if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
   });
 
   // 13. 离开房间

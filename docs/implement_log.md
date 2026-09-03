@@ -266,4 +266,18 @@
 - **验收**：`npm run format`、`npm run build` (`vue-tsc` + `vite build`)、`npm run test:unit` (18 个单元测试全部通过)。
 - **commit**：未提交（工作区改动）
 
+### 第27轮：牌局命令服务抽取 [2026-09-04]
+- **输入**：先实行架构方案 1——把 `socketHandlers.ts` 中牌局操作的状态变更、日志、快照和胜负结算组合逻辑收敛为更深的领域边界。
+- **探索与决策**：
+  - 保留 `create_room` / `join_room` / `rejoin_room` / `leave_room` / `disconnect` 在 `socketHandlers.ts`，因为这些事件仍强依赖 Socket callback、`socket.join/leave`、`socketIndex`、cleanup timer 与会话生命周期。
+  - 新增 `applyGameRoomCommand(room, command)` 作为牌局内命令统一入口，吸收 `start_game`、`pocket_ball`、`draw_penalty`、`accidental_pocket`、`break_pocket`、`retract_ball`、`referee_*`、`restart_game`、`request_restart` 的组合规则。
+  - Socket 层现在只解析 payload / actor 上下文、调用命令服务、根据 `shouldBroadcast` 调用 `broadcastRoomState`。
+- **最终改动**：
+  - `server/gameRoomService.ts` — 新增：牌局命令边界，隐藏发牌、补牌、消牌、全场进球、撤回、重开、胜负判定、积分结算、日志与历史快照调用顺序。
+  - `server/socketHandlers.ts` — 修改：牌局内事件改委托给 `applyGameRoomCommand`，删除重复领域流程代码。
+  - `server/__tests__/gameRoomService.spec.ts` — 新增：命令边界测试，覆盖开局发牌、消牌结算、撤回、裁判代记 fallback 与罚牌。
+  - `docs/overview.md` — 修改：更新服务端数据流、目录说明与模块职责。
+- **验收**：`./node_modules/.bin/vue-tsc --noEmit` 通过；`./node_modules/.bin/vitest run --reporter verbose` 通过（5 个测试文件、25 个测试）；`./node_modules/.bin/biome check server/gameRoomService.ts server/socketHandlers.ts server/__tests__/gameRoomService.spec.ts` 通过。
+- **备注**：`pnpm run test:unit` / `pnpm run lint` 与 `pnpm exec ...` 在本机本轮启动后无输出卡住，已改用 `node_modules/.bin` 直接执行同等检查。
+- **commit**：未提交（工作区改动）
 

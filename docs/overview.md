@@ -13,9 +13,11 @@
 ```
 浏览器 (Vue 组件) → composables (useGameRoom/useSocket) → Socket.IO emit 事件
         ↓
-   socketHandlers (14 个事件处理器，鉴权 + 状态变更)
+   socketHandlers (传输会话、鉴权上下文、广播调度)
         ↓
-   gameEngine (胜负判定 / 积分结算 / 击球顺序)  ·  pokerDeck (牌库 + 洗牌)
+   gameRoomService (牌局命令边界：发牌 / 进球 / 犯规 / 撤回 / 重开)
+        ↓
+   gameEngine (胜负判定 / 积分结算 / 击球顺序)  ·  gameState (快照撤回)  ·  pokerDeck (牌库 + 洗牌)
         ↓
    roomManager (内存房间表 + 按玩家身份序列化 + broadcastRoomState)
         ↓
@@ -43,6 +45,7 @@
 │   ├── pokerDeck.ts         # 54 张牌库 + CSPRNG 洗牌
 │   ├── gameEngine.ts        # 胜负判定 / 积分结算 / 击球顺序
 │   ├── gameState.ts         # 游戏进行态快照 / 记录 / 撤回（gameHistory 快照栈）
+│   ├── gameRoomService.ts   # 牌局命令边界（发牌/进球/犯规/撤回/重开）
 │   ├── roomManager.ts       # 内存房间表、房间码生成、状态裁剪、广播
 │   ├── wecomWebhook.ts      # 每局结算推送到企业微信机器人
 │   ├── robotConfig.ts       # 机器人 Webhook 链接运行时配置（内存）
@@ -89,6 +92,12 @@
 - `snapshotGameState` / `restoreGameState`：深拷贝打包 / 还原进行态；`recordGameStep` 把「操作后」状态 push 进 `ServerRoom.gameHistory`；`undoGameStep` pop 掉当前状态回退到上一步（历史只剩基线时无效果）。
 - 撤回语义：`retract_ball` 不再按 `cardId` 精确撤牌，而是整体回退牌桌最近一步操作；日志属于审计记录不随快照回退，每次撤回额外追加一条日志。
 
+### 牌局命令边界（`server/gameRoomService.ts`）
+
+- `applyGameRoomCommand(room, command)` 是服务端牌局内操作的统一边界，负责把发牌、销牌、犯规罚抽、意外进球、开球进球、裁判代记、撤回、重开等命令应用到 `ServerRoom`。
+- 该模块隐藏原先散落在 Socket 事件里的组合顺序：状态校验、玩家定位、牌堆耗尽补牌、日志文本、胜负判定、积分结算、`recordGameStep`/`undoGameStep` 调用时机。
+- `socketHandlers.ts` 保留传输与会话职责：Socket callback、`socket.join/leave`、`socketIndex`、create/join/rejoin/leave/disconnect、以及根据命令结果调用 `broadcastRoomState`。
+
 ### 企业微信结算推送（`server/wecomWebhook.ts` / `server/robotConfig.ts`）
 
 - `wecomWebhook.ts`：`sendRoundResultToWecom(room)` 每局结算后把「房间号 + 各成员本局得分变化 + 累计积分」拼成文本，POST 到企业微信机器人 Webhook（`msgtype: text` + 固定提及成员列表）；未配置 Webhook 链接时直接返回不发送；HTTP 非 2xx / `errcode !== 0` / 异常时打印 `⚠️ [WeCom]` 警告日志，不抛出。
@@ -103,7 +112,7 @@
 
 ### Socket 事件（`server/socketHandlers.ts`）
 
-共 15 个事件处理器，均在内存态上做变更后 `broadcastRoomState`：
+共 15 个事件处理器。create/join/rejoin/leave/disconnect 保持 Socket 会话生命周期职责；牌局内命令委托给 `gameRoomService` 后按结果 `broadcastRoomState`：
 
 - `create_room` / `join_room` / `rejoin_room`：建房/加入/断线重连。均生成或校验 `sessionToken`（`crypto.randomUUID`）；`join_room` 按 `userId` 判重复，重复则复用玩家并刷新 `sessionToken`/`id`/`online`，新玩家若房间已在 `playing` 则从 `deck` 补发牌；`rejoin_room` 严格校验 `player.sessionToken === sessionToken`，不通过拒绝并返回「身份凭证失效」。
 - `update_settings` / `start_game`：房主专属（`socketIndex` 反查 `userId === hostUserId`）。`start_game` 洗牌发牌、清空 `accidentalBalls`/`breakBalls`/`winners`/`lastRoundScores`、`roundCount+1`、按 `computeTurnOrder` 计算击球顺序；随后清空 `gameHistory` 并 `recordGameStep` 播种发牌完成基线。
@@ -159,6 +168,7 @@
 | `server/pokerDeck.ts`（54 张牌库、CSPRNG 洗牌） |
 | `server/gameEngine.ts`（胜负判定、积分结算、击球顺序） |
 | `server/gameState.ts`（游戏进行态快照、记录、撤回 gameHistory 栈） |
+| `server/gameRoomService.ts`（牌局命令边界，收敛发牌/进球/犯规/撤回/重开组合规则） |
 | `server/wecomWebhook.ts`（每局结算推送企业微信机器人） |
 | `server/robotConfig.ts`（机器人 Webhook 链接运行时配置） |
 | `server/roomManager.ts`（内存房间表、房间码生成、状态裁剪防泄露、广播） |
