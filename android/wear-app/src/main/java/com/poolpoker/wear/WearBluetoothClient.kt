@@ -6,6 +6,7 @@ import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothSocket
 import android.content.Context
 import android.util.Log
+import com.poolpoker.shared.SocketEvents
 import com.poolpoker.shared.WearSyncRoomPayload
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -96,8 +97,8 @@ object WearBluetoothClient {
                                 try {
                                     val jsonObj = org.json.JSONObject(line)
                                     val event = jsonObj.optString("event")
-                                    if (event == "leave_room") {
-                                        Log.d(TAG, "Received leave_room event over Bluetooth. Disconnecting watch socket...")
+                                    if (event == SocketEvents.LEAVE_ROOM) {
+                                        Log.d(TAG, "Received ${SocketEvents.LEAVE_ROOM} event over Bluetooth. Disconnecting watch socket...")
                                         WearDirectSocketManager.disconnect()
                                     } else if (event == "room_credentials" || jsonObj.has("roomCode")) {
                                         val roomCode = jsonObj.optString("roomCode")

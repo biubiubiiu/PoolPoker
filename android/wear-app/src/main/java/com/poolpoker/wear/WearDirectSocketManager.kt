@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.google.gson.Gson
 import com.poolpoker.shared.RoomModel
+import com.poolpoker.shared.SocketEvents
 import com.poolpoker.shared.WearPlayerSummary
 import com.poolpoker.shared.WearSyncRoomPayload
 import io.socket.client.IO
@@ -62,7 +63,7 @@ object WearDirectSocketManager {
                 onStatusChanged?.invoke(context.getString(R.string.status_failed_format, errReason))
             }
 
-            socket?.on("room_updated") { args ->
+            socket?.on(SocketEvents.ROOM_UPDATED) { args ->
                 if (args.isNotEmpty()) {
                     val rawJson = args[0].toString()
                     try {
@@ -125,7 +126,7 @@ object WearDirectSocketManager {
             put("name", userName)
             put("avatar", "⌚")
         }
-        socket?.emit("join_room", payload)
+            socket?.emit(SocketEvents.JOIN_ROOM, payload)
     }
 
     fun pocketBall(roomCode: String, cardId: String) {
@@ -134,7 +135,7 @@ object WearDirectSocketManager {
                 put("roomCode", roomCode)
                 put("cardId", cardId)
             }
-            socket?.emit("pocket_ball", payload)
+            socket?.emit(SocketEvents.POCKET_BALL, payload)
         }
     }
 
@@ -143,7 +144,7 @@ object WearDirectSocketManager {
             val payload = JSONObject().apply {
                 put("roomCode", roomCode)
             }
-            socket?.emit("draw_penalty", payload)
+            socket?.emit(SocketEvents.DRAW_PENALTY, payload)
         }
     }
 
@@ -152,7 +153,7 @@ object WearDirectSocketManager {
             val payload = JSONObject().apply {
                 put("roomCode", roomCode)
             }
-            socket?.emit("retract_ball", payload)
+            socket?.emit(SocketEvents.RETRACT_BALL, payload)
         }
     }
 
@@ -162,7 +163,7 @@ object WearDirectSocketManager {
                 put("roomCode", roomCode)
                 put("ballNumber", ballNumber)
             }
-            socket?.emit("accidental_pocket", payload)
+            socket?.emit(SocketEvents.ACCIDENTAL_POCKET, payload)
         }
     }
 
@@ -173,7 +174,7 @@ object WearDirectSocketManager {
                 put("targetUserId", targetUserId)
                 put("ballNumber", ballNumber)
             }
-            socket?.emit("referee_pocket_ball", payload)
+            socket?.emit(SocketEvents.REFEREE_POCKET_BALL, payload)
         }
     }
 
@@ -183,7 +184,7 @@ object WearDirectSocketManager {
                 put("roomCode", roomCode)
                 put("targetUserId", targetUserId)
             }
-            socket?.emit("referee_draw_penalty", payload)
+            socket?.emit(SocketEvents.REFEREE_DRAW_PENALTY, payload)
         }
     }
 
@@ -193,7 +194,7 @@ object WearDirectSocketManager {
                 put("roomCode", roomCode)
                 put("ballNumber", ballNumber)
             }
-            socket?.emit("break_pocket", payload)
+            socket?.emit(SocketEvents.BREAK_POCKET, payload)
         }
     }
 

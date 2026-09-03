@@ -11,7 +11,7 @@
 ### 数据流
 
 ```
-浏览器 (Vue 组件) → composables (useGameRoom/useSocket) → Socket.IO emit 事件
+浏览器 (Vue 组件) → composables (useGameRoom/useSocket) → protocol 常量 → Socket.IO emit 事件
         ↓
    socketHandlers (传输会话、鉴权上下文、广播调度)
         ↓
@@ -26,7 +26,7 @@
 
 - **前端**：Vue 3 + TypeScript + Vite + Tailwind CSS，业务逻辑收敛到三个 composable（`usePlayerProfile` / `useSocket` / `useGameRoom`），组件只做展示与事件转发。
 - **后端**：Node.js + Express + Socket.IO（TypeScript，`tsx` 运行），房间状态全部保存在内存 `rooms: Record<string, ServerRoom>`。
-- **共享层**：`shared/types/game.ts`（Card/Player/Room 等领域模型）与 `shared/types/socket.ts`（前后端 Socket 事件契约），两端复用同一类型，保证字段一致。
+- **共享层**：`shared/types/game.ts`（Card/Player/Room 等领域模型）、`shared/types/protocol.ts`（Socket 事件 / Wear action / DataLayer path 协议常量）与 `shared/types/socket.ts`（前后端 Socket payload 与事件契约），两端复用同一类型与常量，保证字段和事件名一致。
 - **关键约束**：
   - 房间状态以 `ServerRoom`（服务端内部态，含 `deck`/`accidentalBalls` 等敏感字段）与 `Room`（下发客户端的裁剪态）两种形态存在；`getClientRoomState` 按「是否本人 / 房间是否 finished」裁剪未进球手牌 `cards`（防止泄露其他玩家手牌），而 `pocketedCards`（已消除卡牌）公开下发给所有玩家（在全局赛况显示「已消xxxx」）。
   - 撤回采用快照栈：`ServerRoom.gameHistory` 存每步操作后的 `GameState` 快照（深拷贝，不含日志），每步操作 `recordGameStep` push、撤回 `undoGameStep` pop 回退到上一步；每局 `start_game` 清空并播种发牌完成基线，历史只剩基线时撤回无效果；`gameHistory` 不下发客户端。
@@ -52,6 +52,7 @@
 │   └── socketHandlers.ts    # 15 个 Socket 事件处理器
 ├── shared/types/            # 前后端共享类型
 │   ├── game.ts              # Card/Player/Room/ServerRoom/BallConfig 等
+│   ├── protocol.ts          # Socket 事件 / Wear action / DataLayer path 常量
 │   └── socket.ts            # 事件 payload 与 Client/Server 事件接口
 ├── src/                     # 前端 (Vue 3 + TS + Vite + 移动端/iOS 适配)
 │   ├── composables/         # usePlayerProfile / useSocket / useGameRoom
@@ -97,6 +98,13 @@
 - `applyGameRoomCommand(room, command)` 是服务端牌局内操作的统一边界，负责把发牌、销牌、犯规罚抽、意外进球、开球进球、裁判代记、撤回、重开等命令应用到 `ServerRoom`。
 - 该模块隐藏原先散落在 Socket 事件里的组合顺序：状态校验、玩家定位、牌堆耗尽补牌、日志文本、胜负判定、积分结算、`recordGameStep`/`undoGameStep` 调用时机。
 - `socketHandlers.ts` 保留传输与会话职责：Socket callback、`socket.join/leave`、create/join/rejoin/leave/disconnect、以及根据命令结果调用 `broadcastRoomState`；Socket 到玩家身份的索引由 `roomManager` 的 session registry helper 维护。
+
+### 协议常量边界（`shared/types/protocol.ts` / `android/shared-models/.../Models.kt`）
+
+- `shared/types/protocol.ts` 集中维护 Socket.IO 事件名（`CLIENT_TO_SERVER_EVENTS` / `SERVER_TO_CLIENT_EVENTS`）、Wear action 序列化值（`WEAR_ACTIONS`）与 Wear OS DataLayer path（`DATA_LAYER_PATHS`）。
+- `shared/types/socket.ts` 使用这些常量作为 `ClientToServerEvents` / `ServerToClientEvents` 的 computed keys，确保 TS 类型契约与运行时 `emit/on` 使用同一份事件名。
+- Android/Wear 端在 `:shared-models` 中维护对应的 `SocketEvents` / `WearAction` / `DataLayerConstants` mirror，`WearDirectSocketManager` 与蓝牙凭证桥接统一引用该常量面。
+- `server/__tests__/protocolContract.spec.ts` 作为轻量漂移检测：校验协议值稳定且唯一，并确认 Kotlin mirror 覆盖 TS 协议层的事件/action/path。
 
 ### 企业微信结算推送（`server/wecomWebhook.ts` / `server/robotConfig.ts`）
 
@@ -174,6 +182,7 @@
 | `server/roomManager.ts`（房间注册表、Socket 会话索引、房间码生成、状态裁剪防泄露、广播） |
 | `server/socketHandlers.ts`（15 个 Socket 事件处理器、sessionToken 校验） |
 | `shared/types/game.ts`（Card/Player/Room/ServerRoom/GameState/GamePlayerSnapshot/RoundScoreEntry/BallConfig 等） |
+| `shared/types/protocol.ts`（Socket 事件、Wear action、DataLayer path 协议常量） |
 | `shared/types/socket.ts`（事件 payload 与 Client/Server 事件接口） |
 | `src/composables/usePlayerProfile.ts` / `useSocket.ts` / `useGameRoom.ts` |
 | `src/App.vue`（页面组装、积分规则弹窗） |

@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import type { Server, Socket } from 'socket.io';
 import type { Player, ServerRoom } from '../shared/types/game';
+import { CLIENT_TO_SERVER_EVENTS, SERVER_TO_CLIENT_EVENTS } from '../shared/types/protocol';
 import type {
   AccidentalPocketPayload,
   BreakPocketPayload,
@@ -38,7 +39,7 @@ import {
 
 export function registerSocketHandlers(io: Server, socket: Socket): void {
   // 1. 创建房间
-  socket.on('create_room', (data: CreateRoomPayload, callback?: (res: any) => void) => {
+  socket.on(CLIENT_TO_SERVER_EVENTS.createRoom, (data: CreateRoomPayload, callback?: (res: any) => void) => {
     const { userId, name, avatar, ballConfigKey } = data;
     if (!userId || !name) {
       if (callback) callback({ success: false, message: '用户信息不完整' });
@@ -100,12 +101,12 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     addLog(newRoom, `🏠 房间创建成功，房主 ${name} 进入房间`);
 
     if (callback) callback({ success: true, roomCode, sessionToken });
-    socket.emit('room_created', { roomCode });
+    socket.emit(SERVER_TO_CLIENT_EVENTS.roomCreated, { roomCode });
     broadcastRoomState(io, roomCode);
   });
 
   // 2. 加入房间
-  socket.on('join_room', (data: JoinRoomPayload, callback?: (res: any) => void) => {
+  socket.on(CLIENT_TO_SERVER_EVENTS.joinRoom, (data: JoinRoomPayload, callback?: (res: any) => void) => {
     const { roomCode, userId, name, avatar } = data;
     if (name) socket.data.userName = name;
     if (userId) socket.data.userId = userId;
@@ -174,7 +175,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   });
 
   // 2.1 尝试断线重连恢复
-  socket.on('rejoin_room', (data: RejoinRoomPayload, callback?: (res: any) => void) => {
+  socket.on(CLIENT_TO_SERVER_EVENTS.rejoinRoom, (data: RejoinRoomPayload, callback?: (res: any) => void) => {
     const { roomCode, userId, sessionToken } = data;
     const room = getRoom(roomCode);
 
@@ -214,7 +215,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   });
 
   // 3. 修改房间设置（发牌数/黑八/球色等）
-  socket.on('update_settings', (data: UpdateSettingsPayload) => {
+  socket.on(CLIENT_TO_SERVER_EVENTS.updateSettings, (data: UpdateSettingsPayload) => {
     const { roomCode, settings } = data;
     const room = getRoom(roomCode);
     if (!room) return;
@@ -232,7 +233,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   });
 
   // 4. 开始游戏 / 发牌
-  socket.on('start_game', (data: StartGamePayload) => {
+  socket.on(CLIENT_TO_SERVER_EVENTS.startGame, (data: StartGamePayload) => {
     const { roomCode } = data;
     const room = getRoom(roomCode);
     if (!room) return;
@@ -245,7 +246,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   });
 
   // 5. 击球消除卡牌（进球）
-  socket.on('pocket_ball', (data: PocketBallPayload) => {
+  socket.on(CLIENT_TO_SERVER_EVENTS.pocketBall, (data: PocketBallPayload) => {
     const { roomCode, cardId } = data;
     const room = getRoom(roomCode);
     if (!room) return;
@@ -258,7 +259,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   });
 
   // 6. 犯规罚抽牌
-  socket.on('draw_penalty', (data: DrawPenaltyPayload) => {
+  socket.on(CLIENT_TO_SERVER_EVENTS.drawPenalty, (data: DrawPenaltyPayload) => {
     const { roomCode } = data;
     const room = getRoom(roomCode);
     if (!room) return;
@@ -271,7 +272,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   });
 
   // 7. 误进无关球 / 裁判登记球入袋
-  socket.on('accidental_pocket', (data: AccidentalPocketPayload) => {
+  socket.on(CLIENT_TO_SERVER_EVENTS.accidentalPocket, (data: AccidentalPocketPayload) => {
     const { roomCode, ballNumber } = data;
     const room = getRoom(roomCode);
     if (!room) return;
@@ -281,7 +282,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   });
 
   // 7.1 开球进球 - 记录场上球入袋，不归入任何玩家手牌
-  socket.on('break_pocket', (data: BreakPocketPayload) => {
+  socket.on(CLIENT_TO_SERVER_EVENTS.breakPocket, (data: BreakPocketPayload) => {
     const { roomCode, ballNumber } = data;
     const room = getRoom(roomCode);
     if (!room) return;
@@ -291,7 +292,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   });
 
   // 8. 撤回上一步操作（整体回退到上一步状态）
-  socket.on('retract_ball', (data: RetractBallPayload) => {
+  socket.on(CLIENT_TO_SERVER_EVENTS.retractBall, (data: RetractBallPayload) => {
     const { roomCode } = data;
     const room = getRoom(roomCode);
     if (!room) return;
@@ -301,7 +302,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   });
 
   // 9. 记录进球 - 帮指定玩家消卡或记录全场进球
-  socket.on('referee_pocket_ball', (data: RefereePocketBallPayload) => {
+  socket.on(CLIENT_TO_SERVER_EVENTS.refereePocketBall, (data: RefereePocketBallPayload) => {
     const { roomCode, targetUserId, ballNumber } = data;
     const room = getRoom(roomCode);
     if (!room) return;
@@ -316,7 +317,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   });
 
   // 10. 裁判代记 - 帮指定玩家罚抽卡
-  socket.on('referee_draw_penalty', (data: RefereeDrawPenaltyPayload) => {
+  socket.on(CLIENT_TO_SERVER_EVENTS.refereeDrawPenalty, (data: RefereeDrawPenaltyPayload) => {
     const { roomCode, targetUserId } = data;
     const room = getRoom(roomCode);
     if (!room) return;
@@ -326,7 +327,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   });
 
   // 11. 请求重新开始
-  socket.on('request_restart', (data: RequestRestartPayload) => {
+  socket.on(CLIENT_TO_SERVER_EVENTS.requestRestart, (data: RequestRestartPayload) => {
     const { roomCode } = data;
     const room = getRoom(roomCode);
     if (!room) return;
@@ -336,7 +337,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   });
 
   // 12. 确认重新开始 / 重置房间
-  socket.on('confirm_restart', (data: ConfirmRestartPayload) => {
+  socket.on(CLIENT_TO_SERVER_EVENTS.confirmRestart, (data: ConfirmRestartPayload) => {
     const { roomCode } = data;
     const room = getRoom(roomCode);
     if (!room) return;
@@ -346,7 +347,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
   });
 
-  socket.on('restart_game', (data: RestartGamePayload) => {
+  socket.on(CLIENT_TO_SERVER_EVENTS.restartGame, (data: RestartGamePayload) => {
     const { roomCode } = data;
     const room = getRoom(roomCode);
     if (!room) return;
@@ -357,7 +358,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   });
 
   // 13. 离开房间
-  socket.on('leave_room', (data: LeaveRoomPayload) => {
+  socket.on(CLIENT_TO_SERVER_EVENTS.leaveRoom, (data: LeaveRoomPayload) => {
     const { roomCode, userId } = data;
     const room = getRoom(roomCode);
     if (!room) return;

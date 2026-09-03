@@ -28,6 +28,8 @@ Express 后端服务 ◄──────────────────�
    - 当手机或手表任一端操作打牌/犯规时，后端将手牌秒级同步广播给该 `userId` 下的所有连接（手机 + 手表同步渲染）。
 4. **DataLayer 免输入快捷连入**：
    - 手机 App `:app` 仅在房间变更时将当前房间号/身份通过 `/poolpoker/sync_room` 写入 DataLayer。手表打开时自动读取该凭证并直连后端，无需在手表微型键盘上手动输入 4 位房间码。
+5. **协议常量镜像**：
+   - Web/服务端的 Socket 事件名、Wear action 与 DataLayer path 由 [`shared/types/protocol.ts`](../shared/types/protocol.ts) 统一定义；Android/Wear 端在 `:shared-models` 的 `SocketEvents` / `WearAction` / `DataLayerConstants` 中维护镜像，并由协议契约测试检查漂移。
 
 ---
 
@@ -56,7 +58,7 @@ android/
 ## 3. 手机与 Wear OS 手表协同通信流程
 
 ### 3.1 手机推送房间状态至手表 (`Web -> Tauri Plugin -> DataLayer -> Wear OS`)
-1. **前端监听**：Vue 3 中 `useWearSync` composable 监听房间状态变更（`room_updated`）。
+1. **前端监听**：Vue 3 中 `useWearSync` composable 监听房间状态变更（`room_updated`，协议常量为 `SERVER_TO_CLIENT_EVENTS.roomUpdated`）。
 2. **Tauri Command 触发**：调用 Tauri 自定义 Rust 命令 `sync_wear_state`。
 3. **Native Plugin 处理**：`TauriWearSyncPlugin.kt` 捕获 payload，使用 `Wearable.getDataClient()` 将结构化 JSON 数据写入节点路径 `/poolpoker/sync_room`。
 4. **手表端响应**：Wear OS 手表上的 `WearableListenerService` 收到更新后，实时同步手牌与进球状态。

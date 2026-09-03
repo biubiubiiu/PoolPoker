@@ -1,4 +1,5 @@
 import type { Room, RoomSettings } from './game';
+import { CLIENT_TO_SERVER_EVENTS, SERVER_TO_CLIENT_EVENTS } from './protocol';
 
 export interface CreateRoomPayload {
   userId: string;
@@ -94,27 +95,36 @@ export interface SocketCallbackResponse {
 
 // 客户端接收的事件 (Server -> Client)
 export interface ServerToClientEvents {
-  room_created: (payload: { roomCode: string }) => void;
-  room_updated: (room: Room) => void;
-  error_message: (msg: string) => void;
+  [SERVER_TO_CLIENT_EVENTS.roomCreated]: (payload: { roomCode: string }) => void;
+  [SERVER_TO_CLIENT_EVENTS.roomUpdated]: (room: Room) => void;
+  [SERVER_TO_CLIENT_EVENTS.errorMessage]: (msg: string) => void;
 }
 
 // 客户端发送的事件 (Client -> Server)
 export interface ClientToServerEvents {
-  create_room: (payload: CreateRoomPayload, callback?: (res: SocketCallbackResponse) => void) => void;
-  join_room: (payload: JoinRoomPayload, callback?: (res: SocketCallbackResponse) => void) => void;
-  rejoin_room: (payload: RejoinRoomPayload, callback?: (res: SocketCallbackResponse) => void) => void;
-  update_settings: (payload: UpdateSettingsPayload) => void;
-  start_game: (payload: StartGamePayload) => void;
-  pocket_ball: (payload: PocketBallPayload) => void;
-  draw_penalty: (payload: DrawPenaltyPayload) => void;
-  accidental_pocket: (payload: AccidentalPocketPayload) => void;
-  break_pocket: (payload: BreakPocketPayload) => void;
-  retract_ball: (payload: RetractBallPayload) => void;
-  referee_pocket_ball: (payload: RefereePocketBallPayload) => void;
-  referee_draw_penalty: (payload: RefereeDrawPenaltyPayload) => void;
-  request_restart: (payload: RequestRestartPayload) => void;
-  confirm_restart: (payload: ConfirmRestartPayload) => void;
-  restart_game: (payload: RestartGamePayload) => void;
-  leave_room: (payload: LeaveRoomPayload) => void;
+  [CLIENT_TO_SERVER_EVENTS.createRoom]: (
+    payload: CreateRoomPayload,
+    callback?: (res: SocketCallbackResponse) => void
+  ) => void;
+  [CLIENT_TO_SERVER_EVENTS.joinRoom]: (
+    payload: JoinRoomPayload,
+    callback?: (res: SocketCallbackResponse) => void
+  ) => void;
+  [CLIENT_TO_SERVER_EVENTS.rejoinRoom]: (
+    payload: RejoinRoomPayload,
+    callback?: (res: SocketCallbackResponse) => void
+  ) => void;
+  [CLIENT_TO_SERVER_EVENTS.updateSettings]: (payload: UpdateSettingsPayload) => void;
+  [CLIENT_TO_SERVER_EVENTS.startGame]: (payload: StartGamePayload) => void;
+  [CLIENT_TO_SERVER_EVENTS.pocketBall]: (payload: PocketBallPayload) => void;
+  [CLIENT_TO_SERVER_EVENTS.drawPenalty]: (payload: DrawPenaltyPayload) => void;
+  [CLIENT_TO_SERVER_EVENTS.accidentalPocket]: (payload: AccidentalPocketPayload) => void;
+  [CLIENT_TO_SERVER_EVENTS.breakPocket]: (payload: BreakPocketPayload) => void;
+  [CLIENT_TO_SERVER_EVENTS.retractBall]: (payload: RetractBallPayload) => void;
+  [CLIENT_TO_SERVER_EVENTS.refereePocketBall]: (payload: RefereePocketBallPayload) => void;
+  [CLIENT_TO_SERVER_EVENTS.refereeDrawPenalty]: (payload: RefereeDrawPenaltyPayload) => void;
+  [CLIENT_TO_SERVER_EVENTS.requestRestart]: (payload: RequestRestartPayload) => void;
+  [CLIENT_TO_SERVER_EVENTS.confirmRestart]: (payload: ConfirmRestartPayload) => void;
+  [CLIENT_TO_SERVER_EVENTS.restartGame]: (payload: RestartGamePayload) => void;
+  [CLIENT_TO_SERVER_EVENTS.leaveRoom]: (payload: LeaveRoomPayload) => void;
 }

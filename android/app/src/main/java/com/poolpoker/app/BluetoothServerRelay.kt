@@ -11,6 +11,7 @@ import java.util.UUID
 import java.util.concurrent.Executors
 
 import androidx.annotation.Keep
+import com.poolpoker.shared.SocketEvents
 
 @Keep
 object BluetoothServerRelay {
@@ -84,7 +85,7 @@ object BluetoothServerRelay {
     @JvmStatic
     @Keep
     fun broadcastCredentials(jsonPayload: String) {
-        if (jsonPayload.contains("leave_room")) {
+        if (jsonPayload.contains(SocketEvents.LEAVE_ROOM)) {
             lastCredentialsPayload = null
         } else {
             lastCredentialsPayload = jsonPayload

@@ -1,4 +1,5 @@
 import type { Card, Player, Room } from '@shared/types/game';
+import { CLIENT_TO_SERVER_EVENTS, SERVER_TO_CLIENT_EVENTS } from '@shared/types/protocol';
 import type { SocketCallbackResponse } from '@shared/types/socket';
 import confetti from 'canvas-confetti';
 import type { Socket } from 'socket.io-client';
@@ -52,7 +53,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
               myUserId: userId.value,
               serverUrl: serverUrl?.value || '',
             })
-          : JSON.stringify({ event: 'leave_room' });
+          : JSON.stringify({ event: CLIENT_TO_SERVER_EVENTS.leaveRoom });
         await invoke('sync_wear_state', { payload });
       } catch (err) {
         console.warn('[NativeSync] Failed to sync room session:', err);
@@ -170,7 +171,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
       const savedSessionToken = localStorage.getItem('billiards_session_token') || '';
       if (savedRoomCode) {
         s.emit(
-          'rejoin_room',
+          CLIENT_TO_SERVER_EVENTS.rejoinRoom,
           {
             roomCode: savedRoomCode,
             userId: userId.value,
@@ -196,7 +197,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
       handleConnect();
     }
 
-    s.on('room_updated', (updatedRoom: Room) => {
+    s.on(SERVER_TO_CLIENT_EVENTS.roomUpdated, (updatedRoom: Room) => {
       room.value = updatedRoom;
       showRestartConfirm.value = false;
       if (updatedRoom?.code) {
@@ -208,11 +209,11 @@ export function useGameRoom(options: UseGameRoomOptions) {
       }
     });
 
-    s.on('room_created', ({ roomCode }: { roomCode: string }) => {
+    s.on(SERVER_TO_CLIENT_EVENTS.roomCreated, ({ roomCode }: { roomCode: string }) => {
       localStorage.setItem('billiards_room_code', roomCode);
     });
 
-    s.on('error_message', (msg: string) => {
+    s.on(SERVER_TO_CLIENT_EVENTS.errorMessage, (msg: string) => {
       showAlert(msg);
     });
   };
@@ -222,9 +223,9 @@ export function useGameRoom(options: UseGameRoomOptions) {
     (newSocket, oldSocket) => {
       if (oldSocket) {
         oldSocket.off('connect');
-        oldSocket.off('room_updated');
-        oldSocket.off('room_created');
-        oldSocket.off('error_message');
+        oldSocket.off(SERVER_TO_CLIENT_EVENTS.roomUpdated);
+        oldSocket.off(SERVER_TO_CLIENT_EVENTS.roomCreated);
+        oldSocket.off(SERVER_TO_CLIENT_EVENTS.errorMessage);
       }
       if (newSocket) {
         setupSocketListeners(newSocket);
@@ -296,7 +297,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
   const handleCreateRoom = () => {
     const finalName = getFinalPlayerName();
     socket.value?.emit(
-      'create_room',
+      CLIENT_TO_SERVER_EVENTS.createRoom,
       {
         userId: userId.value,
         name: finalName,
@@ -318,7 +319,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
   const handleJoinRoom = (code: string) => {
     const finalName = getFinalPlayerName();
     socket.value?.emit(
-      'join_room',
+      CLIENT_TO_SERVER_EVENTS.joinRoom,
       {
         roomCode: code,
         userId: userId.value,
@@ -344,7 +345,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
     const current = room.value.settings?.cardsPerPlayer || 5;
     const newCount = current + delta;
     if (newCount < 1 || newCount > 10) return;
-    socket.value?.emit('update_settings', {
+    socket.value?.emit(CLIENT_TO_SERVER_EVENTS.updateSettings, {
       roomCode: room.value.code,
       settings: { cardsPerPlayer: newCount },
     });
@@ -353,7 +354,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
   // 4. 房主开始游戏
   const handleStartGame = () => {
     if (!isHost.value || !room.value) return;
-    socket.value?.emit('start_game', { roomCode: room.value.code });
+    socket.value?.emit(CLIENT_TO_SERVER_EVENTS.startGame, { roomCode: room.value.code });
   };
 
   // 5. 销牌 / 确认进球
@@ -369,7 +370,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
 
     const confirmText = `确认已经打进 ${card.ballNumber} 号球，消去卡片 [${card.suit}${card.rank}] 吗？`;
     if (await showConfirm(confirmText, '确认出牌')) {
-      socket.value?.emit('pocket_ball', {
+      socket.value?.emit(CLIENT_TO_SERVER_EVENTS.pocketBall, {
         roomCode: room.value.code,
         cardId: card.id,
       });
@@ -385,7 +386,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
       return;
     }
     if (await showConfirm(`确认撤回到上一步操作吗？\n\n将撤回：${lastActionText}`, '确认撤回')) {
-      socket.value?.emit('retract_ball', { roomCode: room.value.code });
+      socket.value?.emit(CLIENT_TO_SERVER_EVENTS.retractBall, { roomCode: room.value.code });
     }
   };
 
@@ -402,7 +403,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
 
   const handleRefereePocketConfirm = (targetUserId: string, ballNum: number) => {
     if (!room.value) return;
-    socket.value?.emit('referee_pocket_ball', {
+    socket.value?.emit(CLIENT_TO_SERVER_EVENTS.refereePocketBall, {
       roomCode: room.value.code,
       targetUserId,
       ballNumber: ballNum,
@@ -412,7 +413,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
 
   const handleBreakPocketConfirm = (ballNum: number) => {
     if (!room.value) return;
-    socket.value?.emit('break_pocket', {
+    socket.value?.emit(CLIENT_TO_SERVER_EVENTS.breakPocket, {
       roomCode: room.value.code,
       ballNumber: ballNum,
     });
@@ -421,7 +422,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
 
   const handleRefereeFoulConfirm = (targetUserId: string) => {
     if (!room.value) return;
-    socket.value?.emit('referee_draw_penalty', {
+    socket.value?.emit(CLIENT_TO_SERVER_EVENTS.refereeDrawPenalty, {
       roomCode: room.value.code,
       targetUserId,
     });
@@ -431,7 +432,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
   // 8. 重置房间
   const handleConfirmRestart = () => {
     if (!isHost.value || !room.value) return;
-    socket.value?.emit('restart_game', { roomCode: room.value.code });
+    socket.value?.emit(CLIENT_TO_SERVER_EVENTS.restartGame, { roomCode: room.value.code });
     showRestartConfirm.value = false;
   };
 
@@ -439,7 +440,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
   const handleLeaveRoom = async () => {
     if (await showConfirm('确认离开房间吗？', '离开确认')) {
       if (room.value) {
-        socket.value?.emit('leave_room', {
+        socket.value?.emit(CLIENT_TO_SERVER_EVENTS.leaveRoom, {
           roomCode: room.value.code,
           userId: userId.value,
         });

@@ -295,3 +295,20 @@
   - `docs/overview.md` — 修改：更新 `roomManager` 职责说明。
 - **验收**：`./node_modules/.bin/vue-tsc --noEmit` 通过；`./node_modules/.bin/vitest run --reporter verbose` 通过（5 个测试文件、27 个测试）；`./node_modules/.bin/biome check server/roomManager.ts server/socketHandlers.ts server/logger.ts server/wecomWebhook.ts server/__tests__/roomManager.spec.ts` 通过。
 - **commit**：未提交（工作区改动）
+
+### 第29轮：客户端协议常量边界收敛 [2026-09-04]
+- **输入**：实行架构方案 3——统一 Web、服务端与 Wear OS 之间的 Socket 事件名、Wear action 与 DataLayer path 协议面，降低协议漂移风险。
+- **探索与决策**：
+  - 新增 `shared/types/protocol.ts` 作为 TS 侧协议常量锚点，覆盖 `CLIENT_TO_SERVER_EVENTS`、`SERVER_TO_CLIENT_EVENTS`、`WEAR_ACTIONS` 与 `DATA_LAYER_PATHS`。
+  - `shared/types/socket.ts` 的 Socket.IO 事件接口改用协议常量 computed keys，让类型契约和运行时事件名共享同一份定义。
+  - Kotlin 侧保持现有 `WearAction` enum 序列化模型，新增 `SocketEvents` object 并复用既有 `DataLayerConstants`，以低迁移成本接入 Wear 直连与蓝牙凭证桥。
+  - 新增 TS 协议契约测试，检查协议值稳定、唯一，并确认 Kotlin mirror 中包含 TS 协议常量面。
+- **最终改动**：
+  - `shared/types/protocol.ts` — 新增：Socket 事件、Wear action、DataLayer path 常量与派生类型。
+  - `shared/types/socket.ts` — 修改：事件接口改用协议常量作为 key。
+  - `server/socketHandlers.ts` / `server/roomManager.ts` / `src/composables/useGameRoom.ts` — 修改：运行时 Socket `emit/on/off` 改引用协议常量。
+  - `android/shared-models/src/main/java/com/poolpoker/shared/Models.kt` — 修改：新增 `SocketEvents` mirror。
+  - `android/wear-app/src/main/java/com/poolpoker/wear/WearDirectSocketManager.kt` / `WearBluetoothClient.kt` / `android/app/src/main/java/com/poolpoker/app/BluetoothServerRelay.kt` — 修改：Wear 直连与本地桥接改引用 Kotlin 协议常量。
+  - `server/__tests__/protocolContract.spec.ts` — 新增：协议漂移契约测试。
+- **验收**：`./node_modules/.bin/vue-tsc --noEmit` 通过；`./node_modules/.bin/vitest run --reporter verbose` 通过（6 个测试文件、30 个测试）；`./node_modules/.bin/biome check .` 通过；`android/./gradlew :shared-models:compileDebugKotlin :wear-app:compileDebugKotlin :app:compileDebugKotlin` 通过（Gradle 仍输出 Tauri 依赖与生成 WebView 代码的既有 deprecated warning）。
+- **commit**：未提交（工作区改动）

@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import type { Server } from 'socket.io';
 import type { Room, ServerRoom } from '../shared/types/game';
+import { SERVER_TO_CLIENT_EVENTS } from '../shared/types/protocol';
 import { appConfig } from './config';
 import { getPocketedBallNumbers } from './gameEngine';
 
@@ -157,7 +158,7 @@ export function broadcastRoomState(io: Server, roomCode: string): void {
       const targetUserId = currentPlayer?.userId || socketData?.userId;
       const clientRoom = getClientRoomState(roomCode, targetUserId);
       if (clientRoom) {
-        playerSocket.emit('room_updated', clientRoom);
+        playerSocket.emit(SERVER_TO_CLIENT_EVENTS.roomUpdated, clientRoom);
       }
     }
   }
