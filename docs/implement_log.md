@@ -281,3 +281,17 @@
 - **备注**：`pnpm run test:unit` / `pnpm run lint` 与 `pnpm exec ...` 在本机本轮启动后无输出卡住，已改用 `node_modules/.bin` 直接执行同等检查。
 - **commit**：未提交（工作区改动）
 
+### 第28轮：房间注册表与 Socket 会话索引边界收敛 [2026-09-04]
+- **输入**：实行架构方案 2——把 `rooms` / `socketIndex` / cleanup timer 的存储与会话索引职责收敛到 `roomManager` 边界，减少 Socket handler 直接操作全局状态。
+- **探索与决策**：
+  - 采用增量方案，不一次性搬迁 create/join/rejoin/leave/disconnect 的全部生命周期逻辑；先把房间查询/保存/删除、Socket session 绑定/读取/解绑、多 Socket 同用户检测封成 helper。
+  - `socketIndex` 改为 `roomManager` 内部实现细节，外部通过 `registerSocketSession`、`getSocketSession`、`removeSocketSession`、`hasOtherSocketForUser` 访问。
+  - `logger.ts` 与崩溃告警推送也改用 registry/query helper，避免直接依赖底层 Map/Object 结构。
+- **最终改动**：
+  - `server/roomManager.ts` — 修改：新增 `SocketSession`、`getRoom`、`listRooms`、`saveRoom`、`removeRoom`、session registry helper，并在 broadcast/client projection 内部复用这些边界。
+  - `server/socketHandlers.ts` — 修改：房间和 Socket session 的读写改走 `roomManager` helper；disconnect 的多 Socket 在线判定改走 `hasOtherSocketForUser`。
+  - `server/logger.ts` / `server/wecomWebhook.ts` — 修改：改用 `getRoom` / `getSocketSession` / `listRooms` 查询状态。
+  - `server/__tests__/roomManager.spec.ts` — 修改：新增房间 registry 与 session registry 边界测试。
+  - `docs/overview.md` — 修改：更新 `roomManager` 职责说明。
+- **验收**：`./node_modules/.bin/vue-tsc --noEmit` 通过；`./node_modules/.bin/vitest run --reporter verbose` 通过（5 个测试文件、27 个测试）；`./node_modules/.bin/biome check server/roomManager.ts server/socketHandlers.ts server/logger.ts server/wecomWebhook.ts server/__tests__/roomManager.spec.ts` 通过。
+- **commit**：未提交（工作区改动）

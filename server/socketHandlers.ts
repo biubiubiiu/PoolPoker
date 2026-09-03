@@ -23,7 +23,18 @@ import { isValidBallConfigKey } from './config';
 import { addLog } from './gameEngine';
 import { applyGameRoomCommand } from './gameRoomService';
 import { logSocketDisconnect } from './logger';
-import { broadcastRoomState, checkAndManageRoomCleanup, generateRoomCode, rooms, socketIndex } from './roomManager';
+import {
+  broadcastRoomState,
+  checkAndManageRoomCleanup,
+  generateRoomCode,
+  getRoom,
+  getSocketSession,
+  hasOtherSocketForUser,
+  registerSocketSession,
+  removeRoom,
+  removeSocketSession,
+  saveRoom,
+} from './roomManager';
 
 export function registerSocketHandlers(io: Server, socket: Socket): void {
   // 1. 创建房间
@@ -82,8 +93,8 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       gameHistory: [],
     };
 
-    rooms[roomCode] = newRoom;
-    socketIndex.set(socket.id, { roomCode, userId });
+    saveRoom(newRoom);
+    registerSocketSession(socket.id, roomCode, userId);
     socket.join(roomCode);
 
     addLog(newRoom, `🏠 房间创建成功，房主 ${name} 进入房间`);
@@ -98,7 +109,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     const { roomCode, userId, name, avatar } = data;
     if (name) socket.data.userName = name;
     if (userId) socket.data.userId = userId;
-    const room = rooms[roomCode];
+    const room = getRoom(roomCode);
 
     if (!room) {
       if (callback) callback({ success: false, message: '房间不存在' });
@@ -154,7 +165,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       addLog(room, `👋 玩家 ${name} 加入房间`);
     }
 
-    socketIndex.set(socket.id, { roomCode, userId });
+    registerSocketSession(socket.id, roomCode, userId);
     socket.join(roomCode);
 
     if (callback) callback({ success: true, roomCode, sessionToken: player.sessionToken });
@@ -165,7 +176,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   // 2.1 尝试断线重连恢复
   socket.on('rejoin_room', (data: RejoinRoomPayload, callback?: (res: any) => void) => {
     const { roomCode, userId, sessionToken } = data;
-    const room = rooms[roomCode];
+    const room = getRoom(roomCode);
 
     if (!room) {
       if (callback) callback({ success: false, message: '房间已解散或不存在' });
@@ -192,7 +203,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       room.hostSocketId = socket.id;
     }
 
-    socketIndex.set(socket.id, { roomCode, userId });
+    registerSocketSession(socket.id, roomCode, userId);
     socket.join(roomCode);
 
     addLog(room, `🔄 玩家 ${player.name} 恢复了房间连接`);
@@ -205,10 +216,10 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   // 3. 修改房间设置（发牌数/黑八/球色等）
   socket.on('update_settings', (data: UpdateSettingsPayload) => {
     const { roomCode, settings } = data;
-    const room = rooms[roomCode];
+    const room = getRoom(roomCode);
     if (!room) return;
 
-    const session = socketIndex.get(socket.id);
+    const session = getSocketSession(socket.id);
     if (!session || session.userId !== room.hostUserId) return;
 
     if (settings.ballConfigKey && !isValidBallConfigKey(settings.ballConfigKey)) {
@@ -223,10 +234,10 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   // 4. 开始游戏 / 发牌
   socket.on('start_game', (data: StartGamePayload) => {
     const { roomCode } = data;
-    const room = rooms[roomCode];
+    const room = getRoom(roomCode);
     if (!room) return;
 
-    const session = socketIndex.get(socket.id);
+    const session = getSocketSession(socket.id);
     if (!session) return;
 
     const result = applyGameRoomCommand(room, { type: 'start_game', actorUserId: session.userId });
@@ -236,10 +247,10 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   // 5. 击球消除卡牌（进球）
   socket.on('pocket_ball', (data: PocketBallPayload) => {
     const { roomCode, cardId } = data;
-    const room = rooms[roomCode];
+    const room = getRoom(roomCode);
     if (!room) return;
 
-    const session = socketIndex.get(socket.id);
+    const session = getSocketSession(socket.id);
     if (!session) return;
 
     const result = applyGameRoomCommand(room, { type: 'pocket_ball', actorUserId: session.userId, cardId });
@@ -249,10 +260,10 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   // 6. 犯规罚抽牌
   socket.on('draw_penalty', (data: DrawPenaltyPayload) => {
     const { roomCode } = data;
-    const room = rooms[roomCode];
+    const room = getRoom(roomCode);
     if (!room) return;
 
-    const session = socketIndex.get(socket.id);
+    const session = getSocketSession(socket.id);
     if (!session) return;
 
     const result = applyGameRoomCommand(room, { type: 'draw_penalty', actorUserId: session.userId });
@@ -262,7 +273,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   // 7. 误进无关球 / 裁判登记球入袋
   socket.on('accidental_pocket', (data: AccidentalPocketPayload) => {
     const { roomCode, ballNumber } = data;
-    const room = rooms[roomCode];
+    const room = getRoom(roomCode);
     if (!room) return;
 
     const result = applyGameRoomCommand(room, { type: 'accidental_pocket', ballNumber });
@@ -272,7 +283,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   // 7.1 开球进球 - 记录场上球入袋，不归入任何玩家手牌
   socket.on('break_pocket', (data: BreakPocketPayload) => {
     const { roomCode, ballNumber } = data;
-    const room = rooms[roomCode];
+    const room = getRoom(roomCode);
     if (!room) return;
 
     const result = applyGameRoomCommand(room, { type: 'break_pocket', ballNumber });
@@ -282,7 +293,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   // 8. 撤回上一步操作（整体回退到上一步状态）
   socket.on('retract_ball', (data: RetractBallPayload) => {
     const { roomCode } = data;
-    const room = rooms[roomCode];
+    const room = getRoom(roomCode);
     if (!room) return;
 
     const result = applyGameRoomCommand(room, { type: 'retract_ball' });
@@ -292,7 +303,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   // 9. 记录进球 - 帮指定玩家消卡或记录全场进球
   socket.on('referee_pocket_ball', (data: RefereePocketBallPayload) => {
     const { roomCode, targetUserId, ballNumber } = data;
-    const room = rooms[roomCode];
+    const room = getRoom(roomCode);
     if (!room) return;
 
     const result = applyGameRoomCommand(room, {
@@ -307,7 +318,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   // 10. 裁判代记 - 帮指定玩家罚抽卡
   socket.on('referee_draw_penalty', (data: RefereeDrawPenaltyPayload) => {
     const { roomCode, targetUserId } = data;
-    const room = rooms[roomCode];
+    const room = getRoom(roomCode);
     if (!room) return;
 
     const result = applyGameRoomCommand(room, { type: 'referee_draw_penalty', targetUserId });
@@ -317,7 +328,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   // 11. 请求重新开始
   socket.on('request_restart', (data: RequestRestartPayload) => {
     const { roomCode } = data;
-    const room = rooms[roomCode];
+    const room = getRoom(roomCode);
     if (!room) return;
 
     const result = applyGameRoomCommand(room, { type: 'request_restart' });
@@ -327,9 +338,9 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   // 12. 确认重新开始 / 重置房间
   socket.on('confirm_restart', (data: ConfirmRestartPayload) => {
     const { roomCode } = data;
-    const room = rooms[roomCode];
+    const room = getRoom(roomCode);
     if (!room) return;
-    const session = socketIndex.get(socket.id);
+    const session = getSocketSession(socket.id);
     if (!session) return;
     const result = applyGameRoomCommand(room, { type: 'restart_game', actorUserId: session.userId });
     if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
@@ -337,9 +348,9 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
 
   socket.on('restart_game', (data: RestartGamePayload) => {
     const { roomCode } = data;
-    const room = rooms[roomCode];
+    const room = getRoom(roomCode);
     if (!room) return;
-    const session = socketIndex.get(socket.id);
+    const session = getSocketSession(socket.id);
     if (!session) return;
     const result = applyGameRoomCommand(room, { type: 'restart_game', actorUserId: session.userId });
     if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
@@ -348,7 +359,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   // 13. 离开房间
   socket.on('leave_room', (data: LeaveRoomPayload) => {
     const { roomCode, userId } = data;
-    const room = rooms[roomCode];
+    const room = getRoom(roomCode);
     if (!room) return;
 
     const pIdx = room.players.findIndex((p) => p.userId === userId);
@@ -364,12 +375,12 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
           addLog(room, `👑 房主已自动转让给 ${room.players[0].name}`);
         }
       } else {
-        delete rooms[roomCode];
+        removeRoom(roomCode);
       }
     }
 
     socket.leave(roomCode);
-    socketIndex.delete(socket.id);
+    removeSocketSession(socket.id);
 
     checkAndManageRoomCleanup(roomCode);
     broadcastRoomState(io, roomCode);
@@ -379,15 +390,12 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   socket.on('disconnect', (reason?: string) => {
     logSocketDisconnect(socket, reason);
 
-    const session = socketIndex.get(socket.id);
+    const session = removeSocketSession(socket.id);
     if (session) {
       const { roomCode, userId } = session;
-      socketIndex.delete(socket.id);
-      const room = rooms[roomCode];
+      const room = getRoom(roomCode);
       if (room) {
-        const hasOtherSocket = Array.from(socketIndex.values()).some(
-          (s) => s.roomCode === roomCode && s.userId === userId
-        );
+        const hasOtherSocket = hasOtherSocketForUser(roomCode, userId);
         if (!hasOtherSocket) {
           const player = room.players.find((p) => p.userId === userId);
           if (player) {

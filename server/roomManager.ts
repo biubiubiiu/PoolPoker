@@ -4,8 +4,13 @@ import type { Room, ServerRoom } from '../shared/types/game';
 import { appConfig } from './config';
 import { getPocketedBallNumbers } from './gameEngine';
 
+export interface SocketSession {
+  roomCode: string;
+  userId: string;
+}
+
 export const rooms: Record<string, ServerRoom> = {};
-export const socketIndex = new Map<string, { roomCode: string; userId: string }>();
+const socketIndex = new Map<string, SocketSession>();
 export const roomCleanupTimers = new Map<string, NodeJS.Timeout>();
 
 export function generateRoomCode(): string {
@@ -14,6 +19,41 @@ export function generateRoomCode(): string {
     code = crypto.randomInt(1000, 10000).toString();
   } while (rooms[code]);
   return code;
+}
+
+export function getRoom(roomCode: string): ServerRoom | undefined {
+  return rooms[roomCode];
+}
+
+export function listRooms(): ServerRoom[] {
+  return Object.values(rooms);
+}
+
+export function saveRoom(room: ServerRoom): void {
+  rooms[room.code] = room;
+}
+
+export function removeRoom(roomCode: string): void {
+  delete rooms[roomCode];
+  cancelRoomCleanup(roomCode);
+}
+
+export function registerSocketSession(socketId: string, roomCode: string, userId: string): void {
+  socketIndex.set(socketId, { roomCode, userId });
+}
+
+export function getSocketSession(socketId: string): SocketSession | undefined {
+  return socketIndex.get(socketId);
+}
+
+export function removeSocketSession(socketId: string): SocketSession | undefined {
+  const session = socketIndex.get(socketId);
+  socketIndex.delete(socketId);
+  return session;
+}
+
+export function hasOtherSocketForUser(roomCode: string, userId: string): boolean {
+  return Array.from(socketIndex.values()).some((s) => s.roomCode === roomCode && s.userId === userId);
 }
 
 export function scheduleRoomCleanup(roomCode: string, customTimeoutMs?: number): void {
@@ -44,8 +84,7 @@ export function checkAndManageRoomCleanup(roomCode: string, customTimeoutMs?: nu
   }
 
   if (room.players.length === 0) {
-    delete rooms[roomCode];
-    cancelRoomCleanup(roomCode);
+    removeRoom(roomCode);
     return;
   }
 
@@ -58,7 +97,7 @@ export function checkAndManageRoomCleanup(roomCode: string, customTimeoutMs?: nu
 }
 
 export function getClientRoomState(roomCode: string, targetUserId?: string): Room | null {
-  const room = rooms[roomCode];
+  const room = getRoom(roomCode);
   if (!room) return null;
 
   const pocketedBallNumbers = getPocketedBallNumbers(room);
@@ -102,7 +141,7 @@ export function getClientRoomState(roomCode: string, targetUserId?: string): Roo
 }
 
 export function broadcastRoomState(io: Server, roomCode: string): void {
-  const room = rooms[roomCode];
+  const room = getRoom(roomCode);
   if (!room) return;
 
   const roomSockets = io.sockets.adapter.rooms.get(roomCode);
@@ -111,7 +150,7 @@ export function broadcastRoomState(io: Server, roomCode: string): void {
   for (const socketId of roomSockets) {
     const playerSocket = io.sockets.sockets.get(socketId);
     if (playerSocket) {
-      const socketData = socketIndex.get(socketId);
+      const socketData = getSocketSession(socketId);
       const currentPlayer = room.players.find(
         (p) => p.id === socketId || (socketData?.userId && p.userId === socketData.userId)
       );

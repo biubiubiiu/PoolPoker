@@ -1,7 +1,7 @@
 import type { ServerRoom } from '../shared/types/game';
 import { getPocketedBallNumbers } from './gameEngine';
 import { getRobotWebhookUrl } from './robotConfig';
-import { rooms } from './roomManager';
+import { listRooms } from './roomManager';
 
 // 固定提及成员
 const WECOM_MENTIONED_LIST = ['shyren'];
@@ -88,7 +88,7 @@ export async function sendCrashReportToWecom(error: Error | unknown, type: strin
   const errorMsg = error instanceof Error ? error.message : String(error);
   const stack = error instanceof Error && error.stack ? error.stack.split('\n').slice(0, 8).join('\n') : '';
 
-  const activeRooms = Object.values(rooms);
+  const activeRooms = listRooms();
   let roomSnapshotText = '暂无活跃房间';
 
   if (activeRooms.length > 0) {
@@ -123,7 +123,7 @@ export async function sendCrashReportToWecom(error: Error | unknown, type: strin
 
   // 企业微信 Webhook 文本消息字数上限 4096 字符
   if (content.length > 4000) {
-    content = content.slice(0, 3950) + '\n... [部分内容已截断]';
+    content = `${content.slice(0, 3950)}\n... [部分内容已截断]`;
   }
 
   const message: WecomTextMessage = {

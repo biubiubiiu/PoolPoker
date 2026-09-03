@@ -4,8 +4,16 @@ import {
   cancelRoomCleanup,
   checkAndManageRoomCleanup,
   getClientRoomState,
+  getRoom,
+  getSocketSession,
+  hasOtherSocketForUser,
+  listRooms,
+  registerSocketSession,
+  removeRoom,
+  removeSocketSession,
   roomCleanupTimers,
   rooms,
+  saveRoom,
 } from '../roomManager';
 
 function createDummyCard(id: string, rank: string, ballNumber: number): Card {
@@ -18,6 +26,62 @@ function createDummyCard(id: string, rank: string, ballNumber: number): Card {
     ballNumber,
   };
 }
+
+function createDummyRoom(roomCode: string, players: ServerRoom['players'] = []): ServerRoom {
+  return {
+    code: roomCode,
+    status: 'waiting',
+    hostUserId: players[0]?.userId ?? 'u1',
+    hostSocketId: players[0]?.id ?? 's1',
+    settings: { cardsPerPlayer: 5, maxPlayers: 8, includeBlackEight: true, ballConfigKey: 'default' },
+    players,
+    deck: [],
+    accidentalBalls: [],
+    breakBalls: [],
+    winners: [],
+    turnOrder: [],
+    roundCount: 0,
+    logs: [],
+    lastRoundScores: [],
+    gameHistory: [],
+  } as ServerRoom;
+}
+
+describe('roomManager room registry and session registry', () => {
+  it('should save, list, get, and remove rooms through the registry boundary', () => {
+    const roomCode = 'test-room-registry-1';
+    const room = createDummyRoom(roomCode);
+
+    saveRoom(room);
+
+    expect(getRoom(roomCode)).toBe(room);
+    expect(listRooms()).toContain(room);
+
+    removeRoom(roomCode);
+
+    expect(getRoom(roomCode)).toBeUndefined();
+  });
+
+  it('should bind socket sessions and detect another socket for the same room user', () => {
+    registerSocketSession('socket-a', 'room-1', 'user-1');
+    registerSocketSession('socket-b', 'room-1', 'user-1');
+    registerSocketSession('socket-c', 'room-1', 'user-2');
+
+    expect(getSocketSession('socket-a')).toEqual({ roomCode: 'room-1', userId: 'user-1' });
+
+    const removed = removeSocketSession('socket-a');
+
+    expect(removed).toEqual({ roomCode: 'room-1', userId: 'user-1' });
+    expect(getSocketSession('socket-a')).toBeUndefined();
+    expect(hasOtherSocketForUser('room-1', 'user-1')).toBe(true);
+
+    removeSocketSession('socket-b');
+
+    expect(hasOtherSocketForUser('room-1', 'user-1')).toBe(false);
+
+    removeSocketSession('socket-c');
+  });
+});
 
 describe('roomManager getClientRoomState', () => {
   it('should obscure unpocketed cards for other players but show pocketedCards for all players', () => {

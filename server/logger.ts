@@ -1,5 +1,5 @@
 import type { Socket } from 'socket.io';
-import { rooms, socketIndex } from './roomManager';
+import { getRoom, getSocketSession } from './roomManager';
 
 export function formatTimestamp(date = new Date()): string {
   const pad = (n: number) => n.toString().padStart(2, '0');
@@ -20,9 +20,9 @@ export function getSocketUsername(socket: Socket): string {
   if (authName && typeof authName === 'string' && authName.trim()) {
     return authName.trim();
   }
-  const session = socketIndex.get(socket.id);
+  const session = getSocketSession(socket.id);
   if (session) {
-    const room = rooms[session.roomCode];
+    const room = getRoom(session.roomCode);
     const player = room?.players.find((p) => p.userId === session.userId);
     if (player?.name) {
       return player.name;

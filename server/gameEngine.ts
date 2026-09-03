@@ -72,7 +72,7 @@ export function calculateHandScore(remainingCards: Card[]): number {
   const groups = new Map<string, Card[]>();
   for (const card of remainingCards) {
     if (!groups.has(card.rank)) groups.set(card.rank, []);
-    groups.get(card.rank)!.push(card);
+    groups.get(card.rank)?.push(card);
   }
   let total = 0;
   for (const cards of groups.values()) {
