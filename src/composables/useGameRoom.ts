@@ -379,7 +379,12 @@ export function useGameRoom(options: UseGameRoomOptions) {
   // 6. 撤回上一步操作（整体回退到上一步状态）
   const handleRetract = async () => {
     if (!room.value) return;
-    if (await showConfirm('确认撤回到上一步操作吗？将整体回退牌桌最近一次的操作。', '确认撤回')) {
+    const lastActionText = room.value.lastActionText;
+    if (!lastActionText) {
+      await showAlert('当前没有可撤回的操作', '提示');
+      return;
+    }
+    if (await showConfirm(`确认撤回到上一步操作吗？\n\n将撤回：${lastActionText}`, '确认撤回')) {
       socket.value?.emit('retract_ball', { roomCode: room.value.code });
     }
   };

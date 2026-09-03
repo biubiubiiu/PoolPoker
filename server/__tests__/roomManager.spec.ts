@@ -97,7 +97,24 @@ describe('roomManager getClientRoomState', () => {
       // Player 2's own cards should be visible to Player 2
       expect(p2?.cards).toEqual([card2]);
       expect(p2?.pocketedCards).toEqual([]);
+
+      // Initial history is empty so lastActionText should be null
+      expect(clientState.lastActionText).toBeNull();
     }
+
+    // Add gameHistory with actionText
+    rooms[roomCode].gameHistory = [
+      { deck: [], accidentalBalls: [], breakBalls: [], players: [] },
+      {
+        deck: [],
+        accidentalBalls: [],
+        breakBalls: [],
+        players: [],
+        actionText: '🎯 Player 1 打进 1号球，消去卡牌 [♠A]',
+      },
+    ];
+    const updatedState = getClientRoomState(roomCode, 'u2');
+    expect(updatedState?.lastActionText).toBe('🎯 Player 1 打进 1号球，消去卡牌 [♠A]');
 
     delete rooms[roomCode];
   });

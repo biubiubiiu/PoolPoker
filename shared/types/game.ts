@@ -67,6 +67,7 @@ export interface GameState {
   deck: Card[];
   accidentalBalls: number[];
   breakBalls: number[];
+  actionText?: string;
 }
 
 export interface Room {
@@ -84,6 +85,7 @@ export interface Room {
   settings: RoomSettings;
   logs: GameLog[];
   lastRoundScores: RoundScoreEntry[];
+  lastActionText?: string | null;
 }
 
 export interface ServerRoom {

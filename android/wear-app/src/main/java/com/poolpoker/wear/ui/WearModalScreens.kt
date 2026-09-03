@@ -272,3 +272,98 @@ fun WearPocketModalScreen(
         }
     }
 }
+
+@Composable
+fun WearRetractModalScreen(
+    roomState: WearSyncRoomPayload,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val lastActionText = roomState.lastActionText
+
+    ScalingLazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        contentPadding = PaddingValues(top = 36.dp, bottom = 36.dp, start = 12.dp, end = 12.dp)
+    ) {
+        item {
+            ListHeader {
+                Text(
+                    text = stringResource(R.string.confirm_retract_title),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = PoolPokerColors.FoulRed,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(4.dp))
+            Card(
+                onClick = {},
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (!lastActionText.isNullOrBlank()) {
+                            stringResource(R.string.retract_action_format, lastActionText)
+                        } else {
+                            stringResource(R.string.no_retract_action)
+                        },
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = Color.White,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+
+        if (!lastActionText.isNullOrBlank()) {
+            item {
+                Spacer(modifier = Modifier.height(6.dp))
+                Button(
+                    onClick = {
+                        triggerVibration(context)
+                        sendActionToPhone(context, WearActionPayload(WearAction.RETRACT_BALL, roomState.roomCode))
+                        onDismiss()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(36.dp)
+                ) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = stringResource(R.string.btn_confirm_retract),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(4.dp))
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(36.dp)
+            ) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(text = stringResource(R.string.btn_back_cancel), fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}

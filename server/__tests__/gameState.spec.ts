@@ -121,20 +121,23 @@ describe('gameState logic', () => {
     expect(stateToRestore.players[0].cards).toHaveLength(1);
   });
 
-  it('should record steps and undo step correctly', () => {
+  it('should record steps with actionText and undo step correctly', () => {
     const room = createDummyRoom();
 
     // Step 0: Record initial baseline
     recordGameStep(room);
     expect(room.gameHistory).toHaveLength(1);
+    expect(room.gameHistory[0].actionText).toBeUndefined();
 
     // Step 1: Perform player action (pocket a card)
     const pocketed = room.players[0].cards.pop();
     if (pocketed) {
       room.players[0].pocketedCards.push(pocketed);
     }
-    recordGameStep(room);
+    const actionText = '🎯 Player 1 打进 1号球，消去卡牌 [♠A]';
+    recordGameStep(room, actionText);
     expect(room.gameHistory).toHaveLength(2);
+    expect(room.gameHistory[1].actionText).toBe(actionText);
     expect(room.players[0].cards).toHaveLength(1);
     expect(room.players[0].pocketedCards).toHaveLength(1);
 

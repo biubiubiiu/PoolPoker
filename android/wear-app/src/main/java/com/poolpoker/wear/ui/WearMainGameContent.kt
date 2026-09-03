@@ -38,7 +38,8 @@ fun WearMainGameContent(
     cards: List<CardModel>,
     pocketedBalls: List<Int>,
     onShowPocketModal: () -> Unit,
-    onShowFoulModal: () -> Unit
+    onShowFoulModal: () -> Unit,
+    onShowRetractModal: () -> Unit
 ) {
     val context = LocalContext.current
 
@@ -176,7 +177,7 @@ fun WearMainGameContent(
         item {
             Button(
                 onClick = {
-                    sendActionToPhone(context, WearActionPayload(WearAction.RETRACT_BALL, roomState.roomCode))
+                    onShowRetractModal()
                 },
                 modifier = Modifier
                     .fillMaxWidth()

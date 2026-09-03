@@ -99,6 +99,7 @@ object WearDirectSocketManager {
                             players = playerSummaries,
                             myPlayerName = myPlayer?.name ?: userName,
                             lastRoundScores = room.lastRoundScores,
+                            lastActionText = room.lastActionText,
                             timestamp = System.currentTimeMillis()
                         )
 

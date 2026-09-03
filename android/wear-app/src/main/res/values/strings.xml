@@ -41,4 +41,8 @@
     <string name="card_category_free">Free</string>
     <string name="card_category_remaining">Remaining</string>
     <string name="winner_badge">🏆 Winner</string>
+    <string name="confirm_retract_title">↩️ Confirm Undo?</string>
+    <string name="retract_action_format">Action to undo:\n%1$s</string>
+    <string name="no_retract_action">No operation to undo</string>
+    <string name="btn_confirm_retract">Confirm Undo</string>
 </resources>

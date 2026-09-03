@@ -284,17 +284,15 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     const [pocketedCard] = player.cards.splice(cardIndex, 1);
     player.pocketedCards.push(pocketedCard);
 
-    addLog(
-      room,
-      `🎯 ${player.name} 打进 ${pocketedCard.ballNumber}号球，消去卡牌 [${pocketedCard.suit}${pocketedCard.rank}]`
-    );
+    const actionText = `🎯 ${player.name} 打进 ${pocketedCard.ballNumber}号球，消去卡牌 [${pocketedCard.suit}${pocketedCard.rank}]`;
+    addLog(room, actionText);
 
     const winners = checkGameWinners(room);
     if (winners.length > 0) {
       handleGameFinished(room, winners, player);
     }
 
-    recordGameStep(room);
+    recordGameStep(room, actionText);
     broadcastRoomState(io, roomCode);
   });
 
@@ -316,12 +314,14 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     }
 
     const penaltyCard = room.deck.pop();
+    let actionText: string | undefined;
     if (penaltyCard) {
       player.cards.push(penaltyCard);
-      addLog(room, `⚠️ ${player.name} 犯规，罚抽 1 张扑克牌`);
+      actionText = `⚠️ ${player.name} 犯规，罚抽 1 张扑克牌`;
+      addLog(room, actionText);
     }
 
-    recordGameStep(room);
+    recordGameStep(room, actionText);
     broadcastRoomState(io, roomCode);
   });
 
@@ -333,14 +333,15 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
 
     if (!room.accidentalBalls.includes(ballNumber)) {
       room.accidentalBalls.push(ballNumber);
-      addLog(room, `🎱 记录场上 ${ballNumber}号球判定为已进球`);
+      const actionText = `🎱 记录场上 ${ballNumber}号球判定为已进球`;
+      addLog(room, actionText);
 
       const winners = checkGameWinners(room);
       if (winners.length > 0) {
         handleGameFinished(room, winners, null);
       }
 
-      recordGameStep(room);
+      recordGameStep(room, actionText);
     }
 
     broadcastRoomState(io, roomCode);
@@ -354,14 +355,15 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
 
     if (!room.breakBalls.includes(ballNumber)) {
       room.breakBalls.push(ballNumber);
-      addLog(room, `🚀 记录开球进球：${ballNumber}号球已进球`);
+      const actionText = `🚀 记录开球进球：${ballNumber}号球已进球`;
+      addLog(room, actionText);
 
       const winners = checkGameWinners(room);
       if (winners.length > 0) {
         handleGameFinished(room, winners, null);
       }
 
-      recordGameStep(room);
+      recordGameStep(room, actionText);
     }
 
     broadcastRoomState(io, roomCode);
@@ -398,36 +400,33 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       targetPlayer.pocketedCards.push(pocketedCard);
       const refereePlayer = room.players.find((p) => p.id === socket.id);
       const isSelfAction = refereePlayer && refereePlayer.userId === targetPlayer.userId;
+      let actionText = '';
       if (isSelfAction) {
-        addLog(
-          room,
-          `🎯 ${targetPlayer.name} 打进 ${pocketedCard.ballNumber}号球，消去卡牌 [${pocketedCard.suit}${pocketedCard.rank}]`
-        );
+        actionText = `🎯 ${targetPlayer.name} 打进 ${pocketedCard.ballNumber}号球，消去卡牌 [${pocketedCard.suit}${pocketedCard.rank}]`;
       } else {
         const refName = refereePlayer ? refereePlayer.name : '其他玩家';
-        addLog(
-          room,
-          `⚖️ ${refName} 为 ${targetPlayer.name} 记录打进并消除了手牌 [${pocketedCard.suit}${pocketedCard.rank} -> ${pocketedCard.ballNumber}号球]！`
-        );
+        actionText = `⚖️ ${refName} 为 ${targetPlayer.name} 记录打进并消除了手牌 [${pocketedCard.suit}${pocketedCard.rank} -> ${pocketedCard.ballNumber}号球]！`;
       }
+      addLog(room, actionText);
 
       const winners = checkGameWinners(room);
       if (winners.length > 0) {
         handleGameFinished(room, winners, targetPlayer);
       }
 
-      recordGameStep(room);
+      recordGameStep(room, actionText);
     } else {
       if (!room.accidentalBalls.includes(ballNumber)) {
         room.accidentalBalls.push(ballNumber);
-        addLog(room, `🎱 记录 ${targetPlayer.name} 打进 ${ballNumber}号球（判定为全场已进球）`);
+        const actionText = `🎱 记录 ${targetPlayer.name} 打进 ${ballNumber}号球（判定为全场已进球）`;
+        addLog(room, actionText);
 
         const winners = checkGameWinners(room);
         if (winners.length > 0) {
           handleGameFinished(room, winners, null);
         }
 
-        recordGameStep(room);
+        recordGameStep(room, actionText);
       }
     }
 
@@ -449,12 +448,14 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     }
 
     const penaltyCard = room.deck.pop();
+    let actionText: string | undefined;
     if (penaltyCard) {
       targetPlayer.cards.push(penaltyCard);
-      addLog(room, `👨‍⚖️ 裁判代记：${targetPlayer.name} 犯规，罚抽 1 张扑克牌`);
+      actionText = `👨‍⚖️ 裁判代记：${targetPlayer.name} 犯规，罚抽 1 张扑克牌`;
+      addLog(room, actionText);
     }
 
-    recordGameStep(room);
+    recordGameStep(room, actionText);
     broadcastRoomState(io, roomCode);
   });
 

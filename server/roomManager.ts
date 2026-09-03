@@ -62,6 +62,9 @@ export function getClientRoomState(roomCode: string, targetUserId?: string): Roo
   if (!room) return null;
 
   const pocketedBallNumbers = getPocketedBallNumbers(room);
+  const lastHistoryStep =
+    room.gameHistory && room.gameHistory.length > 1 ? room.gameHistory[room.gameHistory.length - 1] : null;
+  const lastActionText = lastHistoryStep?.actionText || null;
 
   return {
     code: room.code,
@@ -94,6 +97,7 @@ export function getClientRoomState(roomCode: string, targetUserId?: string): Roo
       };
     }),
     lastRoundScores: room.lastRoundScores || [],
+    lastActionText,
   };
 }
 

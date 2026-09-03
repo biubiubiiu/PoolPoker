@@ -60,6 +60,7 @@ import com.poolpoker.wear.ui.theme.PoolPokerColors
 fun WearGameScreen(roomState: WearSyncRoomPayload?) {
     var showPocketModal by remember { mutableStateOf(false) }
     var showFoulModal by remember { mutableStateOf(false) }
+    var showRetractModal by remember { mutableStateOf(false) }
     var selectedTargetUserId by remember { mutableStateOf<String?>(null) }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -80,6 +81,7 @@ fun WearGameScreen(roomState: WearSyncRoomPayload?) {
                 val onDismissModals = {
                     showFoulModal = false
                     showPocketModal = false
+                    showRetractModal = false
                 }
 
                 Box(modifier = Modifier.fillMaxSize()) {
@@ -88,10 +90,11 @@ fun WearGameScreen(roomState: WearSyncRoomPayload?) {
                         cards = cards,
                         pocketedBalls = pocketedBalls,
                         onShowPocketModal = { showPocketModal = true },
-                        onShowFoulModal = { showFoulModal = true }
+                        onShowFoulModal = { showFoulModal = true },
+                        onShowRetractModal = { showRetractModal = true }
                     )
 
-                    if (showFoulModal || showPocketModal) {
+                    if (showFoulModal || showPocketModal || showRetractModal) {
                         BackHandler {
                             onDismissModals()
                         }
@@ -112,6 +115,11 @@ fun WearGameScreen(roomState: WearSyncRoomPayload?) {
                                         selectedTargetUserId = selectedTargetUserId,
                                         onTargetUserIdSelected = { selectedTargetUserId = it },
                                         onDismiss = { showPocketModal = false }
+                                    )
+                                } else if (showRetractModal) {
+                                    WearRetractModalScreen(
+                                        roomState = roomState,
+                                        onDismiss = { showRetractModal = false }
                                     )
                                 }
                             }

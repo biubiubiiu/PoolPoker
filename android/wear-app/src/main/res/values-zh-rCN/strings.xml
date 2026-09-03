@@ -41,4 +41,8 @@
     <string name="card_category_free">免打卡</string>
     <string name="card_category_remaining">未消除</string>
     <string name="winner_badge">🏆 胜出</string>
+    <string name="confirm_retract_title">↩️ 确认撤回？</string>
+    <string name="retract_action_format">将撤回：\n%1$s</string>
+    <string name="no_retract_action">当前没有可撤回的操作</string>
+    <string name="btn_confirm_retract">确认撤回</string>
 </resources>

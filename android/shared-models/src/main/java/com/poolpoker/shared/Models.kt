@@ -102,7 +102,8 @@ data class RoomModel(
     val roundCount: Int = 0,
     val deckCount: Int = 0,
     val settings: RoomSettingsModel = RoomSettingsModel(),
-    val lastRoundScores: List<RoundScoreEntry> = emptyList()
+    val lastRoundScores: List<RoundScoreEntry> = emptyList(),
+    val lastActionText: String? = null
 )
 
 // Sync payload sent over Wear OS Data Layer API
@@ -120,6 +121,7 @@ data class WearSyncRoomPayload(
     @SerializedName("userId", alternate = ["myUserId"]) val myUserId: String? = null,
     val serverUrl: String? = null,
     val lastRoundScores: List<RoundScoreEntry> = emptyList(),
+    val lastActionText: String? = null,
     val timestamp: Long = System.currentTimeMillis()
 ) {
     fun toJson(): String = Gson().toJson(this)

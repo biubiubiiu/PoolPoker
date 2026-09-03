@@ -237,11 +237,32 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
       await cardToPocket.click(); // 自动接受 window.confirm
       await hostPage.waitForTimeout(500);
 
-      // --- 3.4 测试【撤回上一步 (Retract)】整体回退最近一步操作 ---
+      // --- 3.4 测试【撤回上一步 (Retract)】二次确认弹窗与具体操作内容展示 ---
+      let lastDialogMessage = '';
+      const onDismissDialog = (dialog: import('@playwright/test').Dialog) => {
+        lastDialogMessage = dialog.message();
+        dialog.dismiss().catch(() => {});
+      };
+      hostPage.on('dialog', onDismissDialog);
       await hostPage.click('button:has-text("撤回")');
+      await hostPage.waitForTimeout(300);
+      expect(lastDialogMessage).toContain('确认撤回到上一步操作吗？');
+      expect(lastDialogMessage).toContain('将撤回：');
+      hostPage.off('dialog', onDismissDialog);
+
+      const onAcceptDialog = (dialog: import('@playwright/test').Dialog) => {
+        lastDialogMessage = dialog.message();
+        dialog.accept().catch(() => {});
+      };
+      hostPage.on('dialog', onAcceptDialog);
+      await hostPage.click('button:has-text("撤回")');
+      await hostPage.waitForTimeout(300);
+      expect(lastDialogMessage).toContain('确认撤回到上一步操作吗？');
+      expect(lastDialogMessage).toContain('将撤回：');
+      hostPage.off('dialog', onAcceptDialog);
 
       // 验证日志显示了撤回记录
-      await expect(hostPage.locator('text=已撤回到上一步操作')).toBeVisible({
+      await expect(hostPage.locator('text=已撤回到上一步操作').first()).toBeVisible({
         timeout: 5000,
       });
     }

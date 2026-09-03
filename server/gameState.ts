@@ -25,18 +25,19 @@ function clonePlayer(p: GamePlayerSnapshot): GamePlayerSnapshot {
 }
 
 // 记录一步操作后的房间进行态。只追加，不清理历史（历史在每局开始游戏时清空）。
-export function recordGameStep(room: ServerRoom): void {
+export function recordGameStep(room: ServerRoom, actionText?: string): void {
   if (!room.gameHistory) room.gameHistory = [];
-  room.gameHistory.push(snapshotGameState(room));
+  room.gameHistory.push(snapshotGameState(room, actionText));
 }
 
 // 将房间当前「游戏进行态」整体打包成一份快照（深拷贝）。
-export function snapshotGameState(room: ServerRoom): GameState {
+export function snapshotGameState(room: ServerRoom, actionText?: string): GameState {
   return {
     players: (room.players || []).map(clonePlayer),
     deck: deepClone(room.deck || []),
     accidentalBalls: deepClone(room.accidentalBalls || []),
     breakBalls: deepClone(room.breakBalls || []),
+    actionText,
   };
 }
 
