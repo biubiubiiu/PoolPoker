@@ -6,8 +6,8 @@ kotlin = "2.4.10"
 coreKtx = "1.19.0"
 appcompat = "1.8.0"
 material = "1.14.0"
-lifecycleProcess = "2.10.0"
-webkit = "1.14.0"
+lifecycleProcess = "2.11.0"
+webkit = "1.17.0"
 activityCompose = "1.13.0"
 composeBom = "2026.08.00"
 
@@ -19,7 +19,7 @@ playServicesWearable = "20.0.1"
 
 # Third Party
 socketIoClient = "2.1.2"
-kotlinxSerialization = "1.8.0"
+kotlinxSerialization = "1.11.0"
 
 # SDK Configuration
 compileSdk = "37"
