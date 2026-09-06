@@ -175,6 +175,67 @@ describe('roomLifecycleService', () => {
     expect(getSocketSession('socket-host')).toBeUndefined();
   });
 
+  it('rejects join_room if userId already exists in the room to prevent session hijacking', () => {
+    applyRoomLifecycleCommand(
+      {
+        type: 'create_room',
+        socketId: 'socket-host',
+        payload: { userId: 'user-host', name: 'Host', avatar: '🎱', ballConfigKey: 'default' },
+      },
+      createDeps(['5555'], ['session-host'])
+    );
+
+    // Attacker tries to hijack user-host session via join_room
+    const hijackAttempt = applyRoomLifecycleCommand(
+      {
+        type: 'join_room',
+        socketId: 'socket-attacker',
+        payload: { roomCode: '5555', userId: 'user-host', name: 'Attacker', avatar: '😈' },
+      },
+      createDeps([], ['session-attacker'])
+    );
+
+    expect(hijackAttempt.response).toEqual({
+      success: false,
+      message: '玩家已在房间中，请使用凭证重连',
+    });
+    expect(hijackAttempt.changed).toBe(false);
+    expect(hijackAttempt.socketEffects).toBeUndefined();
+    expect(getSocketSession('socket-attacker')).toBeUndefined();
+
+    // Verify original host player was untouched
+    const room = getRoom('5555');
+    expect(room?.hostSocketId).toBe('socket-host');
+    expect(room?.players[0].sessionToken).toBe('session-host');
+    expect(room?.players[0].id).toBe('socket-host');
+    expect(room?.players).toHaveLength(1);
+  });
+
+  it('rejects join_room if userId or name is missing', () => {
+    applyRoomLifecycleCommand(
+      {
+        type: 'create_room',
+        socketId: 'socket-host',
+        payload: { userId: 'user-host', name: 'Host', avatar: '🎱', ballConfigKey: 'default' },
+      },
+      createDeps(['1111'], ['session-host'])
+    );
+
+    const noUser = applyRoomLifecycleCommand({
+      type: 'join_room',
+      socketId: 'socket-guest',
+      payload: { roomCode: '1111', userId: '', name: 'Guest', avatar: '🎯' },
+    });
+    expect(noUser.response).toEqual({ success: false, message: '用户信息不完整' });
+
+    const noName = applyRoomLifecycleCommand({
+      type: 'join_room',
+      socketId: 'socket-guest',
+      payload: { roomCode: '1111', userId: 'guest-1', name: '', avatar: '🎯' },
+    });
+    expect(noName.response).toEqual({ success: false, message: '用户信息不完整' });
+  });
+
   it('keeps a multi-socket user online until the last socket disconnects', () => {
     vi.useFakeTimers();
     applyRoomLifecycleCommand(
@@ -185,14 +246,11 @@ describe('roomLifecycleService', () => {
       },
       createDeps(['6789'], ['session-host'])
     );
-    applyRoomLifecycleCommand(
-      {
-        type: 'join_room',
-        socketId: 'socket-b',
-        payload: { roomCode: '6789', userId: 'user-host', name: 'Host', avatar: '🎱' },
-      },
-      createDeps([], ['session-host'])
-    );
+    applyRoomLifecycleCommand({
+      type: 'rejoin_room',
+      socketId: 'socket-b',
+      payload: { roomCode: '6789', userId: 'user-host', sessionToken: 'session-host' },
+    });
 
     const firstDisconnect = applyRoomLifecycleCommand({ type: 'disconnect', socketId: 'socket-a' });
     expect(firstDisconnect.changed).toBe(false);

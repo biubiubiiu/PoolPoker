@@ -145,6 +145,15 @@ function joinRoom(socketId: string, payload: JoinRoomPayload, deps: RoomLifecycl
     userId: userId || undefined,
     userName: name || undefined,
   };
+
+  if (!userId || !name) {
+    return {
+      response: { success: false, message: '用户信息不完整' },
+      socketData,
+      changed: false,
+    };
+  }
+
   const room = getRoom(roomCode);
 
   if (!room) {
@@ -155,7 +164,16 @@ function joinRoom(socketId: string, payload: JoinRoomPayload, deps: RoomLifecycl
     };
   }
 
-  if (room.players.length >= room.settings.maxPlayers && !room.players.some((p) => p.userId === userId)) {
+  const existingPlayer = room.players.find((p) => p.userId === userId);
+  if (existingPlayer) {
+    return {
+      response: { success: false, message: '玩家已在房间中，请使用凭证重连' },
+      socketData,
+      changed: false,
+    };
+  }
+
+  if (room.players.length >= room.settings.maxPlayers) {
     return {
       response: { success: false, message: '房间人数已满' },
       socketData,
@@ -163,36 +181,21 @@ function joinRoom(socketId: string, payload: JoinRoomPayload, deps: RoomLifecycl
     };
   }
 
-  let player = room.players.find((p) => p.userId === userId);
-  if (player) {
-    if (!player.sessionToken) {
-      player.sessionToken = deps.createSessionToken();
-    }
-    player.id = socketId;
-    player.name = name || player.name;
-    player.avatar = avatar || player.avatar;
-    player.online = true;
-    if (player.userId === room.hostUserId) {
-      room.hostSocketId = socketId;
-    }
-    addLog(room, `🔌 玩家 ${player.name} 重新连接`);
-  } else {
-    player = createPlayer({
-      socketId,
-      userId,
-      sessionToken: deps.createSessionToken(),
-      name,
-      avatar,
-      isHost: false,
-    });
+  const player = createPlayer({
+    socketId,
+    userId,
+    sessionToken: deps.createSessionToken(),
+    name,
+    avatar,
+    isHost: false,
+  });
 
-    if (room.status === 'playing') {
-      dealInitialCards(room, player);
-    }
-
-    room.players.push(player);
-    addLog(room, `👋 玩家 ${name} 加入房间`);
+  if (room.status === 'playing') {
+    dealInitialCards(room, player);
   }
+
+  room.players.push(player);
+  addLog(room, `👋 玩家 ${name} 加入房间`);
 
   registerSocketSession(socketId, roomCode, userId);
   checkAndManageRoomCleanup(roomCode);
