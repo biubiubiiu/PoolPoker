@@ -5,22 +5,6 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-// Type aliases to preserve backwards compatibility across Android / Wear OS code
-typealias SuitType = com.poolpoker.shared.generated.SuitType
-typealias CardColor = com.poolpoker.shared.generated.CardColor
-typealias RoomStatus = com.poolpoker.shared.generated.RoomStatus
-typealias WearAction = com.poolpoker.shared.generated.WearAction
-typealias CardModel = com.poolpoker.shared.generated.Card
-typealias PlayerModel = com.poolpoker.shared.generated.Player
-typealias RoundScoreEntry = com.poolpoker.shared.generated.RoundScoreEntry
-typealias GameLog = com.poolpoker.shared.generated.GameLog
-typealias WinnerInfo = com.poolpoker.shared.generated.WinnerInfo
-typealias RoomSettingsModel = com.poolpoker.shared.generated.RoomSettings
-typealias RoomModel = com.poolpoker.shared.generated.Room
-typealias WearPlayerSummary = com.poolpoker.shared.generated.WearPlayerSummary
-typealias WearSyncRoomPayload = com.poolpoker.shared.generated.WearSyncRoomPayload
-typealias WearActionPayload = com.poolpoker.shared.generated.WearActionPayload
-
 object SocketEvents {
     const val ROOM_CREATED = "room_created"
     const val ROOM_UPDATED = "room_updated"
@@ -55,10 +39,6 @@ val sharedJson = Json {
     encodeDefaults = true
     coerceInputValues = true
 }
-
-// Backwards-compatible alias for myUserId property
-val WearSyncRoomPayload.myUserId: String?
-    get() = userId
 
 // Serialization extension functions
 fun WearSyncRoomPayload.toJson(): String = sharedJson.encodeToString(this)

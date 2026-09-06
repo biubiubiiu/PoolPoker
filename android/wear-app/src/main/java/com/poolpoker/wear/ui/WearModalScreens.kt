@@ -31,9 +31,9 @@ import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Card
 import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.Text
-import com.poolpoker.shared.WearAction
-import com.poolpoker.shared.WearActionPayload
-import com.poolpoker.shared.WearSyncRoomPayload
+import com.poolpoker.shared.generated.WearAction
+import com.poolpoker.shared.generated.WearActionPayload
+import com.poolpoker.shared.generated.WearSyncRoomPayload
 import com.poolpoker.wear.R
 import com.poolpoker.wear.ui.theme.PoolPokerColors
 

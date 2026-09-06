@@ -18,13 +18,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material3.Card
 import androidx.wear.compose.material3.Text
-import com.poolpoker.shared.CardModel
 import com.poolpoker.wear.R
 import com.poolpoker.wear.ui.theme.PoolPokerColors
+import com.poolpoker.shared.generated.Card as SharedCard
 
 @Composable
 fun WearSingleCardItem(
-    card: CardModel,
+    card: SharedCard,
     isPocketed: Boolean,
     onPocketClicked: () -> Unit
 ) {

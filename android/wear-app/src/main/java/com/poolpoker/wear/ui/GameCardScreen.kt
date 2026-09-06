@@ -45,13 +45,13 @@ import androidx.wear.compose.material3.SwipeToDismissBox
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.TimeText
 import com.google.android.gms.wearable.Wearable
-import com.poolpoker.shared.CardModel
 import com.poolpoker.shared.DataLayerConstants
-import com.poolpoker.shared.RoomStatus
-import com.poolpoker.shared.SuitType
-import com.poolpoker.shared.WearAction
-import com.poolpoker.shared.WearActionPayload
-import com.poolpoker.shared.WearSyncRoomPayload
+import com.poolpoker.shared.generated.Card
+import com.poolpoker.shared.generated.RoomStatus
+import com.poolpoker.shared.generated.SuitType
+import com.poolpoker.shared.generated.WearAction
+import com.poolpoker.shared.generated.WearActionPayload
+import com.poolpoker.shared.generated.WearSyncRoomPayload
 import com.poolpoker.shared.toJson
 import com.poolpoker.wear.R
 import com.poolpoker.wear.WearDirectSocketManager
@@ -392,7 +392,7 @@ fun WearSettlementScreen(roomState: WearSyncRoomPayload) {
 
 @Composable
 fun SettlementCardBadge(
-    card: CardModel,
+    card: Card,
     bgColor: Color,
     borderColor: Color,
     textColor: Color,

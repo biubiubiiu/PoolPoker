@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.wear.compose.material3.ColorScheme
 import androidx.wear.compose.material3.MaterialTheme
-import com.poolpoker.shared.SuitType
+import com.poolpoker.shared.generated.SuitType
 
 object PoolPokerColors {
     // Primary Theme Palette Tokens

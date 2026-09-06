@@ -6,9 +6,8 @@ import android.bluetooth.BluetoothSocket
 import android.content.Context
 import android.util.Log
 import com.poolpoker.shared.SocketEvents
-import com.poolpoker.shared.WearSyncRoomPayload
 import com.poolpoker.shared.fromJson
-import com.poolpoker.shared.myUserId
+import com.poolpoker.shared.generated.WearSyncRoomPayload
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.UUID
@@ -103,7 +102,7 @@ object WearBluetoothClient {
                                         WearDirectSocketManager.disconnect()
                                     } else if (event == "room_credentials" || jsonObj.has("roomCode")) {
                                         val roomCode = jsonObj.optString("roomCode")
-                                        val userId = if (jsonObj.has("userId")) jsonObj.optString("userId") else jsonObj.optString("myUserId")
+                                        val userId = jsonObj.optString("userId")
                                         val rawUrl = jsonObj.optString("serverUrl")
                                         val targetUrl = rawUrl.ifBlank { BuildConfig.SERVER_URL }
 
@@ -126,7 +125,7 @@ object WearBluetoothClient {
                                                     context = context,
                                                     roomCode = payload.roomCode,
                                                     url = targetUrl,
-                                                    customUserId = payload.myUserId
+                                                    customUserId = payload.userId
                                                 )
                                             }
                                         }

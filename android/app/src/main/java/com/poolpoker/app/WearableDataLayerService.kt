@@ -4,7 +4,7 @@ import android.util.Log
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.WearableListenerService
 import com.poolpoker.shared.DataLayerConstants
-import com.poolpoker.shared.WearActionPayload
+import com.poolpoker.shared.generated.WearActionPayload
 
 class WearableDataLayerService : WearableListenerService() {
 

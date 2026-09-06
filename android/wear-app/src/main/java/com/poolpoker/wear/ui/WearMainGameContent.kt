@@ -24,10 +24,10 @@ import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.Text
-import com.poolpoker.shared.CardModel
-import com.poolpoker.shared.WearAction
-import com.poolpoker.shared.WearActionPayload
-import com.poolpoker.shared.WearSyncRoomPayload
+import com.poolpoker.shared.generated.Card
+import com.poolpoker.shared.generated.WearAction
+import com.poolpoker.shared.generated.WearActionPayload
+import com.poolpoker.shared.generated.WearSyncRoomPayload
 import com.poolpoker.wear.BuildConfig
 import com.poolpoker.wear.R
 import com.poolpoker.wear.ui.theme.PoolPokerColors
@@ -35,7 +35,7 @@ import com.poolpoker.wear.ui.theme.PoolPokerColors
 @Composable
 fun WearMainGameContent(
     roomState: WearSyncRoomPayload,
-    cards: List<CardModel>,
+    cards: List<Card>,
     pocketedBalls: List<Int>,
     onShowPocketModal: () -> Unit,
     onShowFoulModal: () -> Unit,
