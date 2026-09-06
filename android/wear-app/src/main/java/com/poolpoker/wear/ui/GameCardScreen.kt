@@ -52,6 +52,7 @@ import com.poolpoker.shared.SuitType
 import com.poolpoker.shared.WearAction
 import com.poolpoker.shared.WearActionPayload
 import com.poolpoker.shared.WearSyncRoomPayload
+import com.poolpoker.shared.toJson
 import com.poolpoker.wear.R
 import com.poolpoker.wear.WearDirectSocketManager
 import com.poolpoker.wear.ui.theme.PoolPokerColors

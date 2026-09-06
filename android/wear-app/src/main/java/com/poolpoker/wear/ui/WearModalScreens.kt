@@ -334,7 +334,13 @@ fun WearRetractModalScreen(
                 Button(
                     onClick = {
                         triggerVibration(context)
-                        sendActionToPhone(context, WearActionPayload(WearAction.RETRACT_BALL, roomState.roomCode))
+                        sendActionToPhone(
+                            context,
+                            WearActionPayload(
+                                action = WearAction.RETRACT_BALL,
+                                roomCode = roomState.roomCode
+                            )
+                        )
                         onDismiss()
                     },
                     modifier = Modifier

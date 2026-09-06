@@ -14,19 +14,8 @@
     kotlinx.serialization.KSerializer serializer(...);
 }
 
-# Gson Keep Rules (Legacy / Compatibility)
--keepclassmembers,allowobfuscation class * {
-    @com.google.gson.annotations.SerializedName <fields>;
-}
--keepclassmembers enum * {
-    @com.google.gson.annotations.SerializedName <fields>;
-    public static **[] values();
-    public static ** valueOf(java.lang.String);
-}
--keep class com.google.gson.** { *; }
-
 # PoolPoker Shared Data Models
-# Keep all models used for Gson serialization over Socket.IO and Wear OS Data Layer
+# Keep all models used for Kotlinx Serialization over Socket.IO and Wear OS Data Layer
 -keep class com.poolpoker.shared.** { *; }
 -keepclassmembers class com.poolpoker.shared.** { *; }
 

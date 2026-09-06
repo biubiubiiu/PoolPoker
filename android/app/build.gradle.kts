@@ -64,7 +64,6 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.google.material)
     implementation(libs.play.services.wearable)
-    implementation(libs.gson)
     implementation(libs.socket.io.client)
 }
 

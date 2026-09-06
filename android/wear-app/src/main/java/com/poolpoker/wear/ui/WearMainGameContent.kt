@@ -136,7 +136,14 @@ fun WearMainGameContent(
                 card = card,
                 isPocketed = isBallPocketed,
                 onPocketClicked = {
-                    sendActionToPhone(context, WearActionPayload(WearAction.POCKET_BALL, roomState.roomCode, cardId = card.id))
+                    sendActionToPhone(
+                        context,
+                        WearActionPayload(
+                            action = WearAction.POCKET_BALL,
+                            roomCode = roomState.roomCode,
+                            cardId = card.id
+                        )
+                    )
                 }
             )
         }

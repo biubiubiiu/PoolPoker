@@ -7,6 +7,7 @@ import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.WearableListenerService
 import com.poolpoker.shared.DataLayerConstants
 import com.poolpoker.shared.WearSyncRoomPayload
+import com.poolpoker.shared.fromJson
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

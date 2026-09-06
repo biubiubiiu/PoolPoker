@@ -44,7 +44,7 @@ android/
 ├── gradle.properties          # 根工程构建属性
 ├── app/                       # [Tauri Android 移动端主应用 (UI + DataLayer 快捷播种)]
 │   ├── build.gradle.kts       # 集成 AGP 9.2+、Tauri 依赖与 R8 混淆配置
-│   ├── proguard-rules.pro     # ProGuard 混淆保护规则 (保留 Tauri / DataLayer / Gson)
+│   ├── proguard-rules.pro     # ProGuard 混淆保护规则 (保留 Tauri / DataLayer / Serialization)
 │   └── src/main/java/com/poolpoker/app/
 │       ├── MainActivity.kt               # 继承 TauriActivity 主入口
 │       ├── TauriWearSyncPlugin.kt        # Tauri 原生插件，向 Wear OS 播种房间凭证
@@ -93,7 +93,7 @@ android/
 在 `build.gradle.kts` 中开启 `isMinifyEnabled = true` 和 `isShrinkResources = true` 后，已通过 `proguard-rules.pro` 保护以下关键类不被误删/误混淆：
 - Tauri 核心与自定义插件类：`app.tauri.**`, `com.poolpoker.app.**`
 - 共享模型类（避免序列化解包异常）：`com.poolpoker.shared.**`
-- Gson 字段注解：`@SerializedName`
+- Kotlinx Serialization 注解：`@Serializable`, `@SerialName`
 - Socket.IO 客户端网络栈：`io.socket.**`
 
 ---

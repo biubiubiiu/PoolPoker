@@ -67,8 +67,7 @@ dependencies {
     // Google Play Services Wearable
     implementation(libs.play.services.wearable)
 
-    // Gson & Socket.IO
+    // Socket.IO
     implementation(libs.socket.io.client)
-    implementation(libs.gson)
 }
 

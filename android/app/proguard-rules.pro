@@ -15,7 +15,7 @@
     @androidx.annotation.Keep *;
 }
 
-# 2. Keep Shared DataLayer Models (Gson Serialization & Wear Sync)
+# 2. Keep Shared DataLayer Models (Kotlinx Serialization & Wear Sync)
 -keep class com.poolpoker.shared.** { *; }
 -keepclassmembers class com.poolpoker.shared.** { *; }
 
@@ -26,9 +26,6 @@
 }
 -keepclassmembers class * {
     kotlinx.serialization.KSerializer serializer(...);
-}
--keepclassmembers class * {
-    @com.google.gson.annotations.SerializedName <fields>;
 }
 
 # 4. Keep Socket.IO Client & OkHttp
