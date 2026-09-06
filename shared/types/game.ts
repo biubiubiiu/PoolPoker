@@ -1,54 +1,30 @@
-export interface Card {
-  id: string;
-  suit: string;
-  suitType: 'spade' | 'heart' | 'club' | 'diamond' | 'joker-small' | 'joker-big';
-  color: 'black' | 'red' | 'gold' | 'gray';
-  rank: string;
-  ballNumber: number;
-}
+// Re-export wire models generated from JSON Schema (Single Source of Truth)
+export type {
+  Card,
+  CardColor,
+  GameLog,
+  Player,
+  Room,
+  RoomSettings,
+  RoomStatus,
+  RoundScoreEntry,
+  SuitType,
+  WearAction,
+  WearActionPayload,
+  WearPlayerSummary,
+  WearSyncRoomPayload,
+  WinnerInfo,
+} from './generated/wire-models';
 
-export interface Player {
-  id: string;
-  userId: string;
-  sessionToken?: string;
-  name: string;
-  avatar: string;
-  isHost: boolean;
-  online: boolean;
-  cardCount: number;
-  activeCardCount: number;
-  cards: Card[];
-  pocketedCards: Card[];
-  wins: number;
-  isWinner: boolean;
-  totalScore: number;
-}
-
-export interface RoundScoreEntry {
-  userId: string;
-  delta: number;
-}
-
-export interface RoomSettings {
-  cardsPerPlayer: number;
-  maxPlayers: number;
-  includeBlackEight: boolean;
-  ballConfigKey: string;
-}
-
-export interface GameLog {
-  id?: number | string;
-  time: string;
-  text: string;
-}
-
-export interface WinnerInfo {
-  name: string;
-  avatar: string;
-  id: string;
-  userId: string;
-  wins: number;
-}
+import type {
+  Card,
+  GameLog,
+  Player,
+  RoomSettings,
+  RoomStatus,
+  RoundScoreEntry,
+  WinnerInfo,
+} from './generated/wire-models';
 
 // 单个玩家在某一时刻的「游戏进行态」快照
 // 不含身份/连接类字段（id、userId、sessionToken、name、avatar、isHost、online），
@@ -70,29 +46,13 @@ export interface GameState {
   actionText?: string;
 }
 
-export interface Room {
-  code: string;
-  hostUserId: string;
-  hostSocketId?: string;
-  status: 'waiting' | 'playing' | 'ended' | 'finished' | 'lobby';
-  players: Player[];
-  turnOrder: string[];
-  currentTurnIndex?: number;
-  pocketedBallNumbers: number[];
-  roundCount: number;
-  deckCount: number;
-  winners: WinnerInfo[] | Player[];
-  settings: RoomSettings;
-  logs: GameLog[];
-  lastRoundScores: RoundScoreEntry[];
-  lastActionText?: string | null;
-}
-
+// 服务端内部完整房间模型（包含牌堆、历史撤销快照、误进球等敏感/内部数据）
+// 严禁作为 wire model 直接发送给客户端
 export interface ServerRoom {
   code: string;
   hostUserId: string;
   hostSocketId: string;
-  status: 'waiting' | 'playing' | 'ended' | 'finished' | 'lobby';
+  status: RoomStatus;
   players: Player[];
   deck: Card[];
   accidentalBalls: number[];

@@ -2,11 +2,11 @@ package com.poolpoker.wear
 
 import android.content.Context
 import android.util.Log
-import com.google.gson.Gson
 import com.poolpoker.shared.RoomModel
 import com.poolpoker.shared.SocketEvents
 import com.poolpoker.shared.WearPlayerSummary
 import com.poolpoker.shared.WearSyncRoomPayload
+import com.poolpoker.shared.fromJson
 import io.socket.client.IO
 import io.socket.client.Socket
 import org.json.JSONObject
@@ -67,7 +67,7 @@ object WearDirectSocketManager {
                 if (args.isNotEmpty()) {
                     val rawJson = args[0].toString()
                     try {
-                        val room = Gson().fromJson(rawJson, RoomModel::class.java)
+                        val room = RoomModel.fromJson(rawJson) ?: return@on
                         val myPlayer = room.players.find { it.userId == userId }
                         val currentTurnUserId = room.turnOrder.getOrNull(room.currentTurnIndex ?: 0)
                         val currentTurnPlayer = room.players.find { it.userId == currentTurnUserId }

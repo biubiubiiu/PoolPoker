@@ -4,7 +4,17 @@
 -keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod,SourceFile,LineNumberTable
 -keepattributes RuntimeVisibleAnnotations,RuntimeVisibleParameterAnnotations
 
-# Gson Keep Rules
+# Kotlinx Serialization Keep Rules
+-keepattributes *Annotation*,InnerClasses
+-dontnote kotlinx.serialization.SerializationKt
+-keepclassmembers class * {
+    @kotlinx.serialization.Serializable <fields>;
+}
+-keepclassmembers class * {
+    kotlinx.serialization.KSerializer serializer(...);
+}
+
+# Gson Keep Rules (Legacy / Compatibility)
 -keepclassmembers,allowobfuscation class * {
     @com.google.gson.annotations.SerializedName <fields>;
 }

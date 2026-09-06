@@ -12,7 +12,14 @@ const kotlinModelsPath = path.resolve(
   process.cwd(),
   'android/shared-models/src/main/java/com/poolpoker/shared/Models.kt'
 );
-const kotlinModels = fs.readFileSync(kotlinModelsPath, 'utf8');
+const kotlinWireModelsPath = path.resolve(
+  process.cwd(),
+  'android/shared-models/src/main/java/com/poolpoker/shared/generated/WireModels.kt'
+);
+const kotlinModels =
+  fs.readFileSync(kotlinModelsPath, 'utf8') +
+  '\n' +
+  (fs.existsSync(kotlinWireModelsPath) ? fs.readFileSync(kotlinWireModelsPath, 'utf8') : '');
 
 function expectUniqueValues(name: string, values: string[]) {
   const uniqueValues = new Set(values);
@@ -79,5 +86,51 @@ describe('shared protocol contract', () => {
     for (const value of mirroredValues) {
       expect(kotlinModels, `Kotlin protocol mirror is missing ${value}`).toContain(`"${value}"`);
     }
+  });
+
+  it('keeps generated wire models in sync with JSON schemas', () => {
+    const tsWireModelsPath = path.resolve(process.cwd(), 'shared/types/generated/wire-models.ts');
+    const ktWireModelsPath = path.resolve(
+      process.cwd(),
+      'android/shared-models/src/main/java/com/poolpoker/shared/generated/WireModels.kt'
+    );
+
+    expect(fs.existsSync(tsWireModelsPath), 'TS wire-models.ts must exist').toBe(true);
+    expect(fs.existsSync(ktWireModelsPath), 'Kotlin WireModels.kt must exist').toBe(true);
+
+    const tsContent = fs.readFileSync(tsWireModelsPath, 'utf8');
+    const ktContent = fs.readFileSync(ktWireModelsPath, 'utf8');
+
+    // Expected core wire models
+    const coreTypes = [
+      'Card',
+      'CardColor',
+      'SuitType',
+      'RoomStatus',
+      'RoomSettings',
+      'Player',
+      'Room',
+      'RoundScoreEntry',
+      'GameLog',
+      'WinnerInfo',
+      'WearAction',
+      'WearActionPayload',
+      'WearSyncRoomPayload',
+      'WearPlayerSummary',
+    ];
+
+    for (const typeName of coreTypes) {
+      expect(tsContent, `TS wire models missing ${typeName}`).toContain(typeName);
+      expect(ktContent, `Kotlin wire models missing ${typeName}`).toContain(typeName);
+    }
+
+    // Ensure Kotlin models use kotlinx.serialization
+    expect(ktContent).toContain('import kotlinx.serialization.*');
+    expect(ktContent).toContain('@Serializable');
+    expect(ktContent).toContain('@SerialName');
+
+    // Ensure companion object exists for payloads
+    expect(ktContent).toContain('data class WearSyncRoomPayload');
+    expect(ktContent).toContain('data class WearActionPayload');
   });
 });

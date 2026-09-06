@@ -1,0 +1,102 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://poolpoker.app/schemas/wear.schema.json",
+  "title": "WearSchemaGroup",
+  "definitions": {
+    "WearAction": {
+      "type": "string",
+      "enum": [
+        "POCKET_BALL",
+        "DRAW_PENALTY",
+        "RETRACT_BALL",
+        "ACCIDENTAL_POCKET",
+        "REFEREE_POCKET_BALL",
+        "REFEREE_DRAW_PENALTY",
+        "BREAK_POCKET"
+      ],
+      "description": "Wear OS 发起的游戏交互动作"
+    },
+    "WearActionPayload": {
+      "type": "object",
+      "properties": {
+        "action": { "$ref": "WearAction" },
+        "roomCode": { "type": "string" },
+        "cardId": { "type": ["string", "null"] },
+        "ballNumber": { "type": ["integer", "null"] },
+        "targetUserId": { "type": ["string", "null"] }
+      },
+      "required": ["action", "roomCode"],
+      "additionalProperties": false
+    },
+    "WearPlayerSummary": {
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "avatar": { "type": "string" },
+        "cardCount": { "type": "integer" },
+        "cards": {
+          "type": "array",
+          "items": { "$ref": "Card" }
+        },
+        "pocketedCards": {
+          "type": "array",
+          "items": { "$ref": "Card" }
+        },
+        "isWinner": { "type": "boolean" },
+        "totalScore": { "type": "integer" },
+        "scoreDelta": { "type": ["integer", "null"] }
+      },
+      "required": ["userId", "name", "avatar", "cardCount", "cards", "pocketedCards", "isWinner", "totalScore"],
+      "additionalProperties": false
+    },
+    "WearSyncRoomPayload": {
+      "type": "object",
+      "properties": {
+        "roomCode": { "type": "string" },
+        "status": { "$ref": "RoomStatus" },
+        "isMyTurn": { "type": "boolean" },
+        "currentTurnPlayerName": { "type": "string" },
+        "turnOrder": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "myCards": {
+          "type": "array",
+          "items": { "$ref": "Card" }
+        },
+        "pocketedBallNumbers": {
+          "type": "array",
+          "items": { "type": "integer" }
+        },
+        "winnerName": { "type": ["string", "null"] },
+        "players": {
+          "type": "array",
+          "items": { "$ref": "WearPlayerSummary" }
+        },
+        "myPlayerName": { "type": ["string", "null"] },
+        "userId": { "type": ["string", "null"] },
+        "serverUrl": { "type": ["string", "null"] },
+        "lastRoundScores": {
+          "type": "array",
+          "items": { "$ref": "RoundScoreEntry" }
+        },
+        "lastActionText": { "type": ["string", "null"] },
+        "timestamp": { "type": "integer" }
+      },
+      "required": [
+        "roomCode",
+        "status",
+        "isMyTurn",
+        "currentTurnPlayerName",
+        "turnOrder",
+        "myCards",
+        "pocketedBallNumbers",
+        "players",
+        "lastRoundScores",
+        "timestamp"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

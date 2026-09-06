@@ -16,6 +16,8 @@
     "test:unit:watch": "vitest",
     "lint": "biome check .",
     "format": "biome format --write .",
+    "codegen:models": "node scripts/codegen-models.mjs",
+    "codegen:check": "node scripts/codegen-models.mjs --check",
     "prepare": "husky",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",

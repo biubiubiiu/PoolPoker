@@ -1,0 +1,148 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://poolpoker.app/schemas/room.schema.json",
+  "title": "RoomSchemaGroup",
+  "definitions": {
+    "RoomStatus": {
+      "type": "string",
+      "enum": ["waiting", "playing", "ended", "finished", "lobby"],
+      "description": "房间游戏状态"
+    },
+    "RoomSettings": {
+      "type": "object",
+      "properties": {
+        "cardsPerPlayer": { "type": "integer" },
+        "maxPlayers": { "type": "integer" },
+        "includeBlackEight": { "type": "boolean" },
+        "ballConfigKey": { "type": "string" }
+      },
+      "required": ["cardsPerPlayer", "maxPlayers", "includeBlackEight", "ballConfigKey"],
+      "additionalProperties": false
+    },
+    "RoundScoreEntry": {
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "delta": { "type": "integer" }
+      },
+      "required": ["userId", "delta"],
+      "additionalProperties": false
+    },
+    "GameLog": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "time": { "type": "string" },
+        "text": { "type": "string" }
+      },
+      "required": ["time", "text"],
+      "additionalProperties": false
+    },
+    "WinnerInfo": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "avatar": { "type": "string" },
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "wins": { "type": "integer" }
+      },
+      "required": ["name", "avatar", "id", "userId", "wins"],
+      "additionalProperties": false
+    },
+    "Player": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "sessionToken": { "type": "string" },
+        "name": { "type": "string" },
+        "avatar": { "type": "string" },
+        "isHost": { "type": "boolean" },
+        "online": { "type": "boolean" },
+        "cardCount": { "type": "integer" },
+        "activeCardCount": { "type": "integer" },
+        "cards": {
+          "type": "array",
+          "items": { "$ref": "Card" }
+        },
+        "pocketedCards": {
+          "type": "array",
+          "items": { "$ref": "Card" }
+        },
+        "wins": { "type": "integer" },
+        "isWinner": { "type": "boolean" },
+        "totalScore": { "type": "integer" }
+      },
+      "required": [
+        "id",
+        "userId",
+        "name",
+        "avatar",
+        "isHost",
+        "online",
+        "cardCount",
+        "activeCardCount",
+        "cards",
+        "pocketedCards",
+        "wins",
+        "isWinner",
+        "totalScore"
+      ],
+      "additionalProperties": false
+    },
+    "Room": {
+      "type": "object",
+      "properties": {
+        "code": { "type": "string" },
+        "hostUserId": { "type": "string" },
+        "hostSocketId": { "type": "string" },
+        "status": { "$ref": "RoomStatus" },
+        "players": {
+          "type": "array",
+          "items": { "$ref": "Player" }
+        },
+        "turnOrder": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "currentTurnIndex": { "type": "integer" },
+        "pocketedBallNumbers": {
+          "type": "array",
+          "items": { "type": "integer" }
+        },
+        "roundCount": { "type": "integer" },
+        "deckCount": { "type": "integer" },
+        "winners": {
+          "type": "array",
+          "items": { "$ref": "WinnerInfo" }
+        },
+        "settings": { "$ref": "RoomSettings" },
+        "logs": {
+          "type": "array",
+          "items": { "$ref": "GameLog" }
+        },
+        "lastRoundScores": {
+          "type": "array",
+          "items": { "$ref": "RoundScoreEntry" }
+        },
+        "lastActionText": { "type": ["string", "null"] }
+      },
+      "required": [
+        "code",
+        "hostUserId",
+        "status",
+        "players",
+        "turnOrder",
+        "pocketedBallNumbers",
+        "roundCount",
+        "deckCount",
+        "winners",
+        "settings",
+        "logs",
+        "lastRoundScores"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

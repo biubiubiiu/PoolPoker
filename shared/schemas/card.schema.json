@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://poolpoker.app/schemas/card.schema.json",
+  "title": "CardSchemaGroup",
+  "definitions": {
+    "SuitType": {
+      "type": "string",
+      "enum": ["spade", "heart", "club", "diamond", "joker-small", "joker-big"],
+      "description": "扑克花色与大小王"
+    },
+    "CardColor": {
+      "type": "string",
+      "enum": ["black", "red", "gold", "gray"],
+      "description": "牌面渲染主色系"
+    },
+    "Card": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "suit": { "type": "string" },
+        "suitType": { "$ref": "SuitType" },
+        "color": { "$ref": "CardColor" },
+        "rank": { "type": "string" },
+        "ballNumber": { "type": "integer" }
+      },
+      "required": ["id", "suit", "suitType", "color", "rank", "ballNumber"],
+      "additionalProperties": false
+    }
+  }
+}

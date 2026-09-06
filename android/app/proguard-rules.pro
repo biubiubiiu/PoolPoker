@@ -19,8 +19,14 @@
 -keep class com.poolpoker.shared.** { *; }
 -keepclassmembers class com.poolpoker.shared.** { *; }
 
-# 3. Keep Gson Annotations & Serialized Fields
+# 3. Keep Serialization Annotations & Serialized Fields
 -keepattributes Signature, *Annotation*, EnclosingMethod, InnerClasses
+-keepclassmembers class * {
+    @kotlinx.serialization.Serializable <fields>;
+}
+-keepclassmembers class * {
+    kotlinx.serialization.KSerializer serializer(...);
+}
 -keepclassmembers class * {
     @com.google.gson.annotations.SerializedName <fields>;
 }

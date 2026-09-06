@@ -20,6 +20,7 @@ playServicesWearable = "20.0.1"
 # Third Party
 socketIoClient = "2.1.2"
 gson = "2.14.0"
+kotlinxSerialization = "1.8.0"
 
 # SDK Configuration
 compileSdk = "37"
@@ -47,11 +48,13 @@ androidx-wear-compose-navigation = { group = "androidx.wear.compose", name = "co
 # Google Play Services
 play-services-wearable = { group = "com.google.android.gms", name = "play-services-wearable", version.ref = "playServicesWearable" }
 
-# Socket.IO, Gson & Tauri
+# Socket.IO, Serialization, Gson & Tauri
 socket-io-client = { group = "io.socket", name = "socket.io-client", version.ref = "socketIoClient" }
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
