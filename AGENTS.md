@@ -21,6 +21,8 @@ pnpm run test:unit    # Vitest unit tests for server domain logic
 pnpm run test:e2e     # Playwright end-to-end tests (single chromium project)
 pnpm run lint         # biome check .
 pnpm run format       # biome format --write .
+pnpm run codegen:models # generate TS and Kotlin wire models from JSON schemas
+pnpm run codegen:check  # verify generated wire models match JSON schemas
 npm run tauri:build        # Tauri desktop production build
 npm run tauri:android      # Tauri Android debug APK build (tauri android build --debug --apk)
 npm run tauri:android:build# Tauri Android standalone release APK build (tauri android build --apk)
@@ -53,7 +55,7 @@ server/socketHandlers.ts  →  gameEngine.ts / pokerDeck.ts / roomManager.ts
   - `:phone-companion`: Android companion services using Wearable DataLayer & Socket.IO.
   - `:wear-app`: Native Wear OS app built with Jetpack Compose for Wear OS (Single-Activity + `SwipeToDismissBox`, modularized UI in `com.poolpoker.wear.ui`).
 - **Backend** (`server/`): Node.js + Express + Socket.IO, run via `tsx`. All room state is held in-memory in `roomManager.ts` (`rooms: Record<string, ServerRoom>`). `socketHandlers.ts` is the single mutation entry point.
-- **Shared** (`shared/types/`): `game.ts` (domain models) and `socket.ts` (event contract). Both frontend and backend import these types to keep fields in sync.
+- **Shared & SSOT** (`shared/schemas/`, `shared/types/`): `shared/schemas/` holds draft-07 JSON Schemas (`card.schema.json`, `room.schema.json`, `wear.schema.json`) serving as Single Source of Truth for all cross-platform wire models. `scripts/codegen-models.mjs` compiles them into TS (`shared/types/generated/wire-models.ts`) and Kotlin (`android/shared-models/.../generated/WireModels.kt`). `game.ts` re-exports generated TS wire models while isolating internal models (`ServerRoom`, `GameState`). `socket.ts` and `protocol.ts` handle event contracts.
 
 Path aliases (defined in both `tsconfig.json` and `vite.config.ts`): `@/` → `src/`, `@shared/` → `shared/`.
 
@@ -61,6 +63,7 @@ Path aliases (defined in both `tsconfig.json` and `vite.config.ts`): `@/` → `s
 
 These are non-obvious and must be preserved when editing:
 
+- **JSON Schema Single Source of Truth (SSOT).** All cross-platform wire models (`Card`, `Room`, `WearSyncRoomPayload`, `WearActionPayload`, etc.) are defined in `shared/schemas/`. Running `pnpm run codegen:models` uses `quicktype-core` to generate TS (`wire-models.ts`) and Kotlin (`WireModels.kt` with `kotlinx.serialization`) types. Never edit generated files directly; edit `shared/schemas/` and run `pnpm run codegen:models` (or `pnpm run codegen:check` in CI). `ServerRoom` and `GameState` remain custom TypeScript domain models in `game.ts` to keep server-internal fields isolated.
 - **Two room shapes.** `ServerRoom` holds server-internal fields (`deck`, `accidentalBalls`, `lastWinnerUserId`, `lastTurnOrder`); `Room` is the sanitized client view. `getClientRoomState` (in `roomManager.ts`) clips `cards` to only the requesting user (or everyone once the room is `finished`) to prevent leaking active hand cards, while `pocketedCards` (eliminated cards) are public to all players so everyone can see the "已消xxxx" status. Never add a sensitive field to the client view without clipping it here.
 - **Multi-Socket Broadcast per `userId`.** `broadcastRoomState` (in `roomManager.ts`) resolves socket IDs to `userId` using `socketIndex.get(socketId)?.userId`. This allows multiple sockets sharing the same `userId` (e.g. phone browser + Wear OS watch) to receive the private player hand simultaneously.
 - **Identity & rejoin security.** Players have a persistent `userId` (client-generated, stored in `localStorage` on Web and `SharedPreferences` on Wear OS / Android) plus a per-session `sessionToken` (`crypto.randomUUID`). `rejoin_room` must verify `player.sessionToken === sessionToken` or reject with an "身份凭证失效" error. `SharedPreferences` persistence ensures re-entering a room after app restart/re-install restores the existing player hand.

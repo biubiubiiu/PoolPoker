@@ -26,7 +26,7 @@
 
 - **前端**：Vue 3 + TypeScript + Vite + Tailwind CSS，业务逻辑收敛到三个 composable（`usePlayerProfile` / `useSocket` / `useGameRoom`），组件只做展示与事件转发。
 - **后端**：Node.js + Express + Socket.IO（TypeScript，`tsx` 运行），房间状态全部保存在内存 `rooms: Record<string, ServerRoom>`。
-- **共享层**：`shared/types/game.ts`（Card/Player/Room 等领域模型）、`shared/types/protocol.ts`（Socket 事件 / Wear action / DataLayer path 协议常量）与 `shared/types/socket.ts`（前后端 Socket payload 与事件契约），两端复用同一类型与常量，保证字段和事件名一致。
+- **共享层与 SSOT**：以 `shared/schemas/` 下的 Draft-07 JSON Schema (`card.schema.json` / `room.schema.json` / `wear.schema.json`) 作为跨端 Wire Models 的单一事实来源 (Single Source of Truth)。通过 `scripts/codegen-models.mjs` 自动生成 TypeScript 契约 (`shared/types/generated/wire-models.ts`) 与 Kotlin 契约 (`android/shared-models/.../generated/WireModels.kt`)。`shared/types/game.ts` 重新导出生成的 Wire Models 并隔离服务端内部模型 (`ServerRoom` / `GameState`)。`shared/types/protocol.ts` 集中维护事件与路径常量，`shared/types/socket.ts` 定义 Socket payload。
 - **关键约束**：
   - 房间状态以 `ServerRoom`（服务端内部态，含 `deck`/`accidentalBalls` 等敏感字段）与 `Room`（下发客户端的裁剪态）两种形态存在；`getClientRoomState` 按「是否本人 / 房间是否 finished」裁剪未进球手牌 `cards`（防止泄露其他玩家手牌），而 `pocketedCards`（已消除卡牌）公开下发给所有玩家（在全局赛况显示「已消xxxx」）。
   - 撤回采用快照栈：`ServerRoom.gameHistory` 存每步操作后的 `GameState` 快照（深拷贝，不含日志），每步操作 `recordGameStep` push、撤回 `undoGameStep` pop 回退到上一步；每局 `start_game` 清空并播种发牌完成基线，历史只剩基线时撤回无效果；`gameHistory` 不下发客户端。
@@ -50,10 +50,15 @@
 │   ├── wecomWebhook.ts      # 每局结算推送到企业微信机器人
 │   ├── robotConfig.ts       # 机器人 Webhook 链接运行时配置（内存）
 │   └── socketHandlers.ts    # 15 个 Socket 事件处理器
-├── shared/types/            # 前后端共享类型
-│   ├── game.ts              # Card/Player/Room/ServerRoom/BallConfig 等
-│   ├── protocol.ts          # Socket 事件 / Wear action / DataLayer path 常量
-│   └── socket.ts            # 事件 payload 与 Client/Server 事件接口
+├── scripts/                 # 构建与代码生成脚本
+│   └── codegen-models.mjs   # JSON Schema 自动生成 TS 与 Kotlin 模型脚本
+├── shared/                  # 多端共享 Schema 与类型
+│   ├── schemas/             # JSON Schema 单一事实来源 (card/room/wear.schema.json)
+│   └── types/               # 前后端共享类型
+│       ├── generated/       # 自动生成的 Wire Models (wire-models.ts)
+│       ├── game.ts          # 导出 Wire Models 并定义 ServerRoom/GameState 领域模型
+│       ├── protocol.ts      # Socket 事件 / Wear action / DataLayer path 协议常量
+│       └── socket.ts        # 事件 payload 与 Client/Server 事件接口
 ├── src/                     # 前端 (Vue 3 + TS + Vite + 移动端/iOS 适配)
 │   ├── composables/         # usePlayerProfile / useSocket / useGameRoom
 │   ├── components/          # RoomLobby/BilliardsTable/PokerCard/VictoryModal 等
@@ -99,12 +104,17 @@
 - 该模块隐藏原先散落在 Socket 事件里的组合顺序：状态校验、玩家定位、牌堆耗尽补牌、日志文本、胜负判定、积分结算、`recordGameStep`/`undoGameStep` 调用时机。
 - `socketHandlers.ts` 保留传输与会话职责：Socket callback、`socket.join/leave`、create/join/rejoin/leave/disconnect、以及根据命令结果调用 `broadcastRoomState`；Socket 到玩家身份的索引由 `roomManager` 的 session registry helper 维护。
 
-### 协议常量边界（`shared/types/protocol.ts` / `android/shared-models/.../Models.kt`）
+### 协议常量与数据模型契约（JSON Schema SSOT / `shared/schemas/` / `scripts/codegen-models.mjs`）
 
-- `shared/types/protocol.ts` 集中维护 Socket.IO 事件名（`CLIENT_TO_SERVER_EVENTS` / `SERVER_TO_CLIENT_EVENTS`）、Wear action 序列化值（`WEAR_ACTIONS`）与 Wear OS DataLayer path（`DATA_LAYER_PATHS`）。
+- **SSOT 单一事实来源**：在 `shared/schemas/` 集中定义了 `card.schema.json`、`room.schema.json` 与 `wear.schema.json` 三组 Draft-07 JSON Schema，作为前端 Web、后端 Server、Android App 与 Wear OS 手表全平台 Wire Models 的唯一规范来源。
+- **自动代码生成 (Codegen)**：`scripts/codegen-models.mjs` 使用 `quicktype-core` 将 JSON Schema 自动编译为：
+  - **TypeScript Wire Models** (`shared/types/generated/wire-models.ts`)：在 `shared/types/game.ts` 中重新导出，同时严格保持 `ServerRoom` / `GameState` 为服务端内部隔离模型。
+  - **Kotlin Wire Models** (`android/shared-models/.../generated/WireModels.kt`)：采用 `kotlinx.serialization` 注解，在 `Models.kt` 中通过 `typealias` 桥接现有代码，实现无缝向后兼容。
+  - 提供了 `pnpm run codegen:models`（重新生成）与 `pnpm run codegen:check`（CI/Pre-commit 漂移检查）脚本。
+- **协议常量面**：`shared/types/protocol.ts` 集中维护 Socket.IO 事件名（`CLIENT_TO_SERVER_EVENTS` / `SERVER_TO_CLIENT_EVENTS`）、Wear action 序列化值（`WEAR_ACTIONS`）与 Wear OS DataLayer path（`DATA_LAYER_PATHS`）。
 - `shared/types/socket.ts` 使用这些常量作为 `ClientToServerEvents` / `ServerToClientEvents` 的 computed keys，确保 TS 类型契约与运行时 `emit/on` 使用同一份事件名。
 - Android/Wear 端在 `:shared-models` 中维护对应的 `SocketEvents` / `WearAction` / `DataLayerConstants` mirror，`WearDirectSocketManager` 与蓝牙凭证桥接统一引用该常量面。
-- `server/__tests__/protocolContract.spec.ts` 作为轻量漂移检测：校验协议值稳定且唯一，并确认 Kotlin mirror 覆盖 TS 协议层的事件/action/path。
+- `server/__tests__/protocolContract.spec.ts` 作为轻量漂移检测：校验协议值稳定且唯一，确认 Kotlin mirror 覆盖 TS 协议层，并验证生成的 Wire Models 与 JSON Schema 保持同步。
 
 ### 企业微信结算推送（`server/wecomWebhook.ts` / `server/robotConfig.ts`）
 
