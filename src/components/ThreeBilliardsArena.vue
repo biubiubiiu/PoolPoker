@@ -7,6 +7,7 @@ import { createBallTextureCanvas } from '@/utils/ballTexture';
 
 const props = defineProps<{
   pocketedBallNumbers: number[];
+  pendingBallNumbers: number[];
   animationId?: string | null;
   resetKey?: number;
   disabled?: boolean;
@@ -17,7 +18,7 @@ const { playBallHitSound, playPocketDropSound } = useGameAudio();
 const host = ref<HTMLDivElement>();
 const ready = ref(false);
 const failed = ref(false);
-const labels = ref<{ number: number; x: number; y: number; visible: boolean }[]>([]);
+const labels = ref<{ number: number; x: number; y: number; diameter: number; visible: boolean }[]>([]);
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const fallbackColors = ['#dbad33', '#2b65a5', '#b64738', '#795592', '#bd6e36', '#367860', '#77392f', '#171c1c'];
 let renderer: THREE.WebGLRenderer | undefined;
@@ -33,6 +34,7 @@ const pockets = [-1, 1].flatMap((x) =>
 interface Ball {
   number: number;
   mesh: THREE.Mesh<THREE.SphereGeometry, THREE.MeshPhysicalMaterial>;
+  pendingRing: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>;
   origin: THREE.Vector3;
   restRotation: THREE.Quaternion;
   target: THREE.Vector3;
@@ -230,7 +232,16 @@ function build() {
 
     mesh.castShadow = true;
     scene.add(mesh);
+    const pendingRing = new THREE.Mesh(
+      new THREE.RingGeometry(0.55, 0.62, 64),
+      new THREE.MeshBasicMaterial({ color: '#329cff', toneMapped: false, side: THREE.DoubleSide })
+    );
+    pendingRing.rotation.x = -Math.PI / 2;
+    pendingRing.position.set(origin.x, 0.17, origin.z);
+    pendingRing.visible = false;
+    scene.add(pendingRing);
     balls.push({
+      pendingRing,
       number: n,
       mesh,
       origin,
@@ -330,13 +341,25 @@ function draw() {
         b.mesh.visible = false;
       } else moving = true;
     }
+  for (const b of balls) {
+    b.pendingRing.visible =
+      b.mesh.visible &&
+      b.start === null &&
+      props.pendingBallNumbers.includes(b.number) &&
+      !props.pocketedBallNumbers.includes(b.number);
+  }
   renderer.render(scene, camera);
   const w = host.value.clientWidth,
     h = host.value.clientHeight;
   labels.value = balls.map((b) => {
     const world = b.mesh.getWorldPosition(new THREE.Vector3());
     const p = world.clone().project(camera);
+    const edge = world
+      .clone()
+      .addScaledVector(new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0), 0.5 * b.mesh.scale.x)
+      .project(camera);
     return {
+      diameter: Math.abs(edge.x - p.x) * w,
       number: b.number,
       x: ((p.x + 1) * w) / 2,
       y: ((1 - p.y) * h) / 2,
@@ -362,6 +385,7 @@ watch(
     sync(next[1] !== old[1] && next[2] === old[2] && !document.hidden);
   }
 );
+watch(() => props.pendingBallNumbers, draw);
 watch(
   () => props.colors,
   () => {
@@ -407,8 +431,8 @@ onBeforeUnmount(() => {
   <div ref="host" class="arena" :class="{ 'arena-fallback': failed }" aria-label="球桌，点击球号记录进球">
     <template v-if="ready && !failed">
       <button v-for="ball in labels" :key="ball.number" v-show="ball.visible"
-        class="ball-target" :style="{ transform: `translate(${ball.x}px, ${ball.y}px) translate(-50%, -50%)` }"
-        :aria-label="`记录 ${ball.number} 号球入袋`" :disabled="disabled || pocketedBallNumbers.includes(ball.number)"
+        class="ball-target" :style="{ transform: `translate(${ball.x}px, ${ball.y}px) translate(-50%, -50%)`, '--ball-diameter': `${ball.diameter}px` }"
+        :aria-label="`记录 ${ball.number} 号球入袋${pendingBallNumbers.includes(ball.number) ? '，我的待打球' : ''}`" :disabled="disabled || pocketedBallNumbers.includes(ball.number)"
         @click="emit('ball-click', ball.number)"></button>
     </template>
     <div v-else class="fallback-balls">
@@ -427,8 +451,11 @@ onBeforeUnmount(() => {
 .ball-target { position: absolute; top: 0; left: 0; width: 44px; height: 44px; display: grid; place-items: center; cursor: pointer; background: transparent; border: 0; border-radius: 50%; color: #172720; }
 .fallback-ball span { display: grid; place-items: center; width: 20px; height: 20px; background: #fff9e8; border-radius: 50%; font: 700 12px Georgia, serif; box-shadow: inset 0 -1px 2px #6b654250; }
 
-.ball-target:hover:not(:disabled) { box-shadow: 0 0 0 3px #e4cca077; }
-.ball-target:active:not(:disabled) { transform: scale(0.9); }
+.ball-target::after { content: ''; position: absolute; width: var(--ball-diameter); height: var(--ball-diameter); left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none; }
+@media (hover: hover) {
+  .ball-target:hover:not(:disabled)::after { box-shadow: 0 0 0 2px #e4cca077; }
+}
+.ball-target:active:not(:disabled)::after { box-shadow: 0 0 0 2px #e4cca099; }
 .ball-target:focus-visible { outline: 2px solid #ead8b5; outline-offset: 1px; }
 .ball-target:disabled { cursor: default; }
 .table-signature { position: absolute; bottom: 5%; left: 0; right: 0; text-align: center; font-size: 8px; letter-spacing: 0.24em; color: #cdb88780; pointer-events: none; }

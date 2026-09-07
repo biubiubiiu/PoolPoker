@@ -79,6 +79,11 @@ const {
 
 const busy = computed(() => pendingAction.value || isPresenting.value);
 const activeCards = computed(() => sortedMyCards.value.filter((c) => !isCardDimmed(c)).length);
+const pendingBallNumbers = computed(() =>
+  room.value?.status === 'playing'
+    ? [...new Set(sortedMyCards.value.filter((card) => !isCardDimmed(card)).map((card) => card.ballNumber))]
+    : []
+);
 const showRulesModal = ref(false);
 const showControlDrawer = ref(false);
 </script>
@@ -134,7 +139,7 @@ const showControlDrawer = ref(false);
         <ol><li v-for="(player, index) in turnOrderPlayers" :key="player.userId"><span v-if="index" aria-hidden="true">→</span><span>{{ index + 1 }}. {{ player.name }}</span><small v-if="index === 0">首发</small></li></ol>
       </div>
       <div class="table-stage">
-        <ThreeBilliardsArena :pocketedBallNumbers="room.pocketedBallNumbers" :animationId="sceneAnimationId"
+        <ThreeBilliardsArena :pendingBallNumbers="pendingBallNumbers" :pocketedBallNumbers="room.pocketedBallNumbers" :animationId="sceneAnimationId"
           :resetKey="sceneReset" :disabled="busy || room.status !== 'playing'" :colors="ballConfigs[activeBallConfigKey]?.colors"
           @ball-click="handleTableBallClick" />
         <div v-if="myInfo?.pocketedCards.length" class="discard-tray" aria-label="我已打出的牌">
