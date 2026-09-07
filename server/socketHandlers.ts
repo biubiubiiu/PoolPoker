@@ -7,6 +7,7 @@ import type {
   CreateRoomPayload,
   DrawPenaltyPayload,
   JoinRoomPayload,
+  KickPlayerPayload,
   LeaveRoomPayload,
   PocketBallPayload,
   RefereeDrawPenaltyPayload,
@@ -29,6 +30,13 @@ function applyLifecycleResult(io: Server, socket: Socket, result: RoomLifecycleR
 
   for (const effect of result.socketEffects ?? []) {
     switch (effect.type) {
+      case 'kick_player':
+        for (const socketId of effect.socketIds) {
+          const target = io.sockets.sockets.get(socketId);
+          target?.leave(effect.roomCode);
+          target?.emit(SERVER_TO_CLIENT_EVENTS.roomKicked, { roomCode: effect.roomCode });
+        }
+        break;
       case 'join_room':
         socket.join(effect.roomCode);
         break;
@@ -212,6 +220,12 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     if (!session) return;
     const result = applyGameRoomCommand(room, { type: 'restart_game', actorUserId: session.userId });
     if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
+  });
+
+  socket.on(CLIENT_TO_SERVER_EVENTS.kickPlayer, (data: KickPlayerPayload) => {
+    const result = applyRoomLifecycleCommand({ type: 'kick_player', socketId: socket.id, payload: data });
+    if (result.response?.message) socket.emit(SERVER_TO_CLIENT_EVENTS.errorMessage, result.response.message);
+    applyLifecycleResult(io, socket, result);
   });
 
   // 13. 离开房间

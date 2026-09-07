@@ -96,12 +96,18 @@ export function useGameRoom(options: UseGameRoomOptions) {
   const fetchLatestRoomState = async () => {
     const savedRoomCode = localStorage.getItem('billiards_room_code');
     if (!savedRoomCode) return;
+    const savedToken = localStorage.getItem('billiards_session_token');
 
     try {
       const res = await smartFetch(getApiUrl(`/api/rooms/${savedRoomCode}?userId=${encodeURIComponent(userId.value)}`));
       if (res.ok) {
         const data = await res.json();
-        if (data.success && data.room) {
+        if (
+          localStorage.getItem('billiards_room_code') !== savedRoomCode ||
+          localStorage.getItem('billiards_session_token') !== savedToken
+        )
+          return;
+        if (data.success && data.room?.players.some((p: Player) => p.userId === userId.value)) {
           console.log('[HTTP] 极速同步房间状态成功');
           room.value = data.room;
         }
@@ -210,6 +216,17 @@ export function useGameRoom(options: UseGameRoomOptions) {
       }
     });
 
+    s.on(SERVER_TO_CLIENT_EVENTS.roomKicked, ({ roomCode }: { roomCode: string }) => {
+      if (room.value?.code !== roomCode && localStorage.getItem('billiards_room_code') !== roomCode) return;
+      localStorage.removeItem('billiards_room_code');
+      localStorage.removeItem('billiards_session_token');
+      room.value = null;
+      showRestartConfirm.value = false;
+      showRefereePocketModal.value = false;
+      showRefereeFoulModal.value = false;
+      showAlert('你已被房主移出房间');
+    });
+
     s.on(SERVER_TO_CLIENT_EVENTS.roomCreated, ({ roomCode }: { roomCode: string }) => {
       localStorage.setItem('billiards_room_code', roomCode);
     });
@@ -226,6 +243,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
         oldSocket.off('connect');
         oldSocket.off(SERVER_TO_CLIENT_EVENTS.roomUpdated);
         oldSocket.off(SERVER_TO_CLIENT_EVENTS.roomCreated);
+        oldSocket.off(SERVER_TO_CLIENT_EVENTS.roomKicked);
         oldSocket.off(SERVER_TO_CLIENT_EVENTS.errorMessage);
       }
       if (newSocket) {
@@ -352,6 +370,17 @@ export function useGameRoom(options: UseGameRoomOptions) {
     });
   };
 
+  const handleKickPlayer = async (targetUserId: string) => {
+    const currentRoom = room.value;
+    if (!isHost.value || !currentRoom || !['waiting', 'lobby'].includes(currentRoom.status)) return;
+    const player = currentRoom.players.find((p) => p.userId === targetUserId);
+    if (!player || targetUserId === currentRoom.hostUserId) return;
+    if (!(await showConfirm(`确认将「${player.name}」移出房间吗？`, '移出玩家'))) return;
+    if (!isHost.value || room.value?.code !== currentRoom.code || !['waiting', 'lobby'].includes(room.value.status))
+      return;
+    socket.value?.emit(CLIENT_TO_SERVER_EVENTS.kickPlayer, { roomCode: currentRoom.code, targetUserId });
+  };
+
   // 4. 房主开始游戏
   const handleStartGame = () => {
     if (!isHost.value || !room.value) return;
@@ -471,6 +500,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
     handleJoinRoom,
     handleAdjustCards,
     handleStartGame,
+    handleKickPlayer,
     handleConfirmPocket,
     handleRetract,
     openRefereePocket,

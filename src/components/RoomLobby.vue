@@ -29,6 +29,7 @@ const emit = defineEmits<{
   (e: 'create-room'): void;
   (e: 'adjust-cards', delta: number): void;
   (e: 'start-game'): void;
+  (e: 'kick-player', userId: string): void;
 }>();
 
 const currentView = ref<'lobby' | 'settings'>('lobby');
@@ -319,8 +320,16 @@ const onJoin = async () => {
               </div>
             </div>
           </div>
-          <span v-if="p.online === false" class="text-xs text-red-400 font-mono animate-pulse">暂离</span>
-          <span v-else class="text-xs text-emerald-400/80 font-mono">就绪</span>
+          <div class="flex shrink-0 items-center gap-2">
+            <span v-if="p.online === false" class="text-xs text-red-400 font-mono animate-pulse">暂离</span>
+            <span v-else class="text-xs text-emerald-400/80 font-mono">就绪</span>
+            <button v-if="isHost && p.userId !== room.hostUserId"
+                    @click="emit('kick-player', p.userId)"
+                    :aria-label="`移出玩家 ${p.name}`"
+                    class="min-h-9 px-2 rounded-lg border border-red-400/30 bg-red-950/40 text-xs text-red-300 hover:bg-red-900/50 active:scale-95 cursor-pointer">
+              移出
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -49,4 +49,5 @@
     <string name="status_reconnecting_retry">Connection lost. Reconnecting; please retry once connected.</string>
     <string name="status_room_timeout">Room response timed out. Reconnecting…</string>
     <string name="status_room_failed">Unable to restore room. Please reconnect.</string>
+    <string name="status_room_kicked">你已被房主移出房间</string>
 </resources>

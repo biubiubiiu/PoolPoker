@@ -53,6 +53,17 @@ export function removeSocketSession(socketId: string): SocketSession | undefined
   return session;
 }
 
+export function removeUserSocketSessions(roomCode: string, userId: string): string[] {
+  const socketIds: string[] = [];
+  for (const [socketId, session] of socketIndex) {
+    if (session.roomCode === roomCode && session.userId === userId) {
+      socketIds.push(socketId);
+      socketIndex.delete(socketId);
+    }
+  }
+  return socketIds;
+}
+
 export function hasOtherSocketForUser(roomCode: string, userId: string): boolean {
   return Array.from(socketIndex.values()).some((s) => s.roomCode === roomCode && s.userId === userId);
 }

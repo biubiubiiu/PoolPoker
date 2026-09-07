@@ -31,6 +31,7 @@ describe('shared protocol contract', () => {
     expect(SERVER_TO_CLIENT_EVENTS).toEqual({
       roomCreated: 'room_created',
       roomUpdated: 'room_updated',
+      roomKicked: 'room_kicked',
       errorMessage: 'error_message',
     });
     expect(CLIENT_TO_SERVER_EVENTS).toEqual({
@@ -50,6 +51,7 @@ describe('shared protocol contract', () => {
       confirmRestart: 'confirm_restart',
       restartGame: 'restart_game',
       leaveRoom: 'leave_room',
+      kickPlayer: 'kick_player',
     });
 
     expectUniqueValues('server events', Object.values(SERVER_TO_CLIENT_EVENTS));

@@ -3,6 +3,7 @@ import type { Player, RoomSettings, ServerRoom } from '../shared/types/game';
 import type {
   CreateRoomPayload,
   JoinRoomPayload,
+  KickPlayerPayload,
   LeaveRoomPayload,
   RejoinRoomPayload,
   SocketCallbackResponse,
@@ -19,6 +20,7 @@ import {
   registerSocketSession,
   removeRoom,
   removeSocketSession,
+  removeUserSocketSessions,
   saveRoom,
 } from './roomManager';
 
@@ -28,12 +30,14 @@ export type RoomLifecycleCommand =
   | { type: 'rejoin_room'; socketId: string; payload: RejoinRoomPayload }
   | { type: 'update_settings'; socketId: string; payload: UpdateSettingsPayload }
   | { type: 'leave_room'; socketId: string; payload: LeaveRoomPayload }
+  | { type: 'kick_player'; socketId: string; payload: KickPlayerPayload }
   | { type: 'disconnect'; socketId: string };
 
 export type RoomLifecycleSocketEffect =
   | { type: 'join_room'; roomCode: string }
   | { type: 'leave_room'; roomCode: string }
-  | { type: 'emit_room_created'; roomCode: string };
+  | { type: 'emit_room_created'; roomCode: string }
+  | { type: 'kick_player'; roomCode: string; socketIds: string[] };
 
 export interface RoomLifecycleResult {
   response?: SocketCallbackResponse;
@@ -75,6 +79,8 @@ export function applyRoomLifecycleCommand(
       return updateSettings(command.socketId, command.payload, deps);
     case 'leave_room':
       return leaveRoom(command.socketId, command.payload);
+    case 'kick_player':
+      return kickPlayer(command.socketId, command.payload);
     case 'disconnect':
       return disconnectSocket(command.socketId);
   }
@@ -280,10 +286,37 @@ function updateSettings(
   };
 }
 
+function kickPlayer(socketId: string, payload: KickPlayerPayload): RoomLifecycleResult {
+  const reject = (message: string): RoomLifecycleResult => ({ changed: false, response: { success: false, message } });
+  const room = getRoom(payload?.roomCode);
+  if (!room) return reject('房间不存在');
+  const session = getSocketSession(socketId);
+  if (!session || session.roomCode !== room.code || session.userId !== room.hostUserId) {
+    return reject('只有房主可以移出玩家');
+  }
+  if (room.status !== 'waiting' && room.status !== 'lobby') return reject('仅可在准备界面移出玩家');
+  if (payload.targetUserId === room.hostUserId) return reject('不能移出房主自己');
+  const index = room.players.findIndex((player) => player.userId === payload.targetUserId);
+  if (index === -1) return reject('该玩家已不在房间中');
+
+  const [player] = room.players.splice(index, 1);
+  const socketIds = removeUserSocketSessions(room.code, player.userId);
+  addLog(room, `🚪 房主将玩家 ${player.name} 移出了房间`);
+  checkAndManageRoomCleanup(room.code);
+  return {
+    changed: true,
+    socketEffects: [{ type: 'kick_player', roomCode: room.code, socketIds }],
+    broadcastRoomCode: room.code,
+  };
+}
+
 function leaveRoom(socketId: string, payload: LeaveRoomPayload): RoomLifecycleResult {
   const { roomCode, userId } = payload;
   const room = getRoom(roomCode);
   if (!room) return NO_CHANGE;
+
+  const session = getSocketSession(socketId);
+  if (!session || session.roomCode !== roomCode || session.userId !== userId) return NO_CHANGE;
 
   const pIdx = room.players.findIndex((p) => p.userId === userId);
   if (pIdx !== -1) {

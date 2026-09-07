@@ -328,3 +328,11 @@
 - **界面**：`WearMainActivity` 的亮屏倒计时改为 `LaunchedEffect(roomState)`，状态变化自动取消重启，使用 `finally` 清除 Window 标记。
 - **依赖**：Wear 模块显式声明 `kotlinx-coroutines-android` 1.9.0，复用已有依赖版本，不依赖 Compose 间接引入。
 - **验证**：相同依赖及源码的独立 Wear 工程 `:wear-app:assembleDebug --offline` 通过，`git diff --check` 通过；已刷新原 APK 输出路径，未安装或真机复测。
+
+
+### 准备界面房主移出玩家 [2026-09-07]
+- **交互**：准备界面其他玩家旁显示仅房主可见的「移出」按钮，确认后执行；支持移出暂离玩家，不能移出自己，开局后不可执行。
+- **服务端**：新增 `kick_player` / `room_kicked` 协议；生命周期服务校验 Socket 的房间和房主身份，移除玩家及其所有 Socket 会话、通知并退出 Socket 房间，再广播最新成员。旧 token 无法恢复已移除成员，允许主动重新加入。补充 `leave_room` 本人鉴权，防止冒用他人 userId 绕过踢人权限。
+- **客户端**：Web 清除本地房间及凭证并提示被移出，过滤踢人前发起的过期 HTTP 快照；Wear 直连端清理已保存会话及房间状态。
+- **验证**：51 项单元测试通过，覆盖多连接清理、旧凭证、非房主、跨房间、非准备状态、离线玩家和冒用退出。生产构建通过；独立端口 Playwright 测试通过，验证按钮权限、取消/确认、退出提示与刷新后不自动回房。
+- **Wear 验证**：使用已有临时独立 Gradle 工程同步本次 Kotlin 与资源变更，离线 `:wear-app:compileDebugKotlin` 通过；未做真机测试。相关文件 Biome 与 `git diff --check` 通过。

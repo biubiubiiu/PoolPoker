@@ -1,6 +1,7 @@
 export const SERVER_TO_CLIENT_EVENTS = {
   roomCreated: 'room_created',
   roomUpdated: 'room_updated',
+  roomKicked: 'room_kicked',
   errorMessage: 'error_message',
 } as const;
 
@@ -21,6 +22,7 @@ export const CLIENT_TO_SERVER_EVENTS = {
   confirmRestart: 'confirm_restart',
   restartGame: 'restart_game',
   leaveRoom: 'leave_room',
+  kickPlayer: 'kick_player',
 } as const;
 
 export const WEAR_ACTIONS = {

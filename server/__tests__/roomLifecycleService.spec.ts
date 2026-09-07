@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Card, ServerRoom } from '../../shared/types/game';
 import { applyRoomLifecycleCommand, type RoomLifecycleDependencies } from '../roomLifecycleService';
 import { getRoom, getSocketSession, removeRoom, removeSocketSession, roomCleanupTimers, rooms } from '../roomManager';
@@ -315,5 +315,167 @@ describe('roomLifecycleService', () => {
     expect(secondDisconnect.broadcastRoomCode).toBe('6789');
     expect(getRoom('6789')?.players[0].online).toBe(false);
     expect(roomCleanupTimers.has('6789')).toBe(true);
+  });
+});
+
+describe('host-only player removal', () => {
+  beforeEach(() => {
+    applyRoomLifecycleCommand(
+      {
+        type: 'create_room',
+        socketId: 'socket-host',
+        payload: {
+          userId: 'user-host',
+          name: 'Host',
+          avatar: '🎱',
+          ballConfigKey: 'default',
+        },
+      },
+      createDeps(['1234'], ['host-token'])
+    );
+    applyRoomLifecycleCommand(
+      {
+        type: 'join_room',
+        socketId: 'socket-guest',
+        payload: {
+          roomCode: '1234',
+          userId: 'user-guest',
+          name: 'Guest',
+          avatar: '🎱',
+        },
+      },
+      createDeps([], ['guest-token'])
+    );
+  });
+
+  it.each(['waiting', 'lobby'] as const)(
+    'removes all guest sessions in %s and rejects the old credential',
+    (status) => {
+      const room = getRoom('1234') as ServerRoom;
+      room.status = status;
+      applyRoomLifecycleCommand({
+        type: 'rejoin_room',
+        socketId: 'socket-b',
+        payload: {
+          roomCode: '1234',
+          userId: 'user-guest',
+          sessionToken: 'guest-token',
+        },
+      });
+      const result = applyRoomLifecycleCommand({
+        type: 'kick_player',
+        socketId: 'socket-host',
+        payload: {
+          roomCode: '1234',
+          targetUserId: 'user-guest',
+        },
+      });
+      expect(result.changed).toBe(true);
+      expect(result.broadcastRoomCode).toBe('1234');
+      expect(result.socketEffects).toEqual([
+        { type: 'kick_player', roomCode: '1234', socketIds: ['socket-guest', 'socket-b'] },
+      ]);
+      expect(room.players.map((p) => p.userId)).toEqual(['user-host']);
+      expect(room.hostUserId).toBe('user-host');
+      expect(getSocketSession('socket-guest')).toBeUndefined();
+      expect(getSocketSession('socket-b')).toBeUndefined();
+      expect(
+        applyRoomLifecycleCommand({
+          type: 'rejoin_room',
+          socketId: 'socket-b',
+          payload: {
+            roomCode: '1234',
+            userId: 'user-guest',
+            sessionToken: 'guest-token',
+          },
+        }).response?.success
+      ).toBe(false);
+    }
+  );
+
+  it.each([
+    ['socket-guest', 'user-host'],
+    ['socket-a', 'user-guest'],
+    ['socket-host', 'user-host'],
+    ['socket-host', 'missing'],
+  ])('rejects unauthorized or invalid removal by %s of %s', (socketId, targetUserId) => {
+    expect(
+      applyRoomLifecycleCommand({ type: 'kick_player', socketId, payload: { roomCode: '1234', targetUserId } }).changed
+    ).toBe(false);
+    expect(getRoom('1234')?.players).toHaveLength(2);
+    expect(getSocketSession('socket-guest')).toBeDefined();
+  });
+
+  it.each(['playing', 'ended', 'finished'] as const)('rejects removal during %s', (status) => {
+    const room = getRoom('1234') as ServerRoom;
+    room.status = status;
+    expect(
+      applyRoomLifecycleCommand({
+        type: 'kick_player',
+        socketId: 'socket-host',
+        payload: {
+          roomCode: '1234',
+          targetUserId: 'user-guest',
+        },
+      }).changed
+    ).toBe(false);
+    expect(room.players).toHaveLength(2);
+  });
+
+  it('rejects a host identity from a different room', () => {
+    applyRoomLifecycleCommand(
+      {
+        type: 'create_room',
+        socketId: 'socket-a',
+        payload: {
+          userId: 'user-host',
+          name: 'Other',
+          avatar: '🎱',
+          ballConfigKey: 'default',
+        },
+      },
+      createDeps(['5678'])
+    );
+    expect(
+      applyRoomLifecycleCommand({
+        type: 'kick_player',
+        socketId: 'socket-a',
+        payload: {
+          roomCode: '1234',
+          targetUserId: 'user-guest',
+        },
+      }).changed
+    ).toBe(false);
+    expect(getRoom('1234')?.players).toHaveLength(2);
+  });
+
+  it('can remove an offline player', () => {
+    applyRoomLifecycleCommand({ type: 'disconnect', socketId: 'socket-guest' });
+    expect(
+      applyRoomLifecycleCommand({
+        type: 'kick_player',
+        socketId: 'socket-host',
+        payload: {
+          roomCode: '1234',
+          targetUserId: 'user-guest',
+        },
+      }).changed
+    ).toBe(true);
+    expect(getRoom('1234')?.players).toHaveLength(1);
+  });
+
+  it('prevents leave_room from being used to remove another player', () => {
+    expect(
+      applyRoomLifecycleCommand({
+        type: 'leave_room',
+        socketId: 'socket-guest',
+        payload: {
+          roomCode: '1234',
+          userId: 'user-host',
+        },
+      }).changed
+    ).toBe(false);
+    expect(getRoom('1234')?.players).toHaveLength(2);
+    expect(getSocketSession('socket-guest')).toBeDefined();
   });
 });

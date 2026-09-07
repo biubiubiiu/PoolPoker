@@ -76,6 +76,11 @@ export interface RestartGamePayload {
   roomCode: string;
 }
 
+export interface KickPlayerPayload {
+  roomCode: string;
+  targetUserId: string;
+}
+
 export interface LeaveRoomPayload {
   roomCode: string;
   userId: string;
@@ -95,6 +100,7 @@ export interface SocketCallbackResponse {
 
 // 客户端接收的事件 (Server -> Client)
 export interface ServerToClientEvents {
+  [SERVER_TO_CLIENT_EVENTS.roomKicked]: (payload: { roomCode: string }) => void;
   [SERVER_TO_CLIENT_EVENTS.roomCreated]: (payload: { roomCode: string }) => void;
   [SERVER_TO_CLIENT_EVENTS.roomUpdated]: (room: Room) => void;
   [SERVER_TO_CLIENT_EVENTS.errorMessage]: (msg: string) => void;
@@ -102,6 +108,7 @@ export interface ServerToClientEvents {
 
 // 客户端发送的事件 (Client -> Server)
 export interface ClientToServerEvents {
+  [CLIENT_TO_SERVER_EVENTS.kickPlayer]: (payload: KickPlayerPayload) => void;
   [CLIENT_TO_SERVER_EVENTS.createRoom]: (
     payload: CreateRoomPayload,
     callback?: (res: SocketCallbackResponse) => void

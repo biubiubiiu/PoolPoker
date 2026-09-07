@@ -7,6 +7,8 @@ import kotlinx.serialization.json.Json
 
 object SocketEvents {
     const val ROOM_CREATED = "room_created"
+    const val ROOM_KICKED = "room_kicked"
+    const val KICK_PLAYER = "kick_player"
     const val ROOM_UPDATED = "room_updated"
     const val ERROR_MESSAGE = "error_message"
     const val CREATE_ROOM = "create_room"

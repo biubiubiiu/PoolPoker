@@ -132,6 +132,14 @@ object WearDirectSocketManager {
                 status(context.getString(R.string.status_failed_format, errReason))
             }
 
+            listen(activeSocket, SocketEvents.ROOM_KICKED) { args ->
+                if (socket !== activeSocket) return@listen
+                val code = (args.firstOrNull() as? JSONObject)?.optString("roomCode")
+                if (code != currentRoomCode) return@listen
+                disconnect()
+                status(context.getString(R.string.status_room_kicked))
+            }
+
             listen(activeSocket, SocketEvents.ROOM_UPDATED) { args ->
                 if (socket !== activeSocket) return@listen
                 if (args.isNotEmpty()) {

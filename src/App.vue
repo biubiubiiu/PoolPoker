@@ -34,6 +34,7 @@ const {
   handleJoinRoom,
   handleAdjustCards,
   handleStartGame,
+  handleKickPlayer,
   handleConfirmPocket,
   handleRetract,
   openRefereePocket,
@@ -84,6 +85,7 @@ const showRulesModal = ref(false);
                @create-room="handleCreateRoom"
                @join-room="handleJoinRoom"
                @adjust-cards="handleAdjustCards"
+               @kick-player="handleKickPlayer"
                @start-game="handleStartGame" />
 
     <!-- 游戏进行/结算主界面 -->
