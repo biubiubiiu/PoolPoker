@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useGameAudio } from '@/composables/useGameAudio';
+import { createBallTextureCanvas } from '@/utils/ballTexture';
 
 const props = defineProps<{
   pocketedBallNumbers: number[];
@@ -16,7 +17,7 @@ const { playBallHitSound, playPocketDropSound } = useGameAudio();
 const host = ref<HTMLDivElement>();
 const ready = ref(false);
 const failed = ref(false);
-const labels = ref<{ number: number; x: number; y: number; badgeSize: number; visible: boolean }[]>([]);
+const labels = ref<{ number: number; x: number; y: number; visible: boolean }[]>([]);
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const fallbackColors = ['#dbad33', '#2b65a5', '#b64738', '#795592', '#bd6e36', '#367860', '#77392f', '#171c1c'];
 let renderer: THREE.WebGLRenderer | undefined;
@@ -31,6 +32,7 @@ interface Ball {
   number: number;
   mesh: THREE.Mesh<THREE.SphereGeometry, THREE.MeshPhysicalMaterial>;
   origin: THREE.Vector3;
+  restRotation: THREE.Quaternion;
   target: THREE.Vector3;
   start: number | null;
   dropped: boolean;
@@ -38,19 +40,8 @@ interface Ball {
 const balls: Ball[] = [];
 
 function ballTexture(n: number) {
-  const canvas = document.createElement('canvas');
-  canvas.width = 256;
-  canvas.height = 128;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Canvas unavailable');
   const color = props.colors?.[String(n)]?.[1] || fallbackColors[(n - 1) % 8];
-  ctx.fillStyle = n > 8 ? '#f2edda' : color;
-  ctx.fillRect(0, 0, 256, 128);
-  if (n > 8) {
-    ctx.fillStyle = color;
-    ctx.fillRect(0, 30, 256, 68);
-  }
-  const texture = new THREE.CanvasTexture(canvas);
+  const texture = new THREE.CanvasTexture(createBallTextureCanvas(n, color));
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
 }
@@ -60,7 +51,7 @@ function build() {
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -141,16 +132,27 @@ function build() {
     const origin = new THREE.Vector3((((n - 1) % 3) - 1) * 1.78, 0.5, (Math.floor((n - 1) / 3) - 2) * 2.05);
     const material = new THREE.MeshPhysicalMaterial({
       map: ballTexture(n),
-      roughness: 0.19,
-      clearcoat: 1,
-      clearcoatRoughness: 0.12,
+      // Keep a soft resin sheen without washing out the printed numbers.
+      roughness: 0.38,
+      specularIntensity: 0.25,
+      envMapIntensity: 0.15,
+      clearcoat: 0.15,
+      clearcoatRoughness: 0.35,
     });
     const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 24), material);
     mesh.position.copy(origin);
-    mesh.rotation.x = Math.PI / 2;
+
     mesh.castShadow = true;
     scene.add(mesh);
-    balls.push({ number: n, mesh, origin, target: origin.clone(), start: null, dropped: false });
+    balls.push({
+      number: n,
+      mesh,
+      origin,
+      restRotation: mesh.quaternion.clone(),
+      target: origin.clone(),
+      start: null,
+      dropped: false,
+    });
   }
   sync(false);
   ready.value = true;
@@ -173,7 +175,7 @@ function sync(animate: boolean) {
       b.mesh.visible = !pocketed;
       b.mesh.position.copy(b.origin);
       b.mesh.scale.setScalar(1);
-      b.mesh.rotation.set(Math.PI / 2, 0, 0);
+      b.mesh.quaternion.copy(b.restRotation);
     }
   }
   draw();
@@ -200,6 +202,16 @@ function resize() {
     );
     if (fits) break;
   }
+  // Face the numbered cap directly toward the viewer in both screen orientations.
+  const localCamera = scene.worldToLocal(camera.position.clone());
+  for (const b of balls) {
+    const orientation = new THREE.Object3D();
+    orientation.up.setFromMatrixColumn(camera.matrixWorld, 1).transformDirection(scene.matrixWorld.clone().invert());
+    orientation.position.copy(b.origin);
+    orientation.lookAt(localCamera);
+    b.restRotation.copy(orientation.quaternion);
+    if (b.start === null) b.mesh.quaternion.copy(b.restRotation);
+  }
   renderer.setSize(w, h);
   draw();
 }
@@ -213,8 +225,11 @@ function draw() {
       const t = Math.min(1, (now - b.start) / 650);
       const roll = Math.min(1, t / 0.74);
       b.mesh.position.lerpVectors(b.origin, b.target, Math.sin((roll * Math.PI) / 2));
-      b.mesh.rotation.z = (-roll * (b.target.x - b.origin.x)) / 0.5;
-      b.mesh.rotation.x = (roll * (b.target.z - b.origin.z)) / 0.5;
+      b.mesh.quaternion
+        .setFromEuler(
+          new THREE.Euler((roll * (b.target.z - b.origin.z)) / 0.5, 0, (-roll * (b.target.x - b.origin.x)) / 0.5)
+        )
+        .multiply(b.restRotation);
       if (t > 0.74) {
         const drop = (t - 0.74) / 0.26;
         b.mesh.scale.setScalar(1 - drop);
@@ -235,16 +250,10 @@ function draw() {
   labels.value = balls.map((b) => {
     const world = b.mesh.getWorldPosition(new THREE.Vector3());
     const p = world.clone().project(camera);
-    const edge = world
-      .clone()
-      .addScaledVector(new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0), 0.5)
-      .project(camera);
-    const diameter = Math.abs(edge.x - p.x) * w;
     return {
       number: b.number,
       x: ((p.x + 1) * w) / 2,
       y: ((1 - p.y) * h) / 2,
-      badgeSize: diameter * 0.48,
       visible: b.mesh.visible && !b.dropped,
     };
   });
@@ -312,9 +321,9 @@ onBeforeUnmount(() => {
   <div ref="host" class="arena" :class="{ 'arena-fallback': failed }" aria-label="球桌，点击球号记录进球">
     <template v-if="ready && !failed">
       <button v-for="ball in labels" :key="ball.number" v-show="ball.visible"
-        class="ball-target" :style="{ transform: `translate(${ball.x}px, ${ball.y}px) translate(-50%, -50%)`, '--badge-size': `${ball.badgeSize}px` }"
+        class="ball-target" :style="{ transform: `translate(${ball.x}px, ${ball.y}px) translate(-50%, -50%)` }"
         :aria-label="`记录 ${ball.number} 号球入袋`" :disabled="disabled || pocketedBallNumbers.includes(ball.number)"
-        @click="emit('ball-click', ball.number)"><span>{{ ball.number }}</span></button>
+        @click="emit('ball-click', ball.number)"></button>
     </template>
     <div v-else class="fallback-balls">
       <button v-for="n in 15" :key="n" :class="`fallback-ball ball-${n}`"
@@ -329,11 +338,11 @@ onBeforeUnmount(() => {
 <style scoped>
 .arena { position: absolute; inset: 0; width: 100%; height: 100%; isolation: isolate; }
 .arena :deep(canvas) { position: absolute; inset: 0; }
-.ball-target { position: absolute; top: 0; left: 0; width: 44px; height: 44px; display: grid; place-items: center; cursor: pointer; border-radius: 50%; color: #172720; }
-.ball-target span, .fallback-ball span { display: grid; place-items: center; width: 20px; height: 20px; background: #fff9e8; border-radius: 50%; font: 700 12px Georgia, serif; box-shadow: inset 0 -1px 2px #6b654250; }
-.ball-target span { width: var(--badge-size); height: var(--badge-size); font-size: calc(var(--badge-size) * 0.68); }
-.ball-target:hover:not(:disabled) span { box-shadow: 0 0 0 3px #e4cca077; }
-.ball-target:active:not(:disabled) span { transform: scale(0.9); }
+.ball-target { position: absolute; top: 0; left: 0; width: 44px; height: 44px; display: grid; place-items: center; cursor: pointer; background: transparent; border: 0; border-radius: 50%; color: #172720; }
+.fallback-ball span { display: grid; place-items: center; width: 20px; height: 20px; background: #fff9e8; border-radius: 50%; font: 700 12px Georgia, serif; box-shadow: inset 0 -1px 2px #6b654250; }
+
+.ball-target:hover:not(:disabled) { box-shadow: 0 0 0 3px #e4cca077; }
+.ball-target:active:not(:disabled) { transform: scale(0.9); }
 .ball-target:focus-visible { outline: 2px solid #ead8b5; outline-offset: 1px; }
 .ball-target:disabled { cursor: default; }
 .table-signature { position: absolute; bottom: 5%; left: 0; right: 0; text-align: center; font-size: 8px; letter-spacing: 0.24em; color: #cdb88780; pointer-events: none; }
