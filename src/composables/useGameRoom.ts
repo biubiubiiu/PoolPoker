@@ -566,7 +566,6 @@ export function useGameRoom(options: UseGameRoomOptions) {
       if (room.value) {
         socket.value?.emit(CLIENT_TO_SERVER_EVENTS.leaveRoom, {
           roomCode: room.value.code,
-          userId: userId.value,
         });
       }
       localStorage.removeItem('billiards_room_code');

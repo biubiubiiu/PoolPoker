@@ -215,7 +215,7 @@ describe('roomLifecycleService', () => {
     const result = applyRoomLifecycleCommand({
       type: 'leave_room',
       socketId: 'socket-host',
-      payload: { roomCode: '4321', userId: 'user-host' },
+      payload: { roomCode: '4321' },
     });
 
     const room = getRoom('4321');
@@ -464,18 +464,31 @@ describe('host-only player removal', () => {
     expect(getRoom('1234')?.players).toHaveLength(1);
   });
 
-  it('prevents leave_room from being used to remove another player', () => {
+  it('only removes the caller session and prevents unauthorized leave_room', () => {
+    // Sockets without matching session cannot leave or affect the room
     expect(
       applyRoomLifecycleCommand({
         type: 'leave_room',
-        socketId: 'socket-guest',
+        socketId: 'socket-outsider',
         payload: {
           roomCode: '1234',
-          userId: 'user-host',
         },
       }).changed
     ).toBe(false);
     expect(getRoom('1234')?.players).toHaveLength(2);
-    expect(getSocketSession('socket-guest')).toBeDefined();
+
+    // Guest leaving only removes guest, host is unaffected
+    const guestLeaveResult = applyRoomLifecycleCommand({
+      type: 'leave_room',
+      socketId: 'socket-guest',
+      payload: {
+        roomCode: '1234',
+      },
+    });
+    expect(guestLeaveResult.changed).toBe(true);
+    const room = getRoom('1234');
+    expect(room?.players).toHaveLength(1);
+    expect(room?.players[0].userId).toBe('user-host');
+    expect(getSocketSession('socket-guest')).toBeUndefined();
   });
 });

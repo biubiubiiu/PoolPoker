@@ -84,7 +84,6 @@ export interface KickPlayerPayload {
 
 export interface LeaveRoomPayload {
   roomCode: string;
-  userId: string;
 }
 
 export interface SocketData {
