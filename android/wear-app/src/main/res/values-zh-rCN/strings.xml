@@ -45,4 +45,8 @@
     <string name="retract_action_format">将撤回：\n%1$s</string>
     <string name="no_retract_action">当前没有可撤回的操作</string>
     <string name="btn_confirm_retract">确认撤回</string>
+    <string name="status_restoring_room">已连接服务器，正在恢复房间…</string>
+    <string name="status_reconnecting_retry">房间连接已断开，正在重连，请连接后重试</string>
+    <string name="status_room_timeout">房间响应超时，正在重连…</string>
+    <string name="status_room_failed">无法恢复房间，请重新连接</string>
 </resources>

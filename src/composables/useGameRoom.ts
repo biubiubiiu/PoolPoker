@@ -48,6 +48,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
         const payload = code
           ? JSON.stringify({
               event: 'room_credentials',
+              sessionToken: localStorage.getItem('billiards_session_token'),
               roomCode: code,
               userId: userId.value,
               myUserId: userId.value,

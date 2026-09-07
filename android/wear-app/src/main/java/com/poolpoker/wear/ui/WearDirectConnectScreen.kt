@@ -43,7 +43,7 @@ fun WearDirectConnectScreen() {
     var roomCode by remember { mutableStateOf("") }
     val serverUrl = BuildConfig.SERVER_URL
     val context = LocalContext.current
-    var statusText by remember { mutableStateOf(context.getString(R.string.status_waiting_companion)) }
+    var statusText by remember { mutableStateOf(WearDirectSocketManager.lastStatus ?: context.getString(R.string.status_waiting_companion)) }
 
     DisposableEffect(Unit) {
         WearDirectSocketManager.onStatusChanged = { status ->

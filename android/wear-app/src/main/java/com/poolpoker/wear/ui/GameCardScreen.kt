@@ -441,7 +441,8 @@ fun SettlementCardBadge(
 }
 
 fun sendActionToPhone(context: Context, action: WearActionPayload) {
-    if (WearDirectSocketManager.isConnected) {
+    if (WearDirectSocketManager.currentRoomCode != null) {
+        if (!WearDirectSocketManager.ensureRoomConnection(context)) return
         when (action.action) {
             WearAction.POCKET_BALL -> action.cardId?.let { WearDirectSocketManager.pocketBall(action.roomCode, it) }
             WearAction.DRAW_PENALTY -> WearDirectSocketManager.drawPenalty(action.roomCode)

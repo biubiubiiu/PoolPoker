@@ -45,4 +45,8 @@
     <string name="retract_action_format">Action to undo:\n%1$s</string>
     <string name="no_retract_action">No operation to undo</string>
     <string name="btn_confirm_retract">Confirm Undo</string>
+    <string name="status_restoring_room">Connected; restoring room…</string>
+    <string name="status_reconnecting_retry">Connection lost. Reconnecting; please retry once connected.</string>
+    <string name="status_room_timeout">Room response timed out. Reconnecting…</string>
+    <string name="status_room_failed">Unable to restore room. Please reconnect.</string>
 </resources>

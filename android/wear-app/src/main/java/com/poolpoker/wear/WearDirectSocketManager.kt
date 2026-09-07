@@ -2,73 +2,144 @@ package com.poolpoker.wear
 
 import android.content.Context
 import android.util.Log
+import android.widget.Toast
 import com.poolpoker.shared.SocketEvents
 import com.poolpoker.shared.fromJson
 import com.poolpoker.shared.generated.Room
 import com.poolpoker.shared.generated.WearPlayerSummary
 import com.poolpoker.shared.generated.WearSyncRoomPayload
+import io.socket.client.Ack
 import io.socket.client.IO
 import io.socket.client.Socket
+import io.socket.emitter.Emitter
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 object WearDirectSocketManager {
     private const val TAG = "WearDirectSocket"
-    private var socket: Socket? = null
+    @Volatile private var socket: Socket? = null
+    // Process-owned dispatcher: the room connection survives Activity recreation.
+    private val managerScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var connectionScope: CoroutineScope? = null
+    private var appContext: Context? = null
+    private var joinTimeout: Job? = null
+    private var sessionToken: String? = null
+    var lastStatus: String? = null
+        private set
+
+    private fun status(message: String) {
+        lastStatus = message
+        onStatusChanged?.invoke(message)
+    }
+
+    fun restoreSession(context: Context) {
+        if (socket != null) return
+        val saved = WearUserPrefs.getRoomSession(context) ?: return
+        connect(context, saved.roomCode, saved.serverUrl, saved.userId)
+    }
+
+    fun ensureRoomConnection(context: Context): Boolean {
+        if (isConnected && socket?.connected() == true) return true
+        Toast.makeText(context, R.string.status_reconnecting_retry, Toast.LENGTH_LONG).show()
+        if (socket == null) restoreSession(context) else socket?.connect()
+        return false
+    }
 
     var serverUrl: String = BuildConfig.SERVER_URL
     var userId: String = ""
     var userName: String = "Watch Player"
     var currentRoomCode: String? = null
-    var isConnected: Boolean = false
+    @Volatile var isConnected: Boolean = false
 
     var onStatusChanged: ((String) -> Unit)? = null
 
-    fun connect(context: Context, roomCode: String, url: String = BuildConfig.SERVER_URL, customUserId: String? = null, onConnected: () -> Unit = {}) {
+    fun connect(
+        context: Context,
+        roomCode: String,
+        url: String = BuildConfig.SERVER_URL,
+        customUserId: String? = null,
+        customSessionToken: String? = null,
+        onConnected: () -> Unit = {}
+    ) {
+        val application = context.applicationContext
+        managerScope.launch {
+            connectOnMain(application, roomCode, url, customUserId, customSessionToken, onConnected)
+        }
+    }
+
+    private fun connectOnMain(
+        context: Context,
+        roomCode: String,
+        url: String,
+        customUserId: String?,
+        customSessionToken: String?,
+        onConnected: () -> Unit
+    ) {
+        connectionScope?.cancel()
+        connectionScope = CoroutineScope(managerScope.coroutineContext + SupervisorJob(managerScope.coroutineContext[Job]))
+        appContext = context.applicationContext
+        joinTimeout?.cancel()
+        socket?.off()
+        socket?.disconnect()
+        socket = null
+        isConnected = false
         serverUrl = url
         currentRoomCode = roomCode
         userId = customUserId ?: WearUserPrefs.getOrCreateUserId(context)
+        sessionToken = customSessionToken?.takeIf { it.isNotBlank() } ?: WearUserPrefs.getRoomSession(context)?.takeIf {
+            it.serverUrl == url && it.roomCode == roomCode && it.userId == userId
+        }?.token
+        status(context.getString(R.string.status_connecting))
         val configuredName = BuildConfig.WATCH_PLAYER_NAME
         userName = if (configuredName.isNotBlank()) configuredName else context.getString(R.string.watch_player_default)
 
         try {
-            if (socket?.connected() == true) {
-                socket?.disconnect()
-            }
-
             val opts = IO.Options()
             opts.forceNew = true
             opts.reconnection = true
             opts.transports = arrayOf("websocket", "polling")
 
-            socket = IO.socket(serverUrl, opts)
+            val activeSocket = IO.socket(serverUrl, opts)
+            socket = activeSocket
 
-            socket?.on(Socket.EVENT_CONNECT) {
+            listen(activeSocket, Socket.EVENT_CONNECT) {
                 Log.d(TAG, "Wear OS direct socket connected to $serverUrl")
-                isConnected = true
-                onStatusChanged?.invoke(context.getString(R.string.status_connected_direct))
-                joinRoom(roomCode)
-                onConnected()
-            }
-
-            socket?.on(Socket.EVENT_DISCONNECT) {
-                Log.d(TAG, "Wear OS direct socket disconnected")
+                if (socket !== activeSocket) return@listen
                 isConnected = false
-                onStatusChanged?.invoke(context.getString(R.string.status_disconnected))
+                status(context.getString(R.string.status_restoring_room))
+                joinRoom(context.applicationContext, activeSocket, roomCode, onConnected)
             }
 
-            socket?.on(Socket.EVENT_CONNECT_ERROR) { args ->
+            listen(activeSocket, Socket.EVENT_DISCONNECT) {
+                if (socket !== activeSocket) return@listen
+                joinTimeout?.cancel()
+                Log.d(TAG, "Wear OS direct socket disconnected: ${it.firstOrNull()}")
+                isConnected = false
+                status(context.getString(R.string.status_disconnected))
+            }
+
+            listen(activeSocket, Socket.EVENT_CONNECT_ERROR) { args ->
+                if (socket !== activeSocket) return@listen
                 Log.e(TAG, "Wear OS direct socket connect error: ${args.firstOrNull()}")
                 isConnected = false
                 val errReason = args.firstOrNull()?.toString() ?: context.getString(R.string.err_network_unreachable)
-                onStatusChanged?.invoke(context.getString(R.string.status_failed_format, errReason))
+                status(context.getString(R.string.status_failed_format, errReason))
             }
 
-            socket?.on(SocketEvents.ROOM_UPDATED) { args ->
+            listen(activeSocket, SocketEvents.ROOM_UPDATED) { args ->
+                if (socket !== activeSocket) return@listen
                 if (args.isNotEmpty()) {
                     val rawJson = args[0].toString()
                     try {
-                        val room = Room.fromJson(rawJson) ?: return@on
-                        val myPlayer = room.players.find { it.userId == userId }
+                        val room = Room.fromJson(rawJson) ?: return@listen
+                        if (room.code != currentRoomCode) return@listen
+                        val myPlayer = room.players.find { it.userId == userId } ?: return@listen
                         val currentTurnUserId = room.turnOrder.getOrNull(room.currentTurnIndex ?: 0)
                         val currentTurnPlayer = room.players.find { it.userId == currentTurnUserId }
                         val isMyTurn = (currentTurnUserId == userId)
@@ -94,11 +165,11 @@ object WearDirectSocketManager {
                             isMyTurn = isMyTurn,
                             currentTurnPlayerName = currentTurnPlayer?.name ?: "",
                             turnOrder = room.turnOrder,
-                            myCards = myPlayer?.cards ?: emptyList(),
+                            myCards = myPlayer.cards,
                             pocketedBallNumbers = room.pocketedBallNumbers,
                             winnerName = room.players.find { it.isWinner }?.name,
                             players = playerSummaries,
-                            myPlayerName = myPlayer?.name ?: userName,
+                            myPlayerName = myPlayer.name,
                             lastRoundScores = room.lastRoundScores,
                             lastActionText = room.lastActionText,
                             timestamp = System.currentTimeMillis()
@@ -112,25 +183,75 @@ object WearDirectSocketManager {
                 }
             }
 
-            socket?.connect()
+            activeSocket.connect()
         } catch (e: Exception) {
             Log.e(TAG, "Direct socket error", e)
-            onStatusChanged?.invoke(context.getString(R.string.status_connect_failed_format, e.message ?: ""))
+            status(context.getString(R.string.status_connect_failed_format, e.message ?: ""))
         }
     }
 
-    private fun joinRoom(code: String) {
+    private fun listen(activeSocket: Socket, event: String, listener: (Array<out Any>) -> Unit) {
+        val scope = connectionScope ?: return
+        activeSocket.on(event, Emitter.Listener { args ->
+            scope.launch {
+                if (socket === activeSocket) listener(args)
+            }
+        })
+    }
+
+    private fun joinRoom(context: Context, activeSocket: Socket, code: String, onConnected: () -> Unit) {
+        val token = sessionToken
         val payload = JSONObject().apply {
             put("roomCode", code)
             put("userId", userId)
-            put("name", userName)
-            put("avatar", "⌚")
+            if (token != null) {
+                put("sessionToken", token)
+            } else {
+                put("name", userName)
+                put("avatar", "⌚")
+            }
         }
-            socket?.emit(SocketEvents.JOIN_ROOM, payload)
+        val scope = connectionScope ?: return
+        joinTimeout?.cancel()
+        val timeout = scope.launch {
+            delay(15_000L)
+            if (socket === activeSocket && !isConnected) {
+                status(context.getString(R.string.status_room_timeout))
+                // Replace the transport so a late acknowledgement cannot authorize an old socket.
+                connect(context, code, serverUrl, userId, sessionToken, onConnected)
+            }
+        }
+        joinTimeout = timeout
+        activeSocket.emit(if (token == null) SocketEvents.JOIN_ROOM else SocketEvents.REJOIN_ROOM, payload, Ack { args ->
+            scope.launch {
+                if (socket !== activeSocket || !activeSocket.connected()) return@launch
+                timeout.cancel()
+                val response = args.firstOrNull() as? JSONObject
+                if (response?.optBoolean("success") != true) {
+                    isConnected = false
+                    val message = response?.optString("message")?.takeIf { it.isNotBlank() }
+                        ?: context.getString(R.string.status_room_failed)
+                    status(message)
+                    // Keep the credential for a deliberate retry; never bypass failed authentication.
+                    WearDataLayerListenerService.clearState()
+                    return@launch
+                }
+                val receivedToken = response.optString("sessionToken").takeIf { it.isNotBlank() }
+                if (receivedToken == null) {
+                    status(context.getString(R.string.status_room_failed))
+                    return@launch
+                }
+                sessionToken = receivedToken
+                WearUserPrefs.saveRoomSession(context, WearUserPrefs.RoomSession(serverUrl, code, userId, receivedToken))
+                isConnected = true
+                status(context.getString(R.string.status_connected_direct))
+                onConnected()
+            }
+        })
     }
 
     fun pocketBall(roomCode: String, cardId: String) {
-        if (socket?.connected() == true) {
+        if (isConnected && socket?.connected() == true) {
             val payload = JSONObject().apply {
                 put("roomCode", roomCode)
                 put("cardId", cardId)
@@ -140,7 +261,7 @@ object WearDirectSocketManager {
     }
 
     fun drawPenalty(roomCode: String) {
-        if (socket?.connected() == true) {
+        if (isConnected && socket?.connected() == true) {
             val payload = JSONObject().apply {
                 put("roomCode", roomCode)
             }
@@ -149,7 +270,7 @@ object WearDirectSocketManager {
     }
 
     fun retractBall(roomCode: String) {
-        if (socket?.connected() == true) {
+        if (isConnected && socket?.connected() == true) {
             val payload = JSONObject().apply {
                 put("roomCode", roomCode)
             }
@@ -158,7 +279,7 @@ object WearDirectSocketManager {
     }
 
     fun accidentalPocket(roomCode: String, ballNumber: Int) {
-        if (socket?.connected() == true) {
+        if (isConnected && socket?.connected() == true) {
             val payload = JSONObject().apply {
                 put("roomCode", roomCode)
                 put("ballNumber", ballNumber)
@@ -168,7 +289,7 @@ object WearDirectSocketManager {
     }
 
     fun refereePocketBall(roomCode: String, targetUserId: String, ballNumber: Int) {
-        if (socket?.connected() == true) {
+        if (isConnected && socket?.connected() == true) {
             val payload = JSONObject().apply {
                 put("roomCode", roomCode)
                 put("targetUserId", targetUserId)
@@ -179,7 +300,7 @@ object WearDirectSocketManager {
     }
 
     fun refereeDrawPenalty(roomCode: String, targetUserId: String) {
-        if (socket?.connected() == true) {
+        if (isConnected && socket?.connected() == true) {
             val payload = JSONObject().apply {
                 put("roomCode", roomCode)
                 put("targetUserId", targetUserId)
@@ -189,7 +310,7 @@ object WearDirectSocketManager {
     }
 
     fun breakPocket(roomCode: String, ballNumber: Int) {
-        if (socket?.connected() == true) {
+        if (isConnected && socket?.connected() == true) {
             val payload = JSONObject().apply {
                 put("roomCode", roomCode)
                 put("ballNumber", ballNumber)
@@ -199,16 +320,19 @@ object WearDirectSocketManager {
     }
 
     fun disconnect() {
-        try {
-            if (socket?.connected() == true) {
-                socket?.disconnect()
-            }
+        managerScope.launch {
+            connectionScope?.cancel()
+            connectionScope = null
+            joinTimeout = null
+            socket?.off()
+            socket?.disconnect()
             socket = null
             isConnected = false
             currentRoomCode = null
+            sessionToken = null
+            lastStatus = null
+            appContext?.let { WearUserPrefs.clearRoomSession(it) }
             WearDataLayerListenerService.clearState()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error disconnecting socket", e)
         }
     }
 }

@@ -93,7 +93,7 @@ object WearBluetoothClient {
                         while (isRunning && isConnected) {
                             val line = reader.readLine() ?: break
                             if (line.isNotBlank()) {
-                                Log.d(TAG, "Received Bluetooth credentials from phone: $line")
+                                Log.d(TAG, "Received Bluetooth payload from phone")
                                 try {
                                     val jsonObj = org.json.JSONObject(line)
                                     val event = jsonObj.optString("event")
@@ -112,7 +112,8 @@ object WearBluetoothClient {
                                                 context = context,
                                                 roomCode = roomCode,
                                                 url = targetUrl,
-                                                customUserId = userId.ifBlank { null }
+                                                customUserId = userId.ifBlank { null },
+                                                customSessionToken = jsonObj.optString("sessionToken").takeIf { it.isNotBlank() && it != "null" }
                                             )
                                         }
                                     } else {

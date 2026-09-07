@@ -52,6 +52,7 @@ dependencies {
     implementation(project(":shared-models"))
 
     implementation(libs.androidx.core.ktx)
+    implementation(libs.kotlinx.coroutines.android)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.material.icons.core)

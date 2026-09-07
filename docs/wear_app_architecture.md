@@ -25,7 +25,7 @@ WearDataLayerListenerService.roomStateFlow / WearDirectSocketManager
   - `WearDataLayerListenerService` 监听手机伴侣端 DataLayer 广播。
   - `WearDirectSocketManager` 在直连模式下维持与后端 Socket.IO 的直接连接。
 - **单 Activity 原则与 Window 职责**：
-  - `WearMainActivity` 负责管理系统的 `Window` 属性（如基于房间状态进入/刷新 2 分钟 `FLAG_KEEP_SCREEN_ON` 常亮超时倒计时）。
+  - `WearMainActivity` 负责管理系统的 `Window` 属性（如通过 `LaunchedEffect(roomState)` 与 `delay` 刷新 2 分钟 `FLAG_KEEP_SCREEN_ON` 常亮超时倒计时，使用 `finally` 在取消或结束时清理）。
   - 所有页面与弹层切换均在 `WearMainActivity` 内部通过 Compose 状态控制，保持 UI 层 (`com.poolpoker.wear.ui`) 的纯粹性，避免与 Android System Window API 产生耦合。
 
 ---
@@ -76,3 +76,13 @@ WearDataLayerListenerService.roomStateFlow / WearDirectSocketManager
    - 侧滑仅关闭当前弹层（`showPocketModal = false` / `showFoulModal = false`），返回上一级（手牌主界面），不会退出 Activity 返回手表桌面。
 4. **视觉跟随动画与按钮对齐**：
    - 侧滑过程中，`SwipeToDismissBox` 将底层的 `WearMainGameContent` 实时透露呈现，实现符合 Wear OS Design 规范的平滑手势跟随滑动。点击界面底部的「返回/取消」按钮与从左侧滑返回的逻辑完全对齐。
+
+
+## 4. 直连会话恢复与故障反馈
+
+- `WearUserPrefs` 按服务器地址、房间号和用户身份保存最近一次成功入房的 `sessionToken`；Activity 回到前台时，如果尚无直连 Socket，自动恢复该会话。应用进程被终止后保留凭证，清除应用数据或卸载后的恢复不作保证。
+- 首次入房使用带 ACK 的 `join_room`；已有凭证时，每次 Socket 重连均使用 `rejoin_room`。`isConnected` 表示服务器已确认入房，而不是仅建立传输连接。服务器拒绝原因显示在连接页，拒绝后不绕过鉴权重新创建玩家。
+- 入房 ACK 超时 15 秒会重建 Socket；替换前移除旧监听并关闭旧连接，事件与 ACK 通过 `Dispatchers.Main.immediate` 在主线程处理并校验 Socket 实例，防止旧连接覆盖新连接状态。Socket 管理器持有进程级调度 scope，每个连接持有可取消的子 scope；超时使用 `Job + delay`，ACK 到达时取消超时 Job，替换连接或主动断开时取消整个连接 scope。连接不绑定 Activity 生命周期，以便 Activity 重建后继续恢复房间。离开房间时清除保存的会话。
+- 直连模式断线期间的操作会提示重连后重试，不转发至手机、不缓存重放进球或罚牌，避免重复记分。没有直连会话的手机伴侣模式继续使用 DataLayer。
+- 手机通过原生 `room_credentials` 桥同步 `sessionToken`，手表以同一身份恢复房间；蓝牙日志不打印凭证原文。
+- 旧版本未保存的手表会话凭证无法通过房间号补回；原玩家仍在房内时服务器会拒绝普通加入，保持既有身份安全约束。

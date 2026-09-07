@@ -141,6 +141,59 @@ describe('roomLifecycleService', () => {
     expect(getSocketSession('socket-host-2')).toEqual({ roomCode: '8642', userId: 'user-host' });
   });
 
+  it('restores the same hand after a 40-minute disconnect using the saved join credential', () => {
+    vi.useFakeTimers();
+    applyRoomLifecycleCommand(
+      {
+        type: 'create_room',
+        socketId: 'socket-host',
+        payload: { userId: 'user-host', name: 'Host', avatar: '🎱', ballConfigKey: 'default' },
+      },
+      createDeps(['1234'], ['session-host'])
+    );
+    const joined = applyRoomLifecycleCommand(
+      {
+        type: 'join_room',
+        socketId: 'socket-guest',
+        payload: { roomCode: '1234', userId: 'watch', name: 'Watch', avatar: '⌚' },
+      },
+      createDeps([], ['session-watch'])
+    );
+    const room = getRoom('1234') as ServerRoom;
+    room.status = 'playing';
+    const watch = room.players.find((player) => player.userId === 'watch');
+    const savedToken = joined.response?.sessionToken;
+    if (!watch || !savedToken) throw new Error('Watch join did not create a session');
+    watch.cards = [createCard('remaining', 8)];
+    watch.pocketedCards = [createCard('pocketed', 2)];
+    watch.totalScore = 12;
+    const deck = [...room.deck];
+    applyRoomLifecycleCommand({ type: 'disconnect', socketId: 'socket-guest' });
+    vi.advanceTimersByTime(40 * 60 * 1000);
+
+    const wrongFlow = applyRoomLifecycleCommand({
+      type: 'join_room',
+      socketId: 'socket-b',
+      payload: { roomCode: '1234', userId: 'watch', name: 'Watch', avatar: '⌚' },
+    });
+    expect(wrongFlow.response?.success).toBe(false);
+    expect(getSocketSession('socket-b')).toBeUndefined();
+
+    const restored = applyRoomLifecycleCommand({
+      type: 'rejoin_room',
+      socketId: 'socket-b',
+      payload: { roomCode: '1234', userId: 'watch', sessionToken: savedToken },
+    });
+    expect(restored.response?.success).toBe(true);
+    expect(getSocketSession('socket-b')).toEqual({ roomCode: '1234', userId: 'watch' });
+    expect(watch.online).toBe(true);
+    expect(watch.cards).toEqual([createCard('remaining', 8)]);
+    expect(watch.pocketedCards).toEqual([createCard('pocketed', 2)]);
+    expect(watch.totalScore).toBe(12);
+    expect(room.players).toHaveLength(2);
+    expect(room.deck).toEqual(deck);
+  });
+
   it('transfers host ownership when the current host leaves', () => {
     applyRoomLifecycleCommand(
       {

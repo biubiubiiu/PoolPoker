@@ -20,6 +20,7 @@ playServicesWearable = "20.0.1"
 # Third Party
 socketIoClient = "2.1.2"
 kotlinxSerialization = "1.11.0"
+kotlinxCoroutines = "1.9.0"
 
 # SDK Configuration
 compileSdk = "37"
@@ -50,6 +51,8 @@ play-services-wearable = { group = "com.google.android.gms", name = "play-servic
 # Socket.IO & Serialization
 socket-io-client = { group = "io.socket", name = "socket.io-client", version.ref = "socketIoClient" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

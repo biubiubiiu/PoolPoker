@@ -214,3 +214,8 @@
 | [android_tauri_architecture.md](android_tauri_architecture.md) | Android 移动端 & Tauri 架构设计（Tauri v2 打包 APK、顶层 Gradle 多模块、Wear OS DataLayer 状态同步、R8 混淆规则） |
 | [wear_app_architecture.md](wear_app_architecture.md) | Wear OS 手表端架构（Jetpack Compose for Wear OS 模块划分、单 Activity 架构、Swipe-To-Dismiss 侧滑手势导航规范） |
 | [implement_log.md](implement_log.md) | 实现步骤日志（按轮次记录需求、探索与决策、最终改动、commit） |
+
+
+### Wear OS 直连恢复（2026-09-07）
+
+`WearDirectSocketManager` 使用入房 ACK 保存会话凭证，网络重连执行 `rejoin_room`，进程重启由 `WearMainActivity` 恢复最近成功会话。连接状态区分传输建立与入房成功，拒绝入房显示服务器原因；断线操作提示重试。手机原生凭证桥同步 token，详细生命周期见 `docs/wear_app_architecture.md` 第 4 节。

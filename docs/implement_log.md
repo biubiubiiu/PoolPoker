@@ -312,3 +312,19 @@
   - `server/__tests__/protocolContract.spec.ts` — 新增：协议漂移契约测试。
 - **验收**：`./node_modules/.bin/vue-tsc --noEmit` 通过；`./node_modules/.bin/vitest run --reporter verbose` 通过（6 个测试文件、30 个测试）；`./node_modules/.bin/biome check .` 通过；`android/./gradlew :shared-models:compileDebugKotlin :wear-app:compileDebugKotlin :app:compileDebugKotlin` 通过（Gradle 仍输出 Tauri 依赖与生成 WebView 代码的既有 deprecated warning）。
 - **commit**：未提交（工作区改动）
+
+
+### Wear OS 断线与进程重启后的会话恢复 [2026-09-07]
+- **问题**：直连 Socket 每次连接都发送 `join_room`，未处理 ACK、未保存 token；已有玩家被服务端拒绝，但 UI 仍显示已连接。断线操作还会错误地转发到手机，未连接手机时没有反馈。
+- **改动**：保存最近成功会话的服务器、房间、用户和凭证；重连使用 `rejoin_room`，Activity 启动时自动恢复；连接成功以入房 ACK 为准，显示拒绝原因并在 ACK 超时后重建连接。统一主线程处理连接事件并过滤旧 Socket 回调。直连断线操作提示重试；手机原生凭证桥补充 token 并去除蓝牙凭证原文日志。
+- **回归**：新增服务端测试，覆盖断线 40 分钟后普通加入被拒绝、持保存凭证恢复且手牌、已进球、积分与牌堆不变。房间生命周期测试 8 项通过；`vue-tsc --noEmit`、相关文件 Biome 检查与 `git diff --check` 通过。
+- **限制**：旧版本未保存的凭证无法事后恢复；未进行真机 40 分钟持续运行、断网及 kill/relaunch 复测。最初传输断线原因需要设备日志确认。
+- **Android 构建**：原工程缺少 git-ignored 的 `tauri.settings.gradle`，以临时独立工程保留相同 Gradle、SDK、依赖与 Wear/shared 源码构建，`:wear-app:assembleDebug` 通过；APK 复制到 `android/wear-app/build/outputs/apk/debug/wear-app-debug.apk`。未安装到设备。
+
+
+### Wear OS 使用协程管理延时与主线程调度 [2026-09-07]
+- **输入**：使用 Kotlin 协程替换本次修复中的 Runnable，优先采用现代 Android 组件。
+- **改动**：`WearDirectSocketManager` 用 `Dispatchers.Main.immediate` 调度 Socket 事件与 ACK，用 `Job + delay` 替换入房超时；每个连接有独立子 scope，替换或关闭时整体取消，避免旧连接的排队任务和超时继续执行。进程级管理 scope 保留跨 Activity 的连接生命周期。
+- **界面**：`WearMainActivity` 的亮屏倒计时改为 `LaunchedEffect(roomState)`，状态变化自动取消重启，使用 `finally` 清除 Window 标记。
+- **依赖**：Wear 模块显式声明 `kotlinx-coroutines-android` 1.9.0，复用已有依赖版本，不依赖 Compose 间接引入。
+- **验证**：相同依赖及源码的独立 Wear 工程 `:wear-app:assembleDebug --offline` 通过，`git diff --check` 通过；已刷新原 APK 输出路径，未安装或真机复测。
