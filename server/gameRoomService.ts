@@ -1,5 +1,6 @@
+import crypto from 'node:crypto';
 import type { ServerRoom } from '../shared/types/game';
-import { addLog, checkGameWinners, computeTurnOrder, handleGameFinished } from './gameEngine';
+import { addLog, checkGameWinners, computeTurnOrder, getPocketedBallNumbers, handleGameFinished } from './gameEngine';
 import { recordGameStep, undoGameStep } from './gameState';
 import { create54PokerDeck, shuffle } from './pokerDeck';
 
@@ -9,7 +10,7 @@ export type GameRoomCommand =
   | { type: 'draw_penalty'; actorUserId: string }
   | { type: 'accidental_pocket'; ballNumber: number }
   | { type: 'break_pocket'; ballNumber: number }
-  | { type: 'retract_ball' }
+  | { type: 'retract_ball'; expectedRevision?: number }
   | { type: 'referee_pocket_ball'; actorSocketId: string; targetUserId: string; ballNumber: number }
   | { type: 'referee_draw_penalty'; targetUserId: string }
   | { type: 'restart_game'; actorUserId: string }
@@ -25,6 +26,36 @@ const BROADCAST_ONLY: GameRoomCommandResult = { shouldBroadcast: true, changed: 
 const CHANGED: GameRoomCommandResult = { shouldBroadcast: true, changed: true };
 
 export function applyGameRoomCommand(room: ServerRoom, command: GameRoomCommand): GameRoomCommandResult {
+  if (
+    command.type === 'retract_ball' &&
+    command.expectedRevision !== undefined &&
+    command.expectedRevision !== (room.revision ?? 0)
+  )
+    return BROADCAST_ONLY;
+  const targetUserId =
+    'targetUserId' in command ? command.targetUserId : 'actorUserId' in command ? command.actorUserId : undefined;
+  const ballNumber =
+    'ballNumber' in command
+      ? command.ballNumber
+      : command.type === 'pocket_ball'
+        ? room.players.find((p) => p.userId === command.actorUserId)?.cards.find((c) => c.id === command.cardId)
+            ?.ballNumber
+        : undefined;
+  const result = executeGameRoomCommand(room, command);
+  if (result.changed) {
+    room.revision = (room.revision ?? 0) + 1;
+    room.sceneEvent = {
+      id: crypto.randomUUID(),
+      kind: command.type,
+      revision: room.revision,
+      targetUserId,
+      ballNumber,
+    };
+  }
+  return result;
+}
+
+function executeGameRoomCommand(room: ServerRoom, command: GameRoomCommand): GameRoomCommandResult {
   switch (command.type) {
     case 'start_game':
       return startGame(room, command.actorUserId);
@@ -92,7 +123,8 @@ function pocketBall(room: ServerRoom, actorUserId: string, cardId: string): Game
   if (!player) return NO_BROADCAST;
 
   const cardIndex = player.cards.findIndex((c) => c.id === cardId);
-  if (cardIndex === -1) return NO_BROADCAST;
+  if (cardIndex === -1 || getPocketedBallNumbers(room).includes(player.cards[cardIndex].ballNumber))
+    return NO_BROADCAST;
 
   const [pocketedCard] = player.cards.splice(cardIndex, 1);
   player.pocketedCards.push(pocketedCard);
@@ -167,6 +199,7 @@ function refereePocketBall(
 ): GameRoomCommandResult {
   if (room.status !== 'playing') return NO_BROADCAST;
 
+  if (getPocketedBallNumbers(room).includes(ballNumber)) return NO_BROADCAST;
   const targetPlayer = room.players.find((p) => p.userId === targetUserId);
   if (!targetPlayer) return NO_BROADCAST;
 

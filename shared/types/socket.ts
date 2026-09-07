@@ -50,6 +50,7 @@ export interface BreakPocketPayload {
 }
 
 export interface RetractBallPayload {
+  expectedRevision?: number;
   roomCode: string;
 }
 
@@ -123,13 +124,28 @@ export interface ClientToServerEvents {
   ) => void;
   [CLIENT_TO_SERVER_EVENTS.updateSettings]: (payload: UpdateSettingsPayload) => void;
   [CLIENT_TO_SERVER_EVENTS.startGame]: (payload: StartGamePayload) => void;
-  [CLIENT_TO_SERVER_EVENTS.pocketBall]: (payload: PocketBallPayload) => void;
+  [CLIENT_TO_SERVER_EVENTS.pocketBall]: (
+    payload: PocketBallPayload,
+    callback?: (res: SocketCallbackResponse) => void
+  ) => void;
   [CLIENT_TO_SERVER_EVENTS.drawPenalty]: (payload: DrawPenaltyPayload) => void;
   [CLIENT_TO_SERVER_EVENTS.accidentalPocket]: (payload: AccidentalPocketPayload) => void;
-  [CLIENT_TO_SERVER_EVENTS.breakPocket]: (payload: BreakPocketPayload) => void;
-  [CLIENT_TO_SERVER_EVENTS.retractBall]: (payload: RetractBallPayload) => void;
-  [CLIENT_TO_SERVER_EVENTS.refereePocketBall]: (payload: RefereePocketBallPayload) => void;
-  [CLIENT_TO_SERVER_EVENTS.refereeDrawPenalty]: (payload: RefereeDrawPenaltyPayload) => void;
+  [CLIENT_TO_SERVER_EVENTS.breakPocket]: (
+    payload: BreakPocketPayload,
+    callback?: (res: SocketCallbackResponse) => void
+  ) => void;
+  [CLIENT_TO_SERVER_EVENTS.retractBall]: (
+    payload: RetractBallPayload,
+    callback?: (res: SocketCallbackResponse) => void
+  ) => void;
+  [CLIENT_TO_SERVER_EVENTS.refereePocketBall]: (
+    payload: RefereePocketBallPayload,
+    callback?: (res: SocketCallbackResponse) => void
+  ) => void;
+  [CLIENT_TO_SERVER_EVENTS.refereeDrawPenalty]: (
+    payload: RefereeDrawPenaltyPayload,
+    callback?: (res: SocketCallbackResponse) => void
+  ) => void;
   [CLIENT_TO_SERVER_EVENTS.requestRestart]: (payload: RequestRestartPayload) => void;
   [CLIENT_TO_SERVER_EVENTS.confirmRestart]: (payload: ConfirmRestartPayload) => void;
   [CLIENT_TO_SERVER_EVENTS.restartGame]: (payload: RestartGamePayload) => void;

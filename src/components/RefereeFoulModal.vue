@@ -71,11 +71,10 @@ const onConfirm = () => {
                              ? 'bg-red-950/60 border-red-500 text-amber-300 shadow-md ring-1 ring-red-500/50'
                              : 'bg-black/40 border-white/10 text-gray-300 hover:border-white/30']">
             <div class="flex items-center space-x-2">
-              <span class="text-lg">{{ p.avatar }}</span>
               <span>{{ p.name }}</span>
             </div>
             <span class="text-[10px] text-gray-400 font-normal">
-              当前手牌 {{ p.activeCardCount !== undefined ? p.activeCardCount : (p.cards ? p.cards.length : p.cardCount) }} 张
+              当前手牌 {{ p.cardCount }} 张
             </span>
           </button>
         </div>

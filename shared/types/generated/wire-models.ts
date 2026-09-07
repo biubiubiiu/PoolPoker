@@ -11,7 +11,9 @@ export interface Room {
   logs: GameLog[];
   players: Player[];
   pocketedBallNumbers: number[];
+  revision?: number;
   roundCount: number;
+  sceneEvent?: SceneEvent;
   settings: RoomSettings;
   status: RoomStatus;
   turnOrder: string[];
@@ -64,6 +66,14 @@ export type CardColor = 'black' | 'red' | 'gold' | 'gray';
  * 扑克花色与大小王
  */
 export type SuitType = 'spade' | 'heart' | 'club' | 'diamond' | 'joker-small' | 'joker-big';
+
+export interface SceneEvent {
+  ballNumber?: number;
+  id: string;
+  kind: string;
+  revision: number;
+  targetUserId?: string;
+}
 
 export interface RoomSettings {
   ballConfigKey: string;

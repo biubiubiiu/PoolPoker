@@ -37,7 +37,7 @@ const winningPlayers = computed<Array<WinnerInfo | Player>>(() => {
 });
 
 const winningNamesText = computed(() => {
-  return winningPlayers.value.map((p) => `${p.avatar} ${p.name}`).join(' 、 ');
+  return winningPlayers.value.map((p) => p.name).join(' 、 ');
 });
 
 const roundScoreMap = computed<Record<string, number>>(() => {
@@ -76,7 +76,7 @@ function getRemainingCardPenalties(player: Player): Map<string, number> {
         <h3 class="text-[10px] text-amber-300 font-bold uppercase tracking-widest">Victory</h3>
         <h2 class="text-lg font-black text-white mt-0.5">{{ winningNamesText }}</h2>
         <p class="text-xs text-emerald-300 mt-0.5" v-if="winningPlayers.length > 1">共同清空有效手牌，赢得本局胜利！</p>
-        <p class="text-xs text-emerald-300 mt-0.5" v-else>率先消完所有手上扑克牌！</p>
+        <p class="text-xs text-emerald-300 mt-0.5" v-else>已清空有效手牌，保留的免打牌不影响获胜。</p>
       </div>
 
       <!-- 图例说明 -->
@@ -94,7 +94,6 @@ function getRemainingCardPenalties(player: Player): Map<string, number> {
 
           <!-- 玩家信息行 -->
           <div class="flex items-center gap-2 mb-2">
-            <span class="text-xl">{{ player.avatar }}</span>
             <span class="font-bold text-sm text-gray-100">{{ player.name }}</span>
             <span v-if="isWinner(player)" class="text-[9px] bg-amber-400 text-black font-black px-1.5 py-0.5 rounded-full">🏆 胜出</span>
             <span v-if="player.online === false" class="text-[9px] bg-red-950 text-red-300 border border-red-700/50 px-1 rounded">暂离</span>

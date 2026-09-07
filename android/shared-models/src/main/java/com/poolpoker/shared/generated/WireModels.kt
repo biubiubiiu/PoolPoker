@@ -19,7 +19,9 @@ data class Room (
     val logs: List<GameLog>,
     val players: List<Player>,
     val pocketedBallNumbers: List<Int>,
+    val revision: Int? = null,
     val roundCount: Int,
+    val sceneEvent: SceneEvent? = null,
     val settings: RoomSettings,
     val status: RoomStatus,
     val turnOrder: List<String>,
@@ -99,6 +101,17 @@ enum class SuitType(val value: String) {
     @SerialName("joker-big") JOKER_BIG("joker-big"),
     @SerialName("joker-small") JOKER_SMALL("joker-small"),
     @SerialName("spade") SPADE("spade");
+}
+
+@Serializable
+data class SceneEvent (
+    val ballNumber: Int? = null,
+    val id: String,
+    val kind: String,
+    val revision: Int,
+    val targetUserId: String? = null
+) {
+    companion object
 }
 
 @Serializable

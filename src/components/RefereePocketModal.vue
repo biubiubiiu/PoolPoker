@@ -7,6 +7,7 @@ const props = defineProps<{
   players: Player[];
   pocketedBallNumbers: number[];
   defaultUserId?: string;
+  defaultBallNumber?: number | null;
 }>();
 
 const emit = defineEmits<{
@@ -20,15 +21,15 @@ const selectedBall = ref<number | null>(null);
 const isBreakPocket = ref<boolean>(false);
 
 watch(
-  [() => props.show, () => props.defaultUserId],
-  ([newShow, newDefaultUser]) => {
+  [() => props.show, () => props.defaultUserId, () => props.defaultBallNumber],
+  ([newShow, newDefaultUser, newDefaultBall]) => {
     if (newShow) {
       if (newDefaultUser && props.players.some((p) => p.userId === newDefaultUser)) {
         selectedUserId.value = newDefaultUser;
       } else if (props.players.length > 0) {
         selectedUserId.value = props.players[0].userId;
       }
-      selectedBall.value = null;
+      selectedBall.value = newDefaultBall ?? null;
       isBreakPocket.value = false;
     }
   },
@@ -117,7 +118,6 @@ const onConfirm = () => {
                            selectedUserId === p.userId && !isBreakPocket
                              ? 'bg-emerald-500/30 border-emerald-400 text-amber-300 shadow-md ring-1 ring-emerald-400/50'
                              : 'bg-black/40 border-white/10 text-gray-300 hover:border-white/30']">
-            <span>{{ p.avatar }}</span>
             <span>{{ p.name }}</span>
           </button>
           <button @click="selectBreakPocket"

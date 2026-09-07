@@ -91,6 +91,18 @@
       ],
       "additionalProperties": false
     },
+    "SceneEvent": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "type": "string" },
+        "revision": { "type": "integer" },
+        "targetUserId": { "type": "string" },
+        "ballNumber": { "type": "integer" }
+      },
+      "required": ["id", "kind", "revision"],
+      "additionalProperties": false
+    },
     "Room": {
       "type": "object",
       "properties": {
@@ -126,7 +138,9 @@
           "type": "array",
           "items": { "$ref": "RoundScoreEntry" }
         },
-        "lastActionText": { "type": ["string", "null"] }
+        "lastActionText": { "type": ["string", "null"] },
+        "revision": { "type": "integer" },
+        "sceneEvent": { "$ref": "SceneEvent" }
       },
       "required": [
         "code",

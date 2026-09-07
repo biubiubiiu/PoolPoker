@@ -1,10 +1,11 @@
 import type { Card, Player, Room } from '@shared/types/game';
 import { CLIENT_TO_SERVER_EVENTS, SERVER_TO_CLIENT_EVENTS } from '@shared/types/protocol';
 import type { SocketCallbackResponse } from '@shared/types/socket';
-import confetti from 'canvas-confetti';
 import type { Socket } from 'socket.io-client';
 import { computed, onMounted, onUnmounted, type Ref, ref, watch } from 'vue';
 import { showAlert, showConfirm } from '@/utils/dialog';
+import { shouldAnimateRoomChange } from '@/utils/roomPresentation';
+import { useGameAudio } from './useGameAudio';
 
 export interface BallConfigItem {
   name: string;
@@ -20,14 +21,13 @@ export interface UseGameRoomOptions {
   socket: Ref<Socket | null>;
   userId: Ref<string>;
   playerName: Ref<string>;
-  selectedAvatar: Ref<string>;
   selectedBallConfigKey: Ref<string>;
   getFinalPlayerName: () => string;
   serverUrl?: Ref<string>;
 }
 
 export function useGameRoom(options: UseGameRoomOptions) {
-  const { socket, userId, playerName, selectedAvatar, selectedBallConfigKey, getFinalPlayerName, serverUrl } = options;
+  const { socket, userId, playerName, selectedBallConfigKey, getFinalPlayerName, serverUrl } = options;
 
   const getApiUrl = (endpointPath: string) => {
     const base = serverUrl?.value ? serverUrl.value.trim().replace(/\/+$/, '') : '';
@@ -39,7 +39,99 @@ export function useGameRoom(options: UseGameRoomOptions) {
   const showRefereePocketModal = ref<boolean>(false);
   const showRefereeFoulModal = ref<boolean>(false);
   const refereeTargetUserId = ref<string>('');
+  const refereeSelectedBallNum = ref<number | null>(null);
   const ballConfigs = ref<Record<string, BallConfigItem>>({});
+
+  // 3D 动画与卡牌交互状态
+  const elevatedCardIds = ref<string[]>([]);
+  const selectableCardIds = ref<string[]>([]);
+  const discardingCardId = ref<string | null>(null);
+
+  const recordingUserId = ref(userId.value);
+  const breakMode = ref(false);
+  const pendingAction = ref(false);
+  const feedback = ref('');
+  const displayCards = ref<Card[] | null>(null);
+  const displayPocketed = ref<number[] | null>(null);
+  const sceneAnimationId = ref<string | null>(null);
+  const sceneReset = ref(0);
+  const isPresenting = ref(false);
+  const { unlockAudio, playCardSlideSound } = useGameAudio();
+  let presentationTimers: ReturnType<typeof setTimeout>[] = [];
+  let pendingTimer: ReturnType<typeof setTimeout> | undefined;
+  let suppressNextAnimation = true;
+  const clearPresentation = () => {
+    presentationTimers.forEach(clearTimeout);
+    presentationTimers = [];
+    displayCards.value = null;
+    displayPocketed.value = null;
+    elevatedCardIds.value = [];
+    discardingCardId.value = null;
+    isPresenting.value = false;
+  };
+  const acceptRoom = (next: Room, live = false) => {
+    const previous = room.value;
+    if (previous?.code === next.code && (next.revision ?? 0) < (previous.revision ?? 0)) return;
+    const changed = previous?.sceneEvent?.id !== next.sceneEvent?.id;
+    if (!live) feedback.value = '';
+    const animate = shouldAnimateRoomChange(previous, next, {
+      live,
+      suppress: suppressNextAnimation,
+      visible: document.visibilityState === 'visible',
+    });
+    if (!live || suppressNextAnimation) {
+      sceneReset.value++;
+      suppressNextAnimation = false;
+    }
+    if (changed || !live) {
+      clearTimeout(pendingTimer);
+      pendingAction.value = false;
+      clearPresentation();
+    }
+    room.value = next;
+    if (!next.players.some((p) => p.userId === recordingUserId.value)) recordingUserId.value = userId.value;
+    if (!previous || previous.code !== next.code || previous.roundCount !== next.roundCount) breakMode.value = false;
+    if (!animate || !next.sceneEvent || !previous) return;
+    sceneAnimationId.value = next.sceneEvent.id;
+    const oldHand = previous.players.find((p) => p.userId === userId.value)?.cards ?? [];
+    const newPlayer = next.players.find((p) => p.userId === userId.value);
+    const discarded = oldHand.find((card) => newPlayer?.pocketedCards.some((c) => c.id === card.id));
+    const addedBalls = next.pocketedBallNumbers.filter((n) => !previous.pocketedBallNumbers.includes(n));
+    feedback.value = '';
+    if ((addedBalls.length || discarded) && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      isPresenting.value = true;
+      displayCards.value = [...oldHand].sort((a, b) => a.ballNumber - b.ballNumber);
+      displayPocketed.value = previous.pocketedBallNumbers;
+      elevatedCardIds.value = oldHand.filter((c) => addedBalls.includes(c.ballNumber)).map((c) => c.id);
+      presentationTimers.push(
+        setTimeout(() => {
+          discardingCardId.value = discarded?.id ?? null;
+          if (discarded) playCardSlideSound();
+        }, 260)
+      );
+      presentationTimers.push(setTimeout(clearPresentation, 850));
+    }
+  };
+  const sendAction = (event: string, payload: Record<string, unknown>) => {
+    if (!room.value || pendingAction.value || isPresenting.value) return;
+    if (!socket.value?.connected) {
+      feedback.value = '连接已断开，重连后再记球';
+      return;
+    }
+    unlockAudio();
+    pendingAction.value = true;
+    feedback.value = '';
+    socket.value.emit(event, { roomCode: room.value.code, ...payload }, (result: SocketCallbackResponse) => {
+      clearTimeout(pendingTimer);
+      pendingAction.value = false;
+      if (!result.success) feedback.value = result.message || '牌局已变化，请查看最新状态';
+    });
+    pendingTimer = setTimeout(() => {
+      pendingAction.value = false;
+      feedback.value = '未收到确认，请核对最新牌局后再操作';
+      void fetchLatestRoomState();
+    }, 4000);
+  };
 
   const syncNativeRoomSession = async (code: string | null) => {
     if (typeof window !== 'undefined' && ('__TAURI__' in window || '__TAURI_INTERNALS__' in window)) {
@@ -71,14 +163,6 @@ export function useGameRoom(options: UseGameRoomOptions) {
     }
   );
 
-  const triggerConfetti = () => {
-    confetti({
-      particleCount: 100,
-      spread: 70,
-      origin: { y: 0.6 },
-    });
-  };
-
   const smartFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     let tauriErr: any = null;
     if (typeof window !== 'undefined' && ('__TAURI__' in window || '__TAURI_INTERNALS__' in window)) {
@@ -109,7 +193,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
           return;
         if (data.success && data.room?.players.some((p: Player) => p.userId === userId.value)) {
           console.log('[HTTP] 极速同步房间状态成功');
-          room.value = data.room;
+          acceptRoom(data.room);
         }
       } else if (res.status === 404) {
         console.warn('[HTTP Sync] 房间不存在或已解散');
@@ -123,6 +207,9 @@ export function useGameRoom(options: UseGameRoomOptions) {
   };
 
   const handleVisibilityChange = () => {
+    suppressNextAnimation = true;
+    clearPresentation();
+    sceneReset.value++;
     if (document.visibilityState === 'visible') {
       console.log('[VisibilityChange] 页面切回前台，立即发起 HTTP 快照同步与 Socket 重连');
       fetchLatestRoomState();
@@ -168,10 +255,13 @@ export function useGameRoom(options: UseGameRoomOptions) {
 
   onUnmounted(() => {
     document.removeEventListener('visibilitychange', handleVisibilityChange);
+    clearPresentation();
+    clearTimeout(pendingTimer);
   });
 
   const setupSocketListeners = (s: Socket) => {
     const handleConnect = () => {
+      suppressNextAnimation = true;
       console.log('[Socket] Connected, ID:', s.id);
 
       const savedRoomCode = localStorage.getItem('billiards_room_code');
@@ -205,14 +295,10 @@ export function useGameRoom(options: UseGameRoomOptions) {
     }
 
     s.on(SERVER_TO_CLIENT_EVENTS.roomUpdated, (updatedRoom: Room) => {
-      room.value = updatedRoom;
+      acceptRoom(updatedRoom, true);
       showRestartConfirm.value = false;
       if (updatedRoom?.code) {
         localStorage.setItem('billiards_room_code', updatedRoom.code);
-      }
-
-      if (updatedRoom?.winners && updatedRoom.winners.length > 0) {
-        triggerConfetti();
       }
     });
 
@@ -320,7 +406,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
       {
         userId: userId.value,
         name: finalName,
-        avatar: selectedAvatar.value,
+        avatar: '🎱',
         ballConfigKey: selectedBallConfigKey.value,
       },
       (res: SocketCallbackResponse) => {
@@ -343,7 +429,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
         roomCode: code,
         userId: userId.value,
         name: finalName,
-        avatar: selectedAvatar.value,
+        avatar: '🎱',
       },
       (res: SocketCallbackResponse) => {
         if (!res.success) {
@@ -387,54 +473,64 @@ export function useGameRoom(options: UseGameRoomOptions) {
     socket.value?.emit(CLIENT_TO_SERVER_EVENTS.startGame, { roomCode: room.value.code });
   };
 
-  // 5. 销牌 / 确认进球
-  const handleConfirmPocket = async (card: Card) => {
-    if (room.value?.status !== 'playing') return;
-
-    if (isCardDimmed(card)) {
-      await showAlert(
-        `【${card.ballNumber}号球】已在场上被打进，你的卡片 [${card.suit}${card.rank}] 属于已进球免打卡，无需重复消去！`
+  const currentShooter = computed(
+    () => room.value?.players.find((p) => p.userId === recordingUserId.value) ?? myInfo.value
+  );
+  const selectRecordingPlayer = (id: string) => {
+    recordingUserId.value = id;
+    breakMode.value = false;
+  };
+  const nextRecordingPlayer = () => {
+    const order = turnOrderPlayers.value;
+    if (order.length)
+      selectRecordingPlayer(
+        order[(order.findIndex((p) => p.userId === recordingUserId.value) + 1) % order.length].userId
       );
+  };
+  const isMyTurn = computed(() => currentShooter.value?.userId === userId.value);
+  const handleHandCardClick = (card: Card) => {
+    if (room.value?.status !== 'playing') return;
+    if (isCardDimmed(card)) {
       return;
     }
-
-    const confirmText = `确认已经打进 ${card.ballNumber} 号球，消去卡片 [${card.suit}${card.rank}] 吗？`;
-    if (await showConfirm(confirmText, '确认出牌')) {
-      socket.value?.emit(CLIENT_TO_SERVER_EVENTS.pocketBall, {
-        roomCode: room.value.code,
-        cardId: card.id,
+    if (pendingAction.value || isPresenting.value) return;
+    selectRecordingPlayer(userId.value);
+    sendAction(CLIENT_TO_SERVER_EVENTS.pocketBall, { cardId: card.id });
+  };
+  const handleTableBallClick = (ballNum: number) => {
+    if (room.value?.status !== 'playing' || room.value.pocketedBallNumbers.includes(ballNum)) return;
+    if (breakMode.value) sendAction(CLIENT_TO_SERVER_EVENTS.breakPocket, { ballNumber: ballNum });
+    else
+      sendAction(CLIENT_TO_SERVER_EVENTS.refereePocketBall, {
+        targetUserId: currentShooter.value?.userId ?? userId.value,
+        ballNumber: ballNum,
       });
-    }
   };
 
+  const handleConfirmPocket = handleHandCardClick;
+
   // 6. 撤回上一步操作（整体回退到上一步状态）
-  const handleRetract = async () => {
-    if (!room.value) return;
-    const lastActionText = room.value.lastActionText;
-    if (!lastActionText) {
-      await showAlert('当前没有可撤回的操作', '提示');
-      return;
-    }
-    if (await showConfirm(`确认撤回到上一步操作吗？\n\n将撤回：${lastActionText}`, '确认撤回')) {
-      socket.value?.emit(CLIENT_TO_SERVER_EVENTS.retractBall, { roomCode: room.value.code });
-    }
+  const handleRetract = () => {
+    if (!room.value?.lastActionText || room.value.status !== 'playing') return;
+    // Capture the visible revision; never undo somebody else's newer operation.
+    sendAction(CLIENT_TO_SERVER_EVENTS.retractBall, { expectedRevision: room.value.revision ?? 0 });
   };
 
   // 7. 记录进球与记录犯规打开与确认（默认选中当前玩家自己）
-  const openRefereePocket = (targetUserId?: string) => {
-    refereeTargetUserId.value = targetUserId || userId.value;
+  const openRefereePocket = (targetUserId?: string, ballNum?: number) => {
+    refereeTargetUserId.value = targetUserId || currentShooter.value?.userId || userId.value;
+    refereeSelectedBallNum.value = ballNum ?? null;
     showRefereePocketModal.value = true;
   };
 
   const openRefereeFoul = (targetUserId?: string) => {
-    refereeTargetUserId.value = targetUserId || userId.value;
+    refereeTargetUserId.value = targetUserId || currentShooter.value?.userId || userId.value;
     showRefereeFoulModal.value = true;
   };
 
   const handleRefereePocketConfirm = (targetUserId: string, ballNum: number) => {
     if (!room.value) return;
-    socket.value?.emit(CLIENT_TO_SERVER_EVENTS.refereePocketBall, {
-      roomCode: room.value.code,
+    sendAction(CLIENT_TO_SERVER_EVENTS.refereePocketBall, {
       targetUserId,
       ballNumber: ballNum,
     });
@@ -443,8 +539,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
 
   const handleBreakPocketConfirm = (ballNum: number) => {
     if (!room.value) return;
-    socket.value?.emit(CLIENT_TO_SERVER_EVENTS.breakPocket, {
-      roomCode: room.value.code,
+    sendAction(CLIENT_TO_SERVER_EVENTS.breakPocket, {
       ballNumber: ballNum,
     });
     showRefereePocketModal.value = false;
@@ -452,8 +547,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
 
   const handleRefereeFoulConfirm = (targetUserId: string) => {
     if (!room.value) return;
-    socket.value?.emit(CLIENT_TO_SERVER_EVENTS.refereeDrawPenalty, {
-      roomCode: room.value.code,
+    sendAction(CLIENT_TO_SERVER_EVENTS.refereeDrawPenalty, {
       targetUserId,
     });
     showRefereeFoulModal.value = false;
@@ -483,10 +577,22 @@ export function useGameRoom(options: UseGameRoomOptions) {
 
   return {
     room,
+    recordingUserId,
+    breakMode,
+    pendingAction,
+    feedback,
+    displayCards,
+    displayPocketed,
+    sceneAnimationId,
+    sceneReset,
+    isPresenting,
+    selectRecordingPlayer,
+    nextRecordingPlayer,
     showRestartConfirm,
     showRefereePocketModal,
     showRefereeFoulModal,
     refereeTargetUserId,
+    refereeSelectedBallNum,
     ballConfigs,
     ballConfigOptions,
     activeBallConfigKey,
@@ -495,6 +601,11 @@ export function useGameRoom(options: UseGameRoomOptions) {
     myInfo,
     sortedMyCards,
     turnOrderPlayers,
+    currentShooter,
+    isMyTurn,
+    elevatedCardIds,
+    selectableCardIds,
+    discardingCardId,
     isCardDimmed,
     handleCreateRoom,
     handleJoinRoom,
@@ -502,6 +613,8 @@ export function useGameRoom(options: UseGameRoomOptions) {
     handleStartGame,
     handleKickPlayer,
     handleConfirmPocket,
+    handleHandCardClick,
+    handleTableBallClick,
     handleRetract,
     openRefereePocket,
     openRefereeFoul,
