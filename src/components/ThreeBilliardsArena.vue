@@ -27,7 +27,9 @@ let observer: ResizeObserver;
 let frame = 0;
 let environment: THREE.WebGLRenderTarget | undefined;
 let disposed = false;
-const pockets = [-1, 1].flatMap((x) => [-4.95, 0, 4.95].map((z) => new THREE.Vector3(x * 2.9, 0.5, z)));
+const pockets = [-1, 1].flatMap((x) =>
+  [-4.95, 0, 4.95].map((z) => new THREE.Vector3(x * (z === 0 ? 3.05 : 2.9), 0.655, z))
+);
 interface Ball {
   number: number;
   mesh: THREE.Mesh<THREE.SphereGeometry, THREE.MeshPhysicalMaterial>;
@@ -74,13 +76,6 @@ function build() {
   Object.assign(lamp.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8 });
   lamp.shadow.normalBias = 0.025;
   scene.add(lamp);
-  const box = (w: number, h: number, d: number, x: number, y: number, z: number, material: THREE.Material) => {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
-    mesh.position.set(x, y, z);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    scene.add(mesh);
-  };
   const wood = new THREE.MeshStandardMaterial({ color: '#493025', roughness: 0.36 });
   const cushion = new THREE.MeshStandardMaterial({ color: '#1e5b48', roughness: 0.9 });
   const clothCanvas = document.createElement('canvas');
@@ -99,29 +94,120 @@ function build() {
   cloth.repeat.set(7, 12);
   cloth.colorSpace = THREE.SRGBColorSpace;
   const felt = new THREE.MeshStandardMaterial({ map: cloth, roughness: 1 });
-  box(7.6, 0.55, 12, 0, -0.4, 0, wood);
-  box(6.4, 0.12, 10.8, 0, -0.07, 0, felt);
-  for (const x of [-3.5, 3.5]) {
-    box(0.55, 0.35, 11.8, x, 0, 0, wood);
-    for (const z of [-2.65, 2.65]) box(0.25, 0.25, 4.7, x > 0 ? 3.12 : -3.12, 0.1, z, cushion);
-  }
-  for (const z of [-5.65, 5.65]) {
-    box(7.5, 0.35, 0.5, 0, 0, z, wood);
-    box(5.2, 0.25, 0.25, 0, 0.1, z > 0 ? 5.22 : -5.22, cushion);
+  // Cut the same six openings through the cloth and wooden bed. The dark
+  // pocket floor sits below them, rather than covering the cloth with a cylinder.
+  const pocketRadius = 0.48 * 0.7;
+  const bedShape = (halfWidth: number, halfLength: number, corner: number) => {
+    const shape = new THREE.Shape();
+    shape.moveTo(-halfWidth + corner, -halfLength);
+    shape.lineTo(halfWidth - corner, -halfLength);
+    shape.quadraticCurveTo(halfWidth, -halfLength, halfWidth, -halfLength + corner);
+    shape.lineTo(halfWidth, halfLength - corner);
+    shape.quadraticCurveTo(halfWidth, halfLength, halfWidth - corner, halfLength);
+    shape.lineTo(-halfWidth + corner, halfLength);
+    shape.quadraticCurveTo(-halfWidth, halfLength, -halfWidth, halfLength - corner);
+    shape.lineTo(-halfWidth, -halfLength + corner);
+    shape.quadraticCurveTo(-halfWidth, -halfLength, -halfWidth + corner, -halfLength);
+    for (const p of pockets) {
+      const opening = new THREE.Path();
+      opening.absarc(p.x, -p.z, pocketRadius, 0, Math.PI * 2, true);
+      shape.holes.push(opening);
+    }
+    return shape;
+  };
+  const bed = new THREE.Mesh(
+    new THREE.ExtrudeGeometry(bedShape(3.8, 6, 0.38), {
+      depth: 0.55,
+      bevelEnabled: false,
+      curveSegments: 32,
+    }),
+    wood
+  );
+  bed.rotation.x = -Math.PI / 2;
+  bed.position.y = -0.4;
+  bed.castShadow = true;
+  bed.receiveShadow = true;
+  scene.add(bed);
+  const clothGeometry = new THREE.ShapeGeometry(bedShape(3.42, 5.5, 0.12), 48);
+  // ShapeGeometry UVs are world-sized; normalize to preserve the cloth weave.
+  const uv = clothGeometry.getAttribute('uv');
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 6.84, uv.getY(i) / 11);
+  const playingSurface = new THREE.Mesh(clothGeometry, felt);
+  playingSurface.rotation.x = -Math.PI / 2;
+  playingSurface.position.y = 0.155;
+  playingSurface.receiveShadow = true;
+  scene.add(playingSurface);
+
+  // Each cushion ends in a sloped jaw that opens toward the pocket mouth.
+  const addCushion = (points: [number, number][]) => {
+    const shape = new THREE.Shape(points.map(([x, z]) => new THREE.Vector2(x, -z)));
+    shape.closePath();
+    const mesh = new THREE.Mesh(
+      new THREE.ExtrudeGeometry(shape, {
+        depth: 0.16,
+        bevelEnabled: true,
+        bevelSize: 0.045,
+        bevelThickness: 0.045,
+        bevelSegments: 3,
+      }),
+      cushion
+    );
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.y = 0.17;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+  };
+  // Meet the smaller middle-pocket circle at both ends of each jaw.
+  const middleJawRadius = pocketRadius + 0.045; // Allow for the cushion bevel.
+  const middleOuterAngle = Math.acos((3.35 - 3.05) / middleJawRadius);
+  const middleInnerAngle = Math.acos((2.99 - 3.05) / middleJawRadius);
+  const middleOuterJaw = middleJawRadius * Math.sin(middleOuterAngle);
+  const middleInnerJaw = middleJawRadius * Math.sin(middleInnerAngle);
+  const cornerSideJaw = 4.95 - Math.sqrt(pocketRadius ** 2 - (2.99 - 2.9) ** 2);
+  const cornerEndJaw = 2.9 - Math.sqrt(pocketRadius ** 2 - (5.08 - 4.95) ** 2);
+  for (const side of [-1, 1]) {
+    for (const end of [-1, 1]) {
+      addCushion([
+        [side * 3.35, end * middleOuterJaw],
+        [side * 3.35, end * 4.77],
+        [side * 2.99, end * cornerSideJaw],
+        [side * 2.99, end * middleInnerJaw],
+        ...Array.from({ length: 8 }, (_, i): [number, number] => {
+          const angle = middleInnerAngle + ((middleOuterAngle - middleInnerAngle) * (i + 1)) / 8;
+          return [side * (3.05 + middleJawRadius * Math.cos(angle)), end * middleJawRadius * Math.sin(angle)];
+        }),
+      ]);
+    }
+    addCushion([
+      [-2.9, side * 5.43],
+      [2.9, side * 5.43],
+      [cornerEndJaw, side * 5.08],
+      [-cornerEndJaw, side * 5.08],
+    ]);
   }
   const brass = new THREE.MeshStandardMaterial({ color: '#bea979', metalness: 0.65, roughness: 0.35 });
-  pockets.forEach((p) => {
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.48, 0.085, 8, 32), brass);
+  const pocketTrim = new THREE.MeshStandardMaterial({ color: '#87908e', metalness: 0.45, roughness: 0.5 });
+  const pocketLining = new THREE.MeshStandardMaterial({ color: '#101512', roughness: 1, side: THREE.DoubleSide });
+  for (const p of pockets) {
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(pocketRadius, 0.014, 8, 64), pocketTrim);
     rim.rotation.x = Math.PI / 2;
-    rim.position.set(p.x, 0.09, p.z);
+    rim.position.set(p.x, 0.16, p.z);
     scene.add(rim);
-    const hole = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.47, 0.34, 0.3, 32),
-      new THREE.MeshBasicMaterial({ color: '#071310' })
+    const lining = new THREE.Mesh(
+      new THREE.CylinderGeometry(pocketRadius, pocketRadius * 0.84, 0.5, 64, 1, true),
+      pocketLining
     );
-    hole.position.set(p.x, -0.01, p.z);
-    scene.add(hole);
-  });
+    lining.position.set(p.x, -0.1, p.z);
+    scene.add(lining);
+    const floor = new THREE.Mesh(
+      new THREE.CircleGeometry(pocketRadius * 0.86, 64),
+      new THREE.MeshBasicMaterial({ color: '#030605' })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.set(p.x, -0.35, p.z);
+    scene.add(floor);
+  }
   for (const x of [-3.5, 3.5])
     for (const z of [-3.8, -1.3, 1.3, 3.8]) {
       const dot = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), brass);
@@ -129,7 +215,7 @@ function build() {
       scene.add(dot);
     }
   for (let n = 1; n <= 15; n++) {
-    const origin = new THREE.Vector3((((n - 1) % 3) - 1) * 1.78, 0.5, (Math.floor((n - 1) / 3) - 2) * 2.05);
+    const origin = new THREE.Vector3((((n - 1) % 3) - 1) * 1.78, 0.655, (Math.floor((n - 1) / 3) - 2) * 2.05);
     const material = new THREE.MeshPhysicalMaterial({
       map: ballTexture(n),
       // Keep a soft resin sheen without washing out the printed numbers.
@@ -233,7 +319,7 @@ function draw() {
       if (t > 0.74) {
         const drop = (t - 0.74) / 0.26;
         b.mesh.scale.setScalar(1 - drop);
-        b.mesh.position.y = 0.5 - drop * 0.5;
+        b.mesh.position.y = b.origin.y - drop * 0.5;
         if (!b.dropped) {
           b.dropped = true;
           playPocketDropSound();
