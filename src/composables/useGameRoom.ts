@@ -510,10 +510,20 @@ export function useGameRoom(options: UseGameRoomOptions) {
   const handleConfirmPocket = handleHandCardClick;
 
   // 6. 撤回上一步操作（整体回退到上一步状态）
-  const handleRetract = () => {
+  let retractConfirmOpen = false;
+  const handleRetract = async () => {
     if (!room.value?.lastActionText || room.value.status !== 'playing') return;
-    // Capture the visible revision; never undo somebody else's newer operation.
-    sendAction(CLIENT_TO_SERVER_EVENTS.retractBall, { expectedRevision: room.value.revision ?? 0 });
+    if (pendingAction.value || isPresenting.value || retractConfirmOpen) return;
+    const { code, revision, lastActionText } = room.value;
+    retractConfirmOpen = true;
+    try {
+      if (!(await showConfirm(`确认撤回到上一步操作吗？\n将撤回：${lastActionText}`, '撤回确认'))) return;
+      if (room.value?.code !== code || room.value.status !== 'playing') return;
+      // Keep the revision shown in the confirmation, even if a newer action arrives.
+      sendAction(CLIENT_TO_SERVER_EVENTS.retractBall, { expectedRevision: revision ?? 0 });
+    } finally {
+      retractConfirmOpen = false;
+    }
   };
 
   // 7. 记录进球与记录犯规打开与确认（默认选中当前玩家自己）

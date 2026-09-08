@@ -425,16 +425,6 @@ body {
   color: #eadbc0;
   min-height: 36px;
 }
-.recording-actions select {
-  font-size: 17px;
-  font-weight: 600;
-  background: transparent;
-  max-width: 75%;
-  padding: 3px 0;
-}
-.recording-actions option {
-  background: #172b22;
-}
 .recording-actions button {
   font-size: 11px;
   min-height: 36px;

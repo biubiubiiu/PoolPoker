@@ -4,6 +4,7 @@ import GameControlDrawer from '@/components/GameControlDrawer.vue';
 import GameHeader from '@/components/GameHeader.vue';
 import GameMinimalHud from '@/components/GameMinimalHud.vue';
 import HandDeckFan from '@/components/HandDeckFan.vue';
+import RecordingPlayerDropdown from '@/components/RecordingPlayerDropdown.vue';
 import RefereeFoulModal from '@/components/RefereeFoulModal.vue';
 import RefereePocketModal from '@/components/RefereePocketModal.vue';
 import RestartModal from '@/components/RestartModal.vue';
@@ -125,10 +126,8 @@ const showControlDrawer = ref(false);
       <div class="recording-strip">
         <div class="recording-caption">{{ breakMode ? '开球进球 · 不归属玩家' : '记球对象' }}</div>
         <div class="recording-actions">
-          <select v-if="!breakMode" aria-label="记球对象" :value="recordingUserId"
-            @change="selectRecordingPlayer(($event.target as HTMLSelectElement).value)">
-            <option v-for="p in room.players" :key="p.userId" :value="p.userId">为 {{ p.name }}{{ p.userId === userId ? '（我）' : '' }} 记球</option>
-          </select>
+          <RecordingPlayerDropdown v-if="!breakMode" :players="room.players" :userId="userId"
+            :selectedUserId="recordingUserId" @select="selectRecordingPlayer" />
           <strong v-else>逐个点选已进球</strong>
           <button v-if="!breakMode && room.players.length > 1" @click="nextRecordingPlayer" aria-label="切换下一位记球对象">下一位 →</button>
           <button v-if="breakMode" @click="breakMode = false">完成开球</button>
