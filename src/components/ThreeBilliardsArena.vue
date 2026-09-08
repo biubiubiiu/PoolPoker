@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useGameAudio } from '@/composables/useGameAudio';
 import { createBallTextureCanvas } from '@/utils/ballTexture';
+import { loadTableGLTF } from '@/utils/tableModelLoader';
 
 const props = defineProps<{
   pocketedBallNumbers: number[];
@@ -50,163 +50,21 @@ function ballTexture(n: number) {
   return texture;
 }
 
-function buildProceduralTable(targetScene: THREE.Scene) {
-  const wood = new THREE.MeshStandardMaterial({ color: '#493025', roughness: 0.36 });
-  const cushion = new THREE.MeshStandardMaterial({ color: '#1e5b48', roughness: 0.9 });
-  const clothCanvas = document.createElement('canvas');
-  clothCanvas.width = clothCanvas.height = 128;
-  const ctx = clothCanvas.getContext('2d');
-  if (!ctx) throw new Error('Canvas unavailable');
-  ctx.fillStyle = '#235e46';
-  ctx.fillRect(0, 0, 128, 128);
-  for (let x = 0; x < 128; x += 2) {
-    ctx.fillStyle = x % 4 ? '#225b44' : '#27654b';
-    ctx.fillRect(x, 0, 1, 128);
-    ctx.fillRect(0, x, 128, 0.4);
-  }
-  const cloth = new THREE.CanvasTexture(clothCanvas);
-  cloth.wrapS = cloth.wrapT = THREE.RepeatWrapping;
-  cloth.repeat.set(7, 12);
-  cloth.colorSpace = THREE.SRGBColorSpace;
-  const felt = new THREE.MeshStandardMaterial({ map: cloth, roughness: 1 });
-  const pocketRadius = 0.48 * 0.7;
-  const bedShape = (halfWidth: number, halfLength: number, corner: number) => {
-    const shape = new THREE.Shape();
-    shape.moveTo(-halfWidth + corner, -halfLength);
-    shape.lineTo(halfWidth - corner, -halfLength);
-    shape.quadraticCurveTo(halfWidth, -halfLength, halfWidth, -halfLength + corner);
-    shape.lineTo(halfWidth, halfLength - corner);
-    shape.quadraticCurveTo(halfWidth, halfLength, halfWidth - corner, halfLength);
-    shape.lineTo(-halfWidth + corner, halfLength);
-    shape.quadraticCurveTo(-halfWidth, halfLength, -halfWidth, halfLength - corner);
-    shape.lineTo(-halfWidth, -halfLength + corner);
-    shape.quadraticCurveTo(-halfWidth, -halfLength, -halfWidth + corner, -halfLength);
-    for (const p of pockets) {
-      const opening = new THREE.Path();
-      opening.absarc(p.x, -p.z, pocketRadius, 0, Math.PI * 2, true);
-      shape.holes.push(opening);
-    }
-    return shape;
-  };
-  const bed = new THREE.Mesh(
-    new THREE.ExtrudeGeometry(bedShape(3.8, 6, 0.38), {
-      depth: 0.55,
-      bevelEnabled: false,
-      curveSegments: 32,
-    }),
-    wood
-  );
-  bed.rotation.x = -Math.PI / 2;
-  bed.position.y = -0.4;
-  bed.castShadow = true;
-  bed.receiveShadow = true;
-  targetScene.add(bed);
-  const clothGeometry = new THREE.ShapeGeometry(bedShape(3.42, 5.5, 0.12), 48);
-  const uv = clothGeometry.getAttribute('uv');
-  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 6.84, uv.getY(i) / 11);
-  const playingSurface = new THREE.Mesh(clothGeometry, felt);
-  playingSurface.rotation.x = -Math.PI / 2;
-  playingSurface.position.y = 0.155;
-  playingSurface.receiveShadow = true;
-  targetScene.add(playingSurface);
-
-  const addCushion = (points: [number, number][]) => {
-    const shape = new THREE.Shape(points.map(([x, z]) => new THREE.Vector2(x, -z)));
-    shape.closePath();
-    const mesh = new THREE.Mesh(
-      new THREE.ExtrudeGeometry(shape, {
-        depth: 0.16,
-        bevelEnabled: true,
-        bevelSize: 0.045,
-        bevelThickness: 0.045,
-        bevelSegments: 3,
-      }),
-      cushion
-    );
-    mesh.rotation.x = -Math.PI / 2;
-    mesh.position.y = 0.17;
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    targetScene.add(mesh);
-  };
-  const middleJawRadius = pocketRadius + 0.045;
-  const middleOuterAngle = Math.acos((3.35 - 3.05) / middleJawRadius);
-  const middleInnerAngle = Math.acos((2.99 - 3.05) / middleJawRadius);
-  const middleOuterJaw = middleJawRadius * Math.sin(middleOuterAngle);
-  const middleInnerJaw = middleJawRadius * Math.sin(middleInnerAngle);
-  const cornerSideJaw = 4.95 - Math.sqrt(pocketRadius ** 2 - (2.99 - 2.9) ** 2);
-  const cornerEndJaw = 2.9 - Math.sqrt(pocketRadius ** 2 - (5.08 - 4.95) ** 2);
-  for (const side of [-1, 1]) {
-    for (const end of [-1, 1]) {
-      addCushion([
-        [side * 3.35, end * middleOuterJaw],
-        [side * 3.35, end * 4.77],
-        [side * 2.99, end * cornerSideJaw],
-        [side * 2.99, end * middleInnerJaw],
-        ...Array.from({ length: 8 }, (_, i): [number, number] => {
-          const angle = middleInnerAngle + ((middleOuterAngle - middleInnerAngle) * (i + 1)) / 8;
-          return [side * (3.05 + middleJawRadius * Math.cos(angle)), end * middleJawRadius * Math.sin(angle)];
-        }),
-      ]);
-    }
-    addCushion([
-      [-2.9, side * 5.43],
-      [2.9, side * 5.43],
-      [cornerEndJaw, side * 5.08],
-      [-cornerEndJaw, side * 5.08],
-    ]);
-  }
-  const brass = new THREE.MeshStandardMaterial({ color: '#bea979', metalness: 0.65, roughness: 0.35 });
-  const pocketTrim = new THREE.MeshStandardMaterial({ color: '#87908e', metalness: 0.45, roughness: 0.5 });
-  const pocketLining = new THREE.MeshStandardMaterial({ color: '#101512', roughness: 1, side: THREE.DoubleSide });
-  for (const p of pockets) {
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(pocketRadius, 0.014, 8, 64), pocketTrim);
-    rim.rotation.x = Math.PI / 2;
-    rim.position.set(p.x, 0.16, p.z);
-    targetScene.add(rim);
-    const lining = new THREE.Mesh(
-      new THREE.CylinderGeometry(pocketRadius, pocketRadius * 0.84, 0.5, 64, 1, true),
-      pocketLining
-    );
-    lining.position.set(p.x, -0.1, p.z);
-    targetScene.add(lining);
-    const floor = new THREE.Mesh(
-      new THREE.CircleGeometry(pocketRadius * 0.86, 64),
-      new THREE.MeshBasicMaterial({ color: '#030605' })
-    );
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.set(p.x, -0.35, p.z);
-    targetScene.add(floor);
-  }
-  for (const x of [-3.5, 3.5])
-    for (const z of [-3.8, -1.3, 1.3, 3.8]) {
-      const dot = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), brass);
-      dot.position.set(x, 0.19, z);
-      targetScene.add(dot);
-    }
-}
-
 async function loadTableModel(targetScene: THREE.Scene) {
-  try {
-    const loader = new GLTFLoader();
-    const gltf = await loader.loadAsync('/models/billiards_table.glb');
-    const table = gltf.scene;
-    table.updateMatrixWorld(true);
-    const modelPockets: THREE.Vector3[] = [];
-    table.traverse((child: THREE.Object3D) => {
-      if (child.name.startsWith('PocketTarget_')) modelPockets.push(child.getWorldPosition(new THREE.Vector3()));
-      if (child instanceof THREE.Mesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
-      }
-    });
-    // Anchors exported from Blender keep the drop animation aligned with the openings.
-    if (modelPockets.length === 6) pockets = modelPockets;
-    targetScene.add(table);
-  } catch (error) {
-    console.warn('Failed to load table GLB, falling back to procedural table:', error);
-    buildProceduralTable(targetScene);
-  }
+  const gltf = await loadTableGLTF();
+  const table = gltf.scene;
+  table.updateMatrixWorld(true);
+  const modelPockets: THREE.Vector3[] = [];
+  table.traverse((child: THREE.Object3D) => {
+    if (child.name.startsWith('PocketTarget_')) modelPockets.push(child.getWorldPosition(new THREE.Vector3()));
+    if (child instanceof THREE.Mesh) {
+      child.castShadow = true;
+      child.receiveShadow = true;
+    }
+  });
+  // Anchors exported from Blender keep the drop animation aligned with the openings.
+  if (modelPockets.length === 6) pockets = modelPockets;
+  targetScene.add(table);
 }
 
 async function build() {
@@ -270,7 +128,14 @@ async function build() {
   floor.receiveShadow = true;
   scene.add(floor);
 
-  await loadTableModel(scene);
+  try {
+    await loadTableModel(scene);
+  } catch (error) {
+    console.error('Failed to load table GLB model:', error);
+    failed.value = true;
+    ready.value = false;
+    return;
+  }
   if (disposed) return;
   for (let n = 1; n <= 15; n++) {
     const origin = new THREE.Vector3((((n - 1) % 3) - 1) * 1.78, 0.655, (Math.floor((n - 1) / 3) - 2) * 2.05);
@@ -470,17 +335,9 @@ watch(
     draw();
   }
 );
-onMounted(() => {
-  build().catch(() => {
-    failed.value = true;
-  });
-  document.addEventListener('visibilitychange', visibility);
-});
-onBeforeUnmount(() => {
-  disposed = true;
+function cleanupScene() {
   cancelAnimationFrame(frame);
   observer?.disconnect();
-  document.removeEventListener('visibilitychange', visibility);
   renderer?.domElement.removeEventListener('webglcontextlost', onContextLost);
   scene?.traverse((object: THREE.Object3D) => {
     if (object instanceof THREE.Mesh) {
@@ -495,23 +352,70 @@ onBeforeUnmount(() => {
   environment?.dispose();
   renderer?.dispose();
   renderer?.domElement.remove();
+  renderer = undefined;
+  balls.length = 0;
+  labels.value = [];
+}
+
+function retryBuild() {
+  if (disposed) return;
+  failed.value = false;
+  ready.value = false;
+  cleanupScene();
+  build().catch(() => {
+    failed.value = true;
+    ready.value = false;
+  });
+}
+
+onMounted(() => {
+  build().catch(() => {
+    failed.value = true;
+    ready.value = false;
+  });
+  document.addEventListener('visibilitychange', visibility);
+});
+onBeforeUnmount(() => {
+  disposed = true;
+  cleanupScene();
+  document.removeEventListener('visibilitychange', visibility);
 });
 </script>
 
 <template>
-  <div ref="host" class="arena" :class="{ 'arena-fallback': failed }" aria-label="球桌，点击球号记录进球">
+  <div ref="host" class="arena" :class="{ 'arena-failed': failed }" aria-label="球桌，点击球号记录进球">
+    <!-- 1. 3D 球台就绪后的球号交互热区 -->
     <template v-if="ready && !failed">
-      <button v-for="ball in labels" :key="ball.number" v-show="ball.visible"
-        class="ball-target" :style="{ transform: `translate(${ball.x}px, ${ball.y}px) translate(-50%, -50%)`, '--ball-diameter': `${ball.diameter}px` }"
-        :aria-label="`记录 ${ball.number} 号球入袋${pendingBallNumbers.includes(ball.number) ? '，我的待打球' : ''}`" :disabled="disabled || pocketedBallNumbers.includes(ball.number)"
-        @click="emit('ball-click', ball.number)"></button>
+      <button
+        v-for="ball in labels"
+        :key="ball.number"
+        v-show="ball.visible"
+        class="ball-target"
+        :style="{ transform: `translate(${ball.x}px, ${ball.y}px) translate(-50%, -50%)`, '--ball-diameter': `${ball.diameter}px` }"
+        :aria-label="`记录 ${ball.number} 号球入袋${pendingBallNumbers.includes(ball.number) ? '，我的待打球' : ''}`"
+        :disabled="disabled || pocketedBallNumbers.includes(ball.number)"
+        @click="emit('ball-click', ball.number)"
+      ></button>
     </template>
-    <div v-else class="fallback-balls">
-      <button v-for="n in 15" :key="n" :class="`fallback-ball ball-${n}`"
-        :aria-label="`记录 ${n} 号球入袋`" :disabled="disabled || pocketedBallNumbers.includes(n)"
-        :style="{ visibility: pocketedBallNumbers.includes(n) ? 'hidden' : 'visible' }"
-        @click="emit('ball-click', n)"><span>{{ n }}</span></button>
+
+    <!-- 2. 资源加载中动效 -->
+    <div v-else-if="!failed" class="table-loading" role="status" aria-live="polite">
+      <div class="loading-visual">
+        <div class="cue-ball-pulse"></div>
+        <div class="loading-spin-ring"></div>
+      </div>
+      <span class="loading-text">3D 球台展开中...</span>
+      <span class="loading-subtext">正在载入赛级拟真台呢与光影</span>
     </div>
+
+    <!-- 3. 加载异常提示与重试 -->
+    <div v-else class="table-error" role="alert">
+      <div class="error-badge">⚠️</div>
+      <span class="error-title">球台加载异常</span>
+      <span class="error-desc">3D 场景或模型资源载入未完成</span>
+      <button class="retry-button" type="button" @click="retryBuild">重新加载球台</button>
+    </div>
+
     <span class="table-signature" aria-hidden="true">POOLPOKER · CLUB TABLE</span>
   </div>
 </template>
@@ -520,7 +424,6 @@ onBeforeUnmount(() => {
 .arena { position: absolute; inset: 0; width: 100%; height: 100%; isolation: isolate; }
 .arena :deep(canvas) { position: absolute; inset: 0; }
 .ball-target { position: absolute; top: 0; left: 0; width: 44px; height: 44px; display: grid; place-items: center; cursor: pointer; background: transparent; border: 0; border-radius: 50%; color: #172720; }
-.fallback-ball span { display: grid; place-items: center; width: 20px; height: 20px; background: #fff9e8; border-radius: 50%; font: 700 12px Georgia, serif; box-shadow: inset 0 -1px 2px #6b654250; }
 
 .ball-target::after { content: ''; position: absolute; width: var(--ball-diameter); height: var(--ball-diameter); left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none; }
 @media (hover: hover) {
@@ -530,7 +433,116 @@ onBeforeUnmount(() => {
 .ball-target:focus-visible { outline: 2px solid #ead8b5; outline-offset: 1px; }
 .ball-target:disabled { cursor: default; }
 .table-signature { position: absolute; bottom: 5%; left: 0; right: 0; text-align: center; font-size: 8px; letter-spacing: 0.24em; color: #cdb88780; pointer-events: none; }
-.fallback-balls { position: absolute; inset: 8% 12%; display: grid; grid-template-columns: repeat(3,1fr); place-items: center; background: #275c48; border: 10px solid #4b3427; border-radius: 18px; }
-.fallback-ball { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; box-shadow: inset -4px -5px 6px #0006, 0 4px 5px #0005; }
-.arena-fallback :deep(canvas) { display: none; }
+
+/* Loading State */
+.table-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 10;
+  background: radial-gradient(circle at center, rgba(17, 36, 28, 0.72) 0%, rgba(7, 18, 14, 0.88) 75%);
+  backdrop-filter: blur(4px);
+  animation: fade-in 0.3s ease-out;
+}
+.loading-visual {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 12px;
+}
+.cue-ball-pulse {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #ffffff 0%, #ede7d3 58%, #c5bba0 100%);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 16px rgba(234, 216, 181, 0.35);
+  animation: pulse-ball 1.8s ease-in-out infinite;
+}
+.loading-spin-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(112, 180, 150, 0.15);
+  border-top-color: #d4af37;
+  border-right-color: #52a37e;
+  animation: spin-ring 1.1s cubic-bezier(0.5, 0.15, 0.5, 0.85) infinite;
+}
+.loading-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ecd8b4;
+  letter-spacing: 0.12em;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  margin-bottom: 3px;
+}
+.loading-subtext {
+  font-size: 11px;
+  color: #84a694;
+  letter-spacing: 0.04em;
+}
+
+/* Error State */
+.table-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  background: radial-gradient(circle at center, rgba(30, 20, 20, 0.85) 0%, rgba(12, 8, 8, 0.94) 80%);
+  backdrop-filter: blur(4px);
+  animation: fade-in 0.3s ease-out;
+}
+.error-badge {
+  font-size: 26px;
+  margin-bottom: 6px;
+}
+.error-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #f28b82;
+  margin-bottom: 4px;
+}
+.error-desc {
+  font-size: 12px;
+  color: #b0a4a4;
+  margin-bottom: 14px;
+}
+.retry-button {
+  padding: 6px 18px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #375344 0%, #20352b 100%);
+  border: 1px solid #70a48a;
+  color: #f5eedb;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.retry-button:hover {
+  border-color: #e5cd9e;
+  background: linear-gradient(135deg, #436654 0%, #294437 100%);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+.arena-failed :deep(canvas) { display: none; }
+
+@keyframes spin-ring {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+@keyframes pulse-ball {
+  0%, 100% { transform: scale(0.92); opacity: 0.85; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 </style>

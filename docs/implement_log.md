@@ -395,3 +395,11 @@
 
 ### 球台成品文件命名统一 [2026-09-08]
 - 当前成品工程和 GLB 去除 `_refined` 后缀，统一为 `billiards_table.blend` / `billiards_table.glb`；同步更新网页引用与维护文档。
+
+### 球台 GLB 前置预加载与移除参数化临时球桌 [2026-09-08]
+- **改动**：
+  1. 彻底移除 `ThreeBilliardsArena.vue` 中的 2D 参数化绿底棕边临时球桌（`.fallback-balls`）及 130 余行遗留的 3D 程序化球台代码（`buildProceduralTable`）。
+  2. 引入高品质台球 Loading 动效（流光旋转环 + 拟真母球呼吸脉冲 + 提示文案），并在加载异常时提供优雅的错误状态与重试入口。
+  3. 构建三级 GLB 资源预加载体系：`index.html` 增加 `<link rel="preload">` 底层预拉取；新增 `src/utils/tableModelLoader.ts` 开启 Three.js 内存缓存与 ArrayBuffer 单例管理；`App.vue` 在用户处于大厅阶段利用 `requestIdleCallback` 提前静默加载 `ThreeBilliardsArena` 代码块与 3.38MB GLB 模型。
+- **验证**：`pnpm run lint` 检查通过；`pnpm run test:unit` 全部 59 项通过；`pnpm run build` 成功，JS bundle 减少约 57KB，加载时间与过渡顺畅。
+

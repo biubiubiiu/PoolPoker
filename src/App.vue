@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, ref } from 'vue';
+import { computed, defineAsyncComponent, onMounted, ref } from 'vue';
 import GameControlDrawer from '@/components/GameControlDrawer.vue';
 import GameHeader from '@/components/GameHeader.vue';
 import GameMinimalHud from '@/components/GameMinimalHud.vue';
@@ -10,13 +10,14 @@ import RefereePocketModal from '@/components/RefereePocketModal.vue';
 import RestartModal from '@/components/RestartModal.vue';
 import RoomLobby from '@/components/RoomLobby.vue';
 import TableOpponentSeats from '@/components/TableOpponentSeats.vue';
-
-const ThreeBilliardsArena = defineAsyncComponent(() => import('@/components/ThreeBilliardsArena.vue'));
-
 import VictoryModal from '@/components/VictoryModal.vue';
 import { useGameRoom } from '@/composables/useGameRoom';
 import { usePlayerProfile } from '@/composables/usePlayerProfile';
 import { useSocket } from '@/composables/useSocket';
+import { preloadTableModel } from '@/utils/tableModelLoader';
+
+const loadArenaComponent = () => import('@/components/ThreeBilliardsArena.vue');
+const ThreeBilliardsArena = defineAsyncComponent(loadArenaComponent);
 
 const { userId, playerName, selectedBallConfigKey, getFinalPlayerName } = usePlayerProfile();
 
@@ -87,6 +88,21 @@ const pendingBallNumbers = computed(() =>
 );
 const showRulesModal = ref(false);
 const showControlDrawer = ref(false);
+
+onMounted(() => {
+  // 利用空闲时间静默预加载 3D 球台组件与 3.38MB GLB 模型，消除开局等待
+  const idlePreload = () => {
+    loadArenaComponent();
+    preloadTableModel();
+  };
+  if (typeof window !== 'undefined') {
+    if ('requestIdleCallback' in window) {
+      (window as Window & { requestIdleCallback: (cb: () => void) => number }).requestIdleCallback(idlePreload);
+    } else {
+      setTimeout(idlePreload, 1200);
+    }
+  }
+});
 </script>
 
 <template>
