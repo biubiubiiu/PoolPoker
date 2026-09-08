@@ -488,6 +488,7 @@ select:focus-visible {
   padding: 0 24px;
   display: flex;
   align-items: baseline;
+  flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 6px;
   padding-right: 80px;
@@ -504,6 +505,11 @@ select:focus-visible {
   display: none;
   color: #a0b19f;
   font-size: 10px;
+}
+.hand-heading .played-cards {
+  display: block;
+  flex-basis: 100%;
+  color: #8fa08d;
 }
 @media (min-width: 420px) {
   .hand-heading small {
@@ -530,37 +536,6 @@ select:focus-visible {
 }
 .hand-zone {
   z-index: 2;
-}
-.discard-tray {
-  position: absolute;
-  right: 18px;
-  bottom: 12px;
-  display: flex;
-  align-items: center;
-  pointer-events: none;
-}
-.discard-tray > span {
-  display: grid;
-  place-items: center;
-  width: 27px;
-  height: 36px;
-  background: #d8ceb7;
-  color: #283c30;
-  border-radius: 3px;
-  font:
-    600 11px Georgia,
-    serif;
-  margin-left: -9px;
-  transform: rotate(12deg);
-  box-shadow: 0 2px 4px #071b1699;
-}
-.discard-tray > span.red-card {
-  color: #923e31;
-}
-.discard-tray small {
-  margin-left: 10px;
-  color: #a8b4a1;
-  font-size: 9px;
 }
 html {
   background: #101d18;

@@ -17,6 +17,7 @@ const opponents = computed(() => props.players.filter((p) => p.userId !== props.
       :aria-pressed="currentShooterUserId === p.userId" :aria-label="`为 ${p.name} 记球`" @click="emit('select-player', p)">
       <span class="seat-name">{{ p.name }}</span>
       <span class="seat-count">待打 <b>{{ p.activeCardCount }}</b><span v-if="!p.online"> · 暂离</span></span>
+      <span v-if="p.pocketedCards.length" class="seat-played-cards">已出：{{ p.pocketedCards.map(card => `${card.rank}${card.suit}`).join(' ') }}</span>
     </button>
     <span v-if="!opponents.length" class="solo-seat">你的专属练习桌</span>
   </nav>
@@ -27,6 +28,7 @@ const opponents = computed(() => props.players.filter((p) => p.userId !== props.
 .seat-name { display: block; font-size: 12px; color: #ece9da; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .seat-count { font-size: 10px; color: #a9b6a9; font-variant-numeric: tabular-nums; }
 .seat-count b { color: #e0cc9d; }
+.seat-played-cards { display: block; margin-top: 2px; color: #8fa08d; font-size: 9px; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .seat.selected { border-color: #d3b982; background: #d3b9820d; }
 .solo-seat { font-size: 12px; color: #a4b3a3; padding: 10px; }
 </style>

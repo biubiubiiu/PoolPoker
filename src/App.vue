@@ -142,10 +142,6 @@ const showControlDrawer = ref(false);
         <ThreeBilliardsArena :pendingBallNumbers="pendingBallNumbers" :pocketedBallNumbers="room.pocketedBallNumbers" :animationId="sceneAnimationId"
           :resetKey="sceneReset" :disabled="busy || room.status !== 'playing'" :colors="ballConfigs[activeBallConfigKey]?.colors"
           @ball-click="handleTableBallClick" />
-        <div v-if="myInfo?.pocketedCards.length" class="discard-tray" aria-label="我已打出的牌">
-          <span v-for="card in myInfo.pocketedCards.slice(-3)" :key="card.id" :class="{ 'red-card': card.color === 'red' }">{{ card.rank }}{{ card.suit }}</span>
-          <small>已出</small>
-        </div>
       </div>
       <div v-if="feedback" class="action-error" role="alert">{{ feedback }}</div>
       <nav class="table-tools" aria-label="对局快捷操作">
@@ -155,7 +151,9 @@ const showControlDrawer = ref(false);
       </nav>
       <section class="hand-zone" aria-label="我的手牌">
         <div class="hand-heading"><span>我的手牌</span><strong>待打 {{ activeCards }} 张</strong>
-          <small>手牌 {{ sortedMyCards.length }} · 免打 {{ sortedMyCards.length - activeCards }}</small></div>
+          <small>手牌 {{ sortedMyCards.length }} · 免打 {{ sortedMyCards.length - activeCards }}</small>
+          <small v-if="myInfo?.pocketedCards.length" class="played-cards">已出：{{ myInfo.pocketedCards.map(card => `${card.rank}${card.suit}`).join(' ') }}</small>
+        </div>
         <HandDeckFan :key="sceneReset" :cards="displayCards ?? sortedMyCards"
           :pocketedBallNumbers="displayPocketed ?? room.pocketedBallNumbers" :elevatedCardIds="elevatedCardIds"
           :discardingCardId="discardingCardId" :disabled="busy || room.status !== 'playing'" @card-click="handleHandCardClick" />
