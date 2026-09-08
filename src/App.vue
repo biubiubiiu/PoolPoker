@@ -1,41 +1,66 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import BilliardsTable from '@/components/BilliardsTable.vue';
+import { computed, defineAsyncComponent, ref } from 'vue';
+import GameControlDrawer from '@/components/GameControlDrawer.vue';
 import GameHeader from '@/components/GameHeader.vue';
-import GameLogs from '@/components/GameLogs.vue';
-import PokerCard from '@/components/PokerCard.vue';
+import GameMinimalHud from '@/components/GameMinimalHud.vue';
+import HandDeckFan from '@/components/HandDeckFan.vue';
+import RecordingPlayerDropdown from '@/components/RecordingPlayerDropdown.vue';
 import RefereeFoulModal from '@/components/RefereeFoulModal.vue';
 import RefereePocketModal from '@/components/RefereePocketModal.vue';
 import RestartModal from '@/components/RestartModal.vue';
 import RoomLobby from '@/components/RoomLobby.vue';
+import TableOpponentSeats from '@/components/TableOpponentSeats.vue';
+
+const ThreeBilliardsArena = defineAsyncComponent(() => import('@/components/ThreeBilliardsArena.vue'));
+
 import VictoryModal from '@/components/VictoryModal.vue';
 import { useGameRoom } from '@/composables/useGameRoom';
 import { usePlayerProfile } from '@/composables/usePlayerProfile';
 import { useSocket } from '@/composables/useSocket';
 
-const { userId, playerName, avatars, selectedAvatar, selectedBallConfigKey, getFinalPlayerName } = usePlayerProfile();
+const { userId, playerName, selectedBallConfigKey, getFinalPlayerName } = usePlayerProfile();
 
 const { socket, serverUrl, savedServerUrls, updateServerUrl, addServerUrl, removeServerUrl } = useSocket();
 
 const {
   room,
+  recordingUserId,
+  breakMode,
+  pendingAction,
+  feedback,
+  displayCards,
+  displayPocketed,
+  sceneAnimationId,
+  sceneReset,
+  isPresenting,
+  selectRecordingPlayer,
+  nextRecordingPlayer,
+  ballConfigs,
+  activeBallConfigKey,
   showRestartConfirm,
   showRefereePocketModal,
   showRefereeFoulModal,
   refereeTargetUserId,
+  refereeSelectedBallNum,
   ballConfigOptions,
   ballColorStyle,
   isHost,
   myInfo,
   sortedMyCards,
   turnOrderPlayers,
+  currentShooter,
+  isMyTurn,
+  elevatedCardIds,
+  selectableCardIds,
+  discardingCardId,
   isCardDimmed,
   handleCreateRoom,
   handleJoinRoom,
   handleAdjustCards,
   handleStartGame,
   handleKickPlayer,
-  handleConfirmPocket,
+  handleHandCardClick,
+  handleTableBallClick,
   handleRetract,
   openRefereePocket,
   openRefereeFoul,
@@ -48,23 +73,30 @@ const {
   socket,
   userId,
   playerName,
-  selectedAvatar,
   selectedBallConfigKey,
   getFinalPlayerName,
   serverUrl,
 });
 
+const busy = computed(() => pendingAction.value || isPresenting.value);
+const activeCards = computed(() => sortedMyCards.value.filter((c) => !isCardDimmed(c)).length);
+const pendingBallNumbers = computed(() =>
+  room.value?.status === 'playing'
+    ? [...new Set(sortedMyCards.value.filter((card) => !isCardDimmed(card)).map((card) => card.ballNumber))]
+    : []
+);
 const showRulesModal = ref(false);
+const showControlDrawer = ref(false);
 </script>
 
 <template>
-  <div class="flex-1 flex flex-col max-w-md mx-auto w-full safe-area-spacing relative min-h-dvh" :style="ballColorStyle">
+  <div class="app-shell flex-1 flex flex-col mx-auto w-full safe-area-spacing relative min-h-dvh" :style="ballColorStyle">
     
-    <!-- 顶部状态栏 -->
-    <GameHeader v-if="room"
+    <!-- 顶部状态栏 (仅在等待大厅时显示传统 Header) -->
+    <GameHeader v-if="room && (room.status === 'waiting' || room.status === 'lobby')"
                 :room="room"
                 :isHost="isHost"
-                @request-restart="showRestartConfirm = true"
+                @request-restart="showControlDrawer = false; showRestartConfirm = true"
                 @leave-room="handleLeaveRoom" />
 
     <!-- 登录大厅 / 房间等待视图 -->
@@ -75,9 +107,7 @@ const showRulesModal = ref(false);
                :serverUrl="serverUrl"
                :savedServerUrls="savedServerUrls"
                v-model:playerName="playerName"
-               v-model:selectedAvatar="selectedAvatar"
                v-model:selectedBallConfigKey="selectedBallConfigKey"
-               :avatars="avatars"
                :ballConfigOptions="ballConfigOptions"
                @update:serverUrl="updateServerUrl"
                @add-server-url="addServerUrl"
@@ -88,70 +118,63 @@ const showRulesModal = ref(false);
                @kick-player="handleKickPlayer"
                @start-game="handleStartGame" />
 
-    <!-- 游戏进行/结算主界面 -->
-    <div v-else-if="room && (room.status === 'playing' || room.status === 'ended' || room.status === 'finished')" class="flex-1 flex flex-col space-y-3">
-      
-      <!-- 我的扑克手牌区 -->
-      <div class="glass-panel rounded-2xl p-4 shadow-2xl relative overflow-hidden border border-emerald-500/30">
-        
-        <div class="flex items-center justify-between mb-3">
-          <div class="flex items-center space-x-2">
-            <span class="text-xs font-bold text-amber-300">我的手上扑克手牌</span>
-            <span class="text-[10px] bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-700/50">
-              手上剩余 {{ myInfo?.cards ? myInfo.cards.length : 0 }} 张
-            </span>
-          </div>
-          <button @click="showRulesModal = true"
-                  class="text-[10px] text-sky-300 border border-sky-700/50 bg-sky-950/60 hover:bg-sky-900/60 px-2 py-0.5 rounded-lg font-bold active:scale-95 cursor-pointer flex items-center gap-1">
-            <i class="fa-solid fa-circle-question text-sky-400"></i> 规则
-          </button>
+    <main v-else-if="room" class="game-world">
+      <GameMinimalHud :room="room" :isHost="isHost" @open-menu="showControlDrawer = true" />
+      <TableOpponentSeats :players="room.players" :myUserId="userId"
+        :currentShooterUserId="breakMode ? undefined : currentShooter?.userId" :turnOrder="room.turnOrder"
+        @select-player="selectRecordingPlayer($event.userId)" />
+      <div class="recording-strip">
+        <div class="recording-caption">{{ breakMode ? '开球进球 · 不归属玩家' : '记球对象' }}</div>
+        <div class="recording-actions">
+          <RecordingPlayerDropdown v-if="!breakMode" :players="room.players" :userId="userId"
+            :selectedUserId="recordingUserId" @select="selectRecordingPlayer" />
+          <strong v-else>逐个点选已进球</strong>
+          <button v-if="!breakMode && room.players.length > 1" @click="nextRecordingPlayer" aria-label="切换下一位记球对象">下一位 →</button>
+          <button v-if="breakMode" @click="breakMode = false">完成开球</button>
         </div>
-
-        <div v-if="sortedMyCards && sortedMyCards.length > 0"
-             class="flex flex-wrap justify-center items-center gap-2.5 sm:gap-3 py-2 min-h-[120px]">
-          <PokerCard v-for="card in sortedMyCards" :key="card.id"
-                     :card="card"
-                     :isDimmed="isCardDimmed(card)"
-                     @click="handleConfirmPocket" />
-        </div>
-
-        <div v-else class="text-center py-6 text-emerald-300 space-y-1">
-          <span class="text-4xl">🎉</span>
-          <p class="font-bold text-sm">你的扑克牌已全部消除完！</p>
-        </div>
-
-        <div class="mt-3 pt-2 border-t border-white/10 flex justify-between items-center text-xs">
-          <span class="text-gray-400 text-[10px] shrink-0 mr-2">打进球后点击<br>对应扑克卡片销牌</span>
-          
-          <div class="flex items-center space-x-2">
-            <button @click="handleRetract"
-                    class="bg-blue-950/80 hover:bg-blue-900 text-blue-200 border border-blue-700/50 px-2 py-1 rounded-lg font-bold flex items-center gap-1 active:scale-95 text-xs cursor-pointer">
-              <i class="fa-solid fa-rotate-left text-blue-400"></i> 撤回
-            </button>
-            <button @click="openRefereePocket()"
-                    class="bg-amber-950/90 hover:bg-amber-900 text-amber-200 border border-amber-500/40 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 active:scale-95 text-xs cursor-pointer shadow">
-              <i class="fa-solid fa-gavel text-amber-400"></i> 记录进球
-            </button>
-            <button @click="openRefereeFoul()"
-                    class="bg-red-950/90 hover:bg-red-900 text-red-200 border border-red-500/40 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 active:scale-95 text-xs cursor-pointer shadow">
-              <i class="fa-solid fa-triangle-exclamation text-amber-400"></i> 记录犯规
-            </button>
-          </div>
-        </div>
-
       </div>
+      <div v-if="turnOrderPlayers.length" class="turn-order-strip" aria-label="本局击球顺序">
+        <span>击球顺序</span>
+        <ol><li v-for="(player, index) in turnOrderPlayers" :key="player.userId"><span v-if="index" aria-hidden="true">→</span><span>{{ index + 1 }}. {{ player.name }}</span><small v-if="index === 0">首发</small></li></ol>
+      </div>
+      <div class="table-stage">
+        <ThreeBilliardsArena :pendingBallNumbers="pendingBallNumbers" :pocketedBallNumbers="room.pocketedBallNumbers" :animationId="sceneAnimationId"
+          :resetKey="sceneReset" :disabled="busy || room.status !== 'playing'" :colors="ballConfigs[activeBallConfigKey]?.colors"
+          @ball-click="handleTableBallClick" />
+      </div>
+      <div v-if="feedback" class="action-error" role="alert">{{ feedback }}</div>
+      <nav class="table-tools" aria-label="对局快捷操作">
+        <button :disabled="busy || room.status !== 'playing'" :aria-pressed="breakMode" @click="breakMode = !breakMode">开球模式</button>
+        <button :disabled="busy || room.status !== 'playing'" @click="openRefereeFoul()">犯规罚牌</button>
+        <button :disabled="busy || !room.lastActionText || room.status !== 'playing'" @click="handleRetract">↶ 撤回上一步</button>
+      </nav>
+      <section class="hand-zone" aria-label="我的手牌">
+        <div class="hand-heading"><span>我的手牌</span><strong>待打 {{ activeCards }} 张</strong>
+          <small>手牌 {{ sortedMyCards.length }} · 免打 {{ sortedMyCards.length - activeCards }}</small>
+          <small v-if="myInfo?.pocketedCards.length" class="played-cards">已出：{{ myInfo.pocketedCards.map(card => `${card.rank}${card.suit}`).join(' ') }}</small>
+        </div>
+        <HandDeckFan :key="sceneReset" :cards="displayCards ?? sortedMyCards"
+          :pocketedBallNumbers="displayPocketed ?? room.pocketedBallNumbers" :elevatedCardIds="elevatedCardIds"
+          :discardingCardId="discardingCardId" :disabled="busy || room.status !== 'playing'" @card-click="handleHandCardClick" />
+      </section>
 
-      <!-- 局况对比与球盘表格 -->
-      <BilliardsTable :room="room"
-                      :userId="userId"
-                      :turnOrderPlayers="turnOrderPlayers"
-                      @open-referee-pocket="openRefereePocket"
-                      @open-referee-foul="openRefereeFoul" />
+      <!-- 侧滑控制抽屉 (收敛次要操作与实况日志) -->
+      <GameControlDrawer
+        :show="showControlDrawer"
+        :room="room"
+        :userId="userId"
+        :isHost="isHost"
+        :turnOrderPlayers="turnOrderPlayers"
+        @close="showControlDrawer = false"
+        @retract="handleRetract"
+        @open-referee-pocket="showControlDrawer = false; openRefereePocket()"
+        @open-referee-foul="showControlDrawer = false; openRefereeFoul()"
+        @open-rules="showControlDrawer = false; showRulesModal = true"
+        @request-restart="showControlDrawer = false; showRestartConfirm = true"
+        @leave-room="handleLeaveRoom"
+      />
 
-      <!-- 对局实况日志 -->
-      <GameLogs :logs="room.logs || []" />
-
-    </div>
+    </main>
 
     <!-- 弹窗部分 -->
 
@@ -159,6 +182,7 @@ const showRulesModal = ref(false);
                         :players="room?.players || []"
                         :pocketedBallNumbers="room?.pocketedBallNumbers || []"
                         :defaultUserId="refereeTargetUserId"
+                        :defaultBallNumber="refereeSelectedBallNum"
                         @close="showRefereePocketModal = false"
                         @confirm="handleRefereePocketConfirm"
                         @confirm-break="handleBreakPocketConfirm" />
@@ -169,7 +193,7 @@ const showRulesModal = ref(false);
                       @close="showRefereeFoulModal = false"
                       @confirm="handleRefereeFoulConfirm" />
 
-    <VictoryModal :winners="room?.winners || []"
+    <VictoryModal :winners="isPresenting ? [] : room?.winners || []"
                   :isHost="isHost"
                   :players="room?.players || []"
                   :pocketedBallNumbers="room?.pocketedBallNumbers || []"

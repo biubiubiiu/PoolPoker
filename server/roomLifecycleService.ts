@@ -311,13 +311,14 @@ function kickPlayer(socketId: string, payload: KickPlayerPayload): RoomLifecycle
 }
 
 function leaveRoom(socketId: string, payload: LeaveRoomPayload): RoomLifecycleResult {
-  const { roomCode, userId } = payload;
+  const { roomCode } = payload;
   const room = getRoom(roomCode);
   if (!room) return NO_CHANGE;
 
   const session = getSocketSession(socketId);
-  if (!session || session.roomCode !== roomCode || session.userId !== userId) return NO_CHANGE;
+  if (!session || session.roomCode !== roomCode) return NO_CHANGE;
 
+  const userId = session.userId;
   const pIdx = room.players.findIndex((p) => p.userId === userId);
   if (pIdx !== -1) {
     const [removedPlayer] = room.players.splice(pIdx, 1);

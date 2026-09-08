@@ -8,6 +8,7 @@ export type {
   RoomSettings,
   RoomStatus,
   RoundScoreEntry,
+  SceneEvent,
   SuitType,
   WearAction,
   WearActionPayload,
@@ -23,6 +24,7 @@ import type {
   RoomSettings,
   RoomStatus,
   RoundScoreEntry,
+  SceneEvent,
   WinnerInfo,
 } from './generated/wire-models';
 
@@ -49,6 +51,8 @@ export interface GameState {
 // 服务端内部完整房间模型（包含牌堆、历史撤销快照、误进球等敏感/内部数据）
 // 严禁作为 wire model 直接发送给客户端
 export interface ServerRoom {
+  revision?: number;
+  sceneEvent?: SceneEvent;
   code: string;
   hostUserId: string;
   hostSocketId: string;

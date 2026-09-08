@@ -119,6 +119,8 @@ export function getClientRoomState(roomCode: string, targetUserId?: string): Roo
 
   return {
     code: room.code,
+    revision: room.revision ?? 0,
+    sceneEvent: room.sceneEvent,
     hostUserId: room.hostUserId,
     hostSocketId: room.hostSocketId,
     settings: room.settings,
@@ -139,7 +141,7 @@ export function getClientRoomState(roomCode: string, targetUserId?: string): Roo
         isHost: p.userId === room.hostUserId,
         online: p.online !== false,
         cardCount: p.cards.length,
-        activeCardCount: p.cards.length,
+        activeCardCount: p.cards.filter((card) => !pocketedBallNumbers.includes(card.ballNumber)).length,
         cards: isSelf || room.status === 'finished' ? p.cards : [],
         pocketedCards: p.pocketedCards,
         wins: p.wins || 0,

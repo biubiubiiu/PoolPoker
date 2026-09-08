@@ -70,7 +70,6 @@ const emit = defineEmits<{
         <template v-for="(p, idx) in turnOrderPlayers" :key="p.userId">
           <span :class="['px-2 py-1 rounded-lg font-bold flex items-center gap-1 transition-all',
                          idx === 0 ? 'bg-amber-400 text-black shadow-md ring-1 ring-amber-300' : 'bg-black/40 text-gray-200 border border-white/10']">
-            <span>{{ p.avatar }}</span>
             <span>{{ p.name }}</span>
             <span v-if="idx === 0" class="text-[9px] bg-black/20 text-black px-1 rounded font-black">首发</span>
           </span>
@@ -108,7 +107,6 @@ const emit = defineEmits<{
                     p.userId === userId ? 'bg-emerald-950/60 border-emerald-500/50' : 'bg-black/30 border-white/5']">
         
         <div class="flex items-center space-x-2.5">
-          <span class="text-xl">{{ p.avatar }}</span>
           <div>
             <div class="flex items-center space-x-1">
               <span class="font-bold text-xs text-gray-100">{{ p.name }}</span>

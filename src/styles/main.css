@@ -87,9 +87,13 @@ select option {
    与系统高对比度反色 (Forced Colors) 破坏扑克牌与台球球体的物理真实色彩
    ========================================================================== */
 .poker-card-frame,
+.poker-prop-card,
+.card-inner-surface,
+.mini-billiard-badge,
 .billiard-ball,
 .mini-ball,
 .ball-number,
+.badge-num,
 .ball-striped::before {
   color-scheme: only light !important;
   forced-color-adjust: none !important;
@@ -310,7 +314,8 @@ select option {
 }
 
 .billiard-ball.ball-striped::before,
-.mini-ball.ball-striped::before {
+.mini-ball.ball-striped::before,
+.mini-billiard-badge.ball-striped::before {
   content: "";
   position: absolute;
   top: 0;
@@ -384,4 +389,189 @@ select option {
 
 .gold-glow {
   animation: pulse-gold 2s infinite;
+}
+
+/* v2: a quiet club room, lit by the table. */
+body {
+  background: #101d18;
+  font-variant-numeric: tabular-nums;
+}
+#app {
+  background: radial-gradient(ellipse at 50% 30%, #284538 0%, #101d18 65%);
+}
+.app-shell {
+  max-width: 620px;
+}
+.game-world {
+  display: flex;
+  flex-direction: column;
+  min-height: 740px;
+  height: calc(100dvh - var(--sat) - var(--sab));
+}
+.recording-strip {
+  padding: 0 24px;
+}
+.recording-caption {
+  color: #a9b8aa;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  margin-bottom: 3px;
+}
+.recording-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #eadbc0;
+  min-height: 36px;
+}
+.recording-actions button {
+  font-size: 11px;
+  min-height: 36px;
+}
+.table-stage {
+  flex: 1;
+  min-height: 400px;
+  position: relative;
+}
+.action-error {
+  margin: 7px 24px;
+  color: #edb4a3;
+  font-size: 12px;
+  text-align: center;
+}
+.table-tools {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 12px 9px;
+}
+.table-tools button {
+  padding: 8px 12px;
+  min-height: 40px;
+  color: #d6c5a2;
+  font-size: 11px;
+  border-radius: 6px;
+}
+.table-tools button[aria-pressed="true"] {
+  background: #c5b18022;
+}
+button:disabled {
+  cursor: default;
+}
+.table-tools button:disabled {
+  opacity: 0.35;
+}
+button:focus-visible,
+select:focus-visible {
+  outline: 2px solid #d9c191;
+  outline-offset: 3px;
+}
+.hand-zone {
+  position: relative;
+  flex-shrink: 0;
+  background: linear-gradient(0deg, #0c1712, #14271d80);
+  border-top: 1px solid #bfae7422;
+  padding-top: 13px;
+}
+.hand-heading {
+  padding: 0 24px;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 6px;
+  padding-right: 80px;
+}
+.hand-heading > span {
+  color: #d5d9c8;
+  font-size: 12px;
+}
+.hand-heading strong {
+  color: #e9d4a7;
+  font-size: 14px;
+}
+.hand-heading small {
+  display: none;
+  color: #a0b19f;
+  font-size: 10px;
+}
+.hand-heading .played-cards {
+  display: block;
+  flex-basis: 100%;
+  color: #8fa08d;
+}
+@media (min-width: 420px) {
+  .hand-heading small {
+    display: inline;
+  }
+}
+@media (max-height: 740px) {
+  .game-world {
+    min-height: 660px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+.app-shell.safe-area-spacing {
+  padding: var(--sat) var(--sar) var(--sab) var(--sal);
+}
+.hand-zone {
+  z-index: 2;
+}
+html {
+  background: #101d18;
+}
+.game-world {
+  height: auto;
+  min-height: calc(100dvh - var(--sat) - var(--sab));
+}
+
+.turn-order-strip {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 4px 24px 8px;
+  color: #a0af9f;
+  font-size: 11px;
+}
+.turn-order-strip > span {
+  flex-shrink: 0;
+}
+.turn-order-strip ol {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.turn-order-strip li {
+  display: flex;
+  gap: 6px;
+  white-space: nowrap;
+  align-items: baseline;
+}
+.turn-order-strip small {
+  color: #c5b890;
+  font-size: 9px;
+}
+@media (min-width: 600px) {
+  .app-shell:has(.game-world) {
+    max-width: 1080px;
+  }
+  .game-world .table-stage {
+    flex: none;
+    height: clamp(340px, 48vw, 510px);
+    min-height: 340px;
+  }
+  .game-world .hand-zone {
+    background: transparent;
+  }
 }

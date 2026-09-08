@@ -9,8 +9,6 @@ const props = defineProps<{
   userId: string;
   isHost: boolean;
   playerName: string;
-  selectedAvatar: string;
-  avatars: string[];
   selectedBallConfigKey: string;
   ballConfigOptions: Array<{ key: string; name: string }>;
   ballConfigsStatus?: string;
@@ -20,7 +18,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:playerName', name: string): void;
-  (e: 'update:selectedAvatar', avatar: string): void;
   (e: 'update:selectedBallConfigKey', key: string): void;
   (e: 'update:serverUrl', url: string): void;
   (e: 'add-server-url', payload: { url: string; name?: string }): void;
@@ -227,18 +224,6 @@ const onJoin = async () => {
       </div>
 
       <div>
-        <label class="block text-xs text-gray-300 mb-1.5 font-semibold">选择球桌代号头像</label>
-        <div class="flex justify-between gap-2">
-          <button v-for="av in avatars" :key="av" 
-                  @click="emit('update:selectedAvatar', av)"
-                  :class="['w-10 h-10 rounded-xl text-xl flex items-center justify-center transition-all', 
-                           selectedAvatar === av ? 'bg-amber-400 scale-110 shadow-lg text-black' : 'bg-black/40 border border-white/10 hover:bg-white/10']">
-            {{ av }}
-          </button>
-        </div>
-      </div>
-
-      <div>
         <label class="block text-xs text-gray-300 mb-1.5 font-semibold">球桌球色配置</label>
         <select
           :value="selectedBallConfigKey"
@@ -308,7 +293,6 @@ const onJoin = async () => {
         <div v-for="p in room.players" :key="p.userId" 
              class="flex items-center justify-between bg-black/40 border border-white/5 px-3 py-2.5 rounded-xl">
           <div class="flex items-center space-x-3">
-            <span class="text-2xl">{{ p.avatar }}</span>
             <div>
               <div class="flex items-center space-x-1.5">
                 <span class="font-bold text-sm text-gray-100">{{ p.name }}</span>

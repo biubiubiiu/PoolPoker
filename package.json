@@ -50,11 +50,13 @@
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-dialog": "~2.7.2",
     "@tauri-apps/plugin-http": "~2.5.9",
+    "@types/three": "^0.185.4",
     "canvas-confetti": "^1.9.4",
     "express": "^4.19.2",
     "js-yaml": "^4.1.0",
     "socket.io": "^4.7.5",
     "socket.io-client": "^4.8.3",
+    "three": "^0.185.1",
     "vue": "^3.5.41"
   },
   "devDependencies": {

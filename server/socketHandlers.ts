@@ -111,17 +111,24 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   });
 
   // 5. 击球消除卡牌（进球）
-  socket.on(CLIENT_TO_SERVER_EVENTS.pocketBall, (data: PocketBallPayload) => {
-    const { roomCode, cardId } = data;
-    const room = getRoom(roomCode);
-    if (!room) return;
+  socket.on(
+    CLIENT_TO_SERVER_EVENTS.pocketBall,
+    (data: PocketBallPayload, callback?: (result: SocketCallbackResponse) => void) => {
+      const { roomCode, cardId } = data;
+      const room = getRoom(roomCode);
+      if (!room || getSocketSession(socket.id)?.roomCode !== roomCode) {
+        callback?.({ success: false, message: '请先加入这个房间' });
+        return;
+      }
 
-    const session = getSocketSession(socket.id);
-    if (!session) return;
+      const session = getSocketSession(socket.id);
+      if (!session) return;
 
-    const result = applyGameRoomCommand(room, { type: 'pocket_ball', actorUserId: session.userId, cardId });
-    if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
-  });
+      const result = applyGameRoomCommand(room, { type: 'pocket_ball', actorUserId: session.userId, cardId });
+      if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
+      callback?.({ success: result.changed, message: result.changed ? undefined : '牌局已变化，操作未重复记录' });
+    }
+  );
 
   // 6. 犯规罚抽牌
   socket.on(CLIENT_TO_SERVER_EVENTS.drawPenalty, (data: DrawPenaltyPayload) => {
@@ -147,49 +154,77 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   });
 
   // 7.1 开球进球 - 记录场上球入袋，不归入任何玩家手牌
-  socket.on(CLIENT_TO_SERVER_EVENTS.breakPocket, (data: BreakPocketPayload) => {
-    const { roomCode, ballNumber } = data;
-    const room = getRoom(roomCode);
-    if (!room) return;
+  socket.on(
+    CLIENT_TO_SERVER_EVENTS.breakPocket,
+    (data: BreakPocketPayload, callback?: (result: SocketCallbackResponse) => void) => {
+      const { roomCode, ballNumber } = data;
+      const room = getRoom(roomCode);
+      if (!room || getSocketSession(socket.id)?.roomCode !== roomCode) {
+        callback?.({ success: false, message: '请先加入这个房间' });
+        return;
+      }
 
-    const result = applyGameRoomCommand(room, { type: 'break_pocket', ballNumber });
-    if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
-  });
+      const result = applyGameRoomCommand(room, { type: 'break_pocket', ballNumber });
+      if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
+      callback?.({ success: result.changed, message: result.changed ? undefined : '牌局已变化，操作未重复记录' });
+    }
+  );
 
   // 8. 撤回上一步操作（整体回退到上一步状态）
-  socket.on(CLIENT_TO_SERVER_EVENTS.retractBall, (data: RetractBallPayload) => {
-    const { roomCode } = data;
-    const room = getRoom(roomCode);
-    if (!room) return;
+  socket.on(
+    CLIENT_TO_SERVER_EVENTS.retractBall,
+    (data: RetractBallPayload, callback?: (result: SocketCallbackResponse) => void) => {
+      const { roomCode } = data;
+      const room = getRoom(roomCode);
+      if (!room || getSocketSession(socket.id)?.roomCode !== roomCode) {
+        callback?.({ success: false, message: '请先加入这个房间' });
+        return;
+      }
 
-    const result = applyGameRoomCommand(room, { type: 'retract_ball' });
-    if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
-  });
+      const result = applyGameRoomCommand(room, { type: 'retract_ball', expectedRevision: data.expectedRevision });
+      if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
+      callback?.({ success: result.changed, message: result.changed ? undefined : '牌局已变化，操作未重复记录' });
+    }
+  );
 
   // 9. 记录进球 - 帮指定玩家消卡或记录全场进球
-  socket.on(CLIENT_TO_SERVER_EVENTS.refereePocketBall, (data: RefereePocketBallPayload) => {
-    const { roomCode, targetUserId, ballNumber } = data;
-    const room = getRoom(roomCode);
-    if (!room) return;
+  socket.on(
+    CLIENT_TO_SERVER_EVENTS.refereePocketBall,
+    (data: RefereePocketBallPayload, callback?: (result: SocketCallbackResponse) => void) => {
+      const { roomCode, targetUserId, ballNumber } = data;
+      const room = getRoom(roomCode);
+      if (!room || getSocketSession(socket.id)?.roomCode !== roomCode) {
+        callback?.({ success: false, message: '请先加入这个房间' });
+        return;
+      }
 
-    const result = applyGameRoomCommand(room, {
-      type: 'referee_pocket_ball',
-      actorSocketId: socket.id,
-      targetUserId,
-      ballNumber,
-    });
-    if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
-  });
+      const result = applyGameRoomCommand(room, {
+        type: 'referee_pocket_ball',
+        actorSocketId: socket.id,
+        targetUserId,
+        ballNumber,
+      });
+      if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
+      callback?.({ success: result.changed, message: result.changed ? undefined : '牌局已变化，操作未重复记录' });
+    }
+  );
 
   // 10. 裁判代记 - 帮指定玩家罚抽卡
-  socket.on(CLIENT_TO_SERVER_EVENTS.refereeDrawPenalty, (data: RefereeDrawPenaltyPayload) => {
-    const { roomCode, targetUserId } = data;
-    const room = getRoom(roomCode);
-    if (!room) return;
+  socket.on(
+    CLIENT_TO_SERVER_EVENTS.refereeDrawPenalty,
+    (data: RefereeDrawPenaltyPayload, callback?: (result: SocketCallbackResponse) => void) => {
+      const { roomCode, targetUserId } = data;
+      const room = getRoom(roomCode);
+      if (!room || getSocketSession(socket.id)?.roomCode !== roomCode) {
+        callback?.({ success: false, message: '请先加入这个房间' });
+        return;
+      }
 
-    const result = applyGameRoomCommand(room, { type: 'referee_draw_penalty', targetUserId });
-    if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
-  });
+      const result = applyGameRoomCommand(room, { type: 'referee_draw_penalty', targetUserId });
+      if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
+      callback?.({ success: result.changed, message: result.changed ? undefined : '牌局已变化，操作未重复记录' });
+    }
+  );
 
   // 11. 请求重新开始
   socket.on(CLIENT_TO_SERVER_EVENTS.requestRestart, (data: RequestRestartPayload) => {

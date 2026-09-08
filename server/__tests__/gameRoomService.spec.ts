@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Card, Player, ServerRoom } from '../../shared/types/game';
 import { applyGameRoomCommand } from '../gameRoomService';
 import { recordGameStep } from '../gameState';
+import { getClientRoomState, removeRoom, saveRoom } from '../roomManager';
 
 vi.mock('../wecomWebhook', () => ({
   sendRoundResultToWecom: vi.fn(),
@@ -203,5 +204,103 @@ describe('gameRoomService', () => {
     expect(room.players[1].cards).toContainEqual(penaltyCard);
     expect(room.players[1].cards).toHaveLength(2);
     expect(room.logs[room.logs.length - 1]?.text).toContain('裁判代记：Guest 犯规');
+  });
+});
+
+describe('v2 confirmed table events', () => {
+  const makePairRoom = () =>
+    createRoom({
+      players: [
+        createPlayer({
+          userId: 'user-1',
+          cards: [
+            createTestCard('four-a', '4', 4),
+            createTestCard('four-b', '4', 4, 'heart'),
+            createTestCard('king', 'K', 13),
+          ],
+        }),
+        createPlayer({
+          userId: 'user-2',
+          cards: [createTestCard('four-c', '4', 4, 'diamond'), createTestCard('eight', '8', 8)],
+        }),
+      ],
+    });
+
+  it('records one of a pair, leaves the other as free, and ignores duplicate reports', () => {
+    const room = makePairRoom();
+    recordGameStep(room);
+    const command = {
+      type: 'referee_pocket_ball' as const,
+      actorSocketId: 'socket-1',
+      targetUserId: 'user-1',
+      ballNumber: 4,
+    };
+    expect(applyGameRoomCommand(room, command).changed).toBe(true);
+    const event = room.sceneEvent;
+    expect(event?.revision).toBe(1);
+    expect(room.players[0].cards.map((c) => c.id)).toEqual(['four-b', 'king']);
+    expect(room.players[1].cards).toHaveLength(2);
+    expect(applyGameRoomCommand(room, command).changed).toBe(false);
+    expect(applyGameRoomCommand(room, { type: 'pocket_ball', actorUserId: 'user-1', cardId: 'four-b' }).changed).toBe(
+      false
+    );
+    expect(room.sceneEvent).toEqual(event);
+    expect(room.gameHistory).toHaveLength(2);
+  });
+
+  it('undo restores both the ball and hand, advances the event revision, and rejects stale undo', () => {
+    const room = makePairRoom();
+    recordGameStep(room);
+    applyGameRoomCommand(room, { type: 'pocket_ball', actorUserId: 'user-1', cardId: 'four-a' });
+    const firstId = room.sceneEvent?.id;
+    expect(applyGameRoomCommand(room, { type: 'retract_ball', expectedRevision: 0 }).changed).toBe(false);
+    expect(room.players[0].cards).toHaveLength(2);
+    expect(applyGameRoomCommand(room, { type: 'retract_ball', expectedRevision: 1 }).changed).toBe(true);
+    expect(room.revision).toBe(2);
+    expect(room.sceneEvent?.id).not.toBe(firstId);
+    expect(room.players[0].cards).toHaveLength(3);
+    expect(room.players[0].pocketedCards).toEqual([]);
+  });
+
+  it('supports shared victory with retained free cards', () => {
+    const room = createRoom({
+      players: [
+        createPlayer({ userId: 'user-1', cards: [createTestCard('a', '4', 4), createTestCard('b', '4', 4, 'heart')] }),
+        createPlayer({ userId: 'user-2', cards: [createTestCard('c', '4', 4, 'diamond')] }),
+      ],
+    });
+    applyGameRoomCommand(room, { type: 'pocket_ball', actorUserId: 'user-1', cardId: 'a' });
+    expect(room.status).toBe('finished');
+    expect(room.winners).toHaveLength(2);
+    expect(room.players.every((p) => p.cards.length === 1)).toBe(true);
+  });
+});
+
+describe('v2 public presentation projection', () => {
+  it('reports effective counts and public event facts without private hands or penalty cards', () => {
+    const room = createRoom({
+      code: 'test-v2-projection',
+      players: [
+        createPlayer({ userId: 'user-1', cards: [createTestCard('a', '4', 4), createTestCard('b', 'K', 13)] }),
+        createPlayer({ userId: 'user-2', cards: [createTestCard('c', '4', 4), createTestCard('d', '8', 8)] }),
+      ],
+      deck: [createTestCard('private-penalty', 'J', 11)],
+    });
+    saveRoom(room);
+    try {
+      applyGameRoomCommand(room, { type: 'pocket_ball', actorUserId: 'user-1', cardId: 'a' });
+      const view = getClientRoomState(room.code, 'user-1');
+      expect(view?.players[1].cards).toEqual([]);
+      expect(view?.players[1].cardCount).toBe(2);
+      expect(view?.players[1].activeCardCount).toBe(1);
+      expect(view?.sceneEvent?.ballNumber).toBe(4);
+      applyGameRoomCommand(room, { type: 'referee_draw_penalty', targetUserId: 'user-2' });
+      const afterPenalty = getClientRoomState(room.code, 'user-1');
+      expect(afterPenalty?.sceneEvent?.targetUserId).toBe('user-2');
+      expect(afterPenalty?.sceneEvent?.ballNumber).toBeUndefined();
+      expect(JSON.stringify(afterPenalty)).not.toContain('private-penalty');
+    } finally {
+      removeRoom(room.code);
+    }
   });
 });
