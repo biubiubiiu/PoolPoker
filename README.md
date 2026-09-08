@@ -26,6 +26,7 @@
   - [2. 本地开发模式](#2-本地开发模式)
   - [3. 生产构建与运行](#3-生产构建与运行)
   - [4. 移动端与 Wear OS 编译打包](#4-移动端与-wear-os-编译打包)
+- [3D 球台资源](#3d-球台资源)
 - [测试与代码质量](#测试与代码质量)
 - [配置说明](#配置说明)
 - [相关文档](#相关文档)
@@ -49,6 +50,7 @@
 - ⚡ **多端实时低延迟同步**：基于 Socket.IO 实时同步消牌、罚牌与局势。
 - 📱⌚ **全端跨平台支持**：支持 Web 浏览器、iOS/Android App（基于 Tauri v2 封装）及 Wear OS 手表原生应用（Jetpack Compose）。
 - 🔒 **状态无缝重连**：持久化身份凭证，刷新页面或重启 App 后自动恢复手牌与房间状态。
+- 🎱 **沉浸式 3D 球台**：Three.js 加载 Blender 制作的六袋球台，包含皮革袋口、网袋、PBR 材质与面向横竖屏的球号交互热区。
 
 ---
 
@@ -100,6 +102,7 @@
 - **Android 开发环境 (可选)**: JDK 17+ 与 Android SDK (用于编译 `:app` 与 `:wear-app`)
 - **iOS 开发环境 (可选)**: macOS 系统与 Xcode 15+ (用于编译 iOS App)
 - **Rust 工具链 (可选)**: Cargo & Rust (用于 Tauri CLI 编译)
+- **Blender 与 Git LFS (可选，维护球台模型时需要)**: Blender 用于编辑 `assets/models/billiards_table.blend`；Git LFS 用于提交该源文件。
 
 ---
 
@@ -167,6 +170,19 @@ npm run tauri:ios
 # 构建 iOS 生产安装包
 npm run tauri:ios:build
 ```
+
+---
+
+## 3D 球台资源
+
+网页运行时加载 `public/models/billiards_table.glb`；可编辑源文件为 `assets/models/billiards_table.blend`。Blender 工程经 Git LFS 管理，首次参与模型维护时执行：
+
+```bash
+git lfs install --local --skip-repo
+git lfs ls-files
+```
+
+导出时保留六个 `PocketTarget_*` 空对象，它们决定网页中进球动画的目标位置。预览渲染图和 Blender 自动备份不提交。完整的导出设置与验证流程见 [球台模型制作与导出](docs/table_asset_pipeline.md)。
 
 ---
 
@@ -239,3 +255,4 @@ POOLPOKER_WATCH_PLAYER_NAME=手表玩家
 - 📱 **[Android & Tauri 移动端架构文档](docs/android_tauri_architecture.md)**：包含 Android 多模块配置、DataLayer 通信与 Tauri v2 构架。
 - ⌚ **[Wear OS 手表原生应用架构文档](docs/wear_app_architecture.md)**：包含 Compose for Wear OS 布局结构与手势导航规范。
 - 📝 **[版本演进与实现日志](docs/implement_log.md)**：记录项目各阶段的设计决策与修改履历。
+- 🎱 **[球台模型制作与导出](docs/table_asset_pipeline.md)**：Blender 源文件、GLB 导出、袋口锚点和 Git LFS 维护流程。

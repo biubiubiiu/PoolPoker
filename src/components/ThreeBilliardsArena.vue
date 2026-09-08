@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import * as THREE from 'three';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useGameAudio } from '@/composables/useGameAudio';
 import { createBallTextureCanvas } from '@/utils/ballTexture';
@@ -28,7 +28,7 @@ let observer: ResizeObserver;
 let frame = 0;
 let environment: THREE.WebGLRenderTarget | undefined;
 let disposed = false;
-const pockets = [-1, 1].flatMap((x) =>
+let pockets = [-1, 1].flatMap((x) =>
   [-4.95, 0, 4.95].map((z) => new THREE.Vector3(x * (z === 0 ? 3.05 : 2.9), 0.655, z))
 );
 interface Ball {
@@ -50,34 +50,7 @@ function ballTexture(n: number) {
   return texture;
 }
 
-function build() {
-  if (!host.value) return;
-  scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
-  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 0.9;
-  host.value.prepend(renderer.domElement);
-  renderer.domElement.setAttribute('aria-hidden', 'true');
-  renderer.domElement.addEventListener('webglcontextlost', onContextLost);
-  const envScene = new RoomEnvironment();
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  environment = pmrem.fromScene(envScene, 0.04);
-  scene.environment = environment.texture;
-  scene.environmentIntensity = 0.45;
-  envScene.dispose();
-  pmrem.dispose();
-  scene.add(new THREE.HemisphereLight(0xfff2d8, 0x18392b, 0.9));
-  const lamp = new THREE.DirectionalLight(0xffefd4, 1.8);
-  lamp.position.set(-3, 10, 4);
-  lamp.castShadow = true;
-  lamp.shadow.mapSize.set(1024, 1024);
-  Object.assign(lamp.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8 });
-  lamp.shadow.normalBias = 0.025;
-  scene.add(lamp);
+function buildProceduralTable(targetScene: THREE.Scene) {
   const wood = new THREE.MeshStandardMaterial({ color: '#493025', roughness: 0.36 });
   const cushion = new THREE.MeshStandardMaterial({ color: '#1e5b48', roughness: 0.9 });
   const clothCanvas = document.createElement('canvas');
@@ -96,8 +69,6 @@ function build() {
   cloth.repeat.set(7, 12);
   cloth.colorSpace = THREE.SRGBColorSpace;
   const felt = new THREE.MeshStandardMaterial({ map: cloth, roughness: 1 });
-  // Cut the same six openings through the cloth and wooden bed. The dark
-  // pocket floor sits below them, rather than covering the cloth with a cylinder.
   const pocketRadius = 0.48 * 0.7;
   const bedShape = (halfWidth: number, halfLength: number, corner: number) => {
     const shape = new THREE.Shape();
@@ -129,18 +100,16 @@ function build() {
   bed.position.y = -0.4;
   bed.castShadow = true;
   bed.receiveShadow = true;
-  scene.add(bed);
+  targetScene.add(bed);
   const clothGeometry = new THREE.ShapeGeometry(bedShape(3.42, 5.5, 0.12), 48);
-  // ShapeGeometry UVs are world-sized; normalize to preserve the cloth weave.
   const uv = clothGeometry.getAttribute('uv');
   for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 6.84, uv.getY(i) / 11);
   const playingSurface = new THREE.Mesh(clothGeometry, felt);
   playingSurface.rotation.x = -Math.PI / 2;
   playingSurface.position.y = 0.155;
   playingSurface.receiveShadow = true;
-  scene.add(playingSurface);
+  targetScene.add(playingSurface);
 
-  // Each cushion ends in a sloped jaw that opens toward the pocket mouth.
   const addCushion = (points: [number, number][]) => {
     const shape = new THREE.Shape(points.map(([x, z]) => new THREE.Vector2(x, -z)));
     shape.closePath();
@@ -158,10 +127,9 @@ function build() {
     mesh.position.y = 0.17;
     mesh.castShadow = true;
     mesh.receiveShadow = true;
-    scene.add(mesh);
+    targetScene.add(mesh);
   };
-  // Meet the smaller middle-pocket circle at both ends of each jaw.
-  const middleJawRadius = pocketRadius + 0.045; // Allow for the cushion bevel.
+  const middleJawRadius = pocketRadius + 0.045;
   const middleOuterAngle = Math.acos((3.35 - 3.05) / middleJawRadius);
   const middleInnerAngle = Math.acos((2.99 - 3.05) / middleJawRadius);
   const middleOuterJaw = middleJawRadius * Math.sin(middleOuterAngle);
@@ -195,49 +163,145 @@ function build() {
     const rim = new THREE.Mesh(new THREE.TorusGeometry(pocketRadius, 0.014, 8, 64), pocketTrim);
     rim.rotation.x = Math.PI / 2;
     rim.position.set(p.x, 0.16, p.z);
-    scene.add(rim);
+    targetScene.add(rim);
     const lining = new THREE.Mesh(
       new THREE.CylinderGeometry(pocketRadius, pocketRadius * 0.84, 0.5, 64, 1, true),
       pocketLining
     );
     lining.position.set(p.x, -0.1, p.z);
-    scene.add(lining);
+    targetScene.add(lining);
     const floor = new THREE.Mesh(
       new THREE.CircleGeometry(pocketRadius * 0.86, 64),
       new THREE.MeshBasicMaterial({ color: '#030605' })
     );
     floor.rotation.x = -Math.PI / 2;
     floor.position.set(p.x, -0.35, p.z);
-    scene.add(floor);
+    targetScene.add(floor);
   }
   for (const x of [-3.5, 3.5])
     for (const z of [-3.8, -1.3, 1.3, 3.8]) {
       const dot = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), brass);
       dot.position.set(x, 0.19, z);
-      scene.add(dot);
+      targetScene.add(dot);
     }
+}
+
+async function loadTableModel(targetScene: THREE.Scene) {
+  try {
+    const loader = new GLTFLoader();
+    const gltf = await loader.loadAsync('/models/billiards_table.glb');
+    const table = gltf.scene;
+    table.updateMatrixWorld(true);
+    const modelPockets: THREE.Vector3[] = [];
+    table.traverse((child: THREE.Object3D) => {
+      if (child.name.startsWith('PocketTarget_')) modelPockets.push(child.getWorldPosition(new THREE.Vector3()));
+      if (child instanceof THREE.Mesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+    // Anchors exported from Blender keep the drop animation aligned with the openings.
+    if (modelPockets.length === 6) pockets = modelPockets;
+    targetScene.add(table);
+  } catch (error) {
+    console.warn('Failed to load table GLB, falling back to procedural table:', error);
+    buildProceduralTable(targetScene);
+  }
+}
+
+async function build() {
+  if (!host.value) return;
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.9;
+  host.value.prepend(renderer.domElement);
+  renderer.domElement.setAttribute('aria-hidden', 'true');
+  renderer.domElement.addEventListener('webglcontextlost', onContextLost);
+  // A broad overhead reflector gives the resin and walnut a consistent canopy reflection.
+  const envScene = new THREE.Scene();
+  envScene.background = new THREE.Color('#303730');
+  const reflectorGeometry = new THREE.PlaneGeometry(5, 8);
+  const reflectorMaterial = new THREE.MeshBasicMaterial({
+    color: new THREE.Color().setRGB(4.5, 4.3, 4),
+    side: THREE.DoubleSide,
+  });
+  const reflector = new THREE.Mesh(reflectorGeometry, reflectorMaterial);
+  reflector.rotation.x = -Math.PI / 2;
+  reflector.position.set(0, 5, -2);
+  envScene.add(reflector);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  environment = pmrem.fromScene(envScene, 0.04);
+  scene.environment = environment.texture;
+  scene.environmentIntensity = 0.45;
+  reflectorGeometry.dispose();
+  reflectorMaterial.dispose();
+  pmrem.dispose();
+
+  // 1. Soft ambient hemisphere (felt bounce & dark floor absorption)
+  scene.add(new THREE.HemisphereLight(0xe8ede5, 0x0c1611, 0.65));
+
+  // 2. Dedicated Overhead Billiard Canopy Key Light (tight contact shadows beneath balls)
+  const canopyKey = new THREE.DirectionalLight(0xfff7ea, 2.5);
+  canopyKey.position.set(-2.5, 9.5, 1.8);
+  canopyKey.castShadow = true;
+  canopyKey.shadow.mapSize.set(2048, 2048);
+  Object.assign(canopyKey.shadow.camera, { left: -4.3, right: 4.3, top: 6.8, bottom: -6.8, near: 2, far: 14 });
+  canopyKey.shadow.bias = -0.0003;
+  canopyKey.shadow.normalBias = 0.02;
+  scene.add(canopyKey);
+
+  // A dim oblique bounce reveals the leather skirt and hanging baskets below the rail.
+  const apronFill = new THREE.DirectionalLight(0xd5dfd4, 0.65);
+  apronFill.position.set(6, 3, 7);
+  scene.add(apronFill);
+
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(60, 60),
+    // Only composite the table's shadow; reveal the page gradient everywhere else.
+    new THREE.ShadowMaterial({ opacity: 0.25, depthWrite: false })
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -2.25;
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  await loadTableModel(scene);
+  if (disposed) return;
   for (let n = 1; n <= 15; n++) {
     const origin = new THREE.Vector3((((n - 1) % 3) - 1) * 1.78, 0.655, (Math.floor((n - 1) / 3) - 2) * 2.05);
+    // Polished phenolic resin: glossy clearcoat, crisp specular reflection, legible numbers
     const material = new THREE.MeshPhysicalMaterial({
       map: ballTexture(n),
-      // Keep a soft resin sheen without washing out the printed numbers.
-      roughness: 0.38,
-      specularIntensity: 0.25,
-      envMapIntensity: 0.15,
-      clearcoat: 0.15,
-      clearcoatRoughness: 0.35,
+      roughness: 0.16,
+      metalness: 0.0,
+      specularIntensity: 0.7,
+      envMapIntensity: 0.65,
+      clearcoat: 0.5,
+      clearcoatRoughness: 0.1,
     });
     const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 24), material);
     mesh.position.copy(origin);
 
     mesh.castShadow = true;
     scene.add(mesh);
+    // Thinner, restrained pending indicator ring
     const pendingRing = new THREE.Mesh(
-      new THREE.RingGeometry(0.55, 0.62, 64),
-      new THREE.MeshBasicMaterial({ color: '#329cff', toneMapped: false, side: THREE.DoubleSide })
+      new THREE.RingGeometry(0.525, 0.555, 64),
+      new THREE.MeshBasicMaterial({
+        color: '#70b7a5',
+        transparent: true,
+        opacity: 0.75,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      })
     );
     pendingRing.rotation.x = -Math.PI / 2;
-    pendingRing.position.set(origin.x, 0.17, origin.z);
+    pendingRing.position.set(origin.x, 0.168, origin.z);
     pendingRing.visible = false;
     scene.add(pendingRing);
     balls.push({
@@ -286,15 +350,20 @@ function resize() {
   scene.updateMatrixWorld(true);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  // Fit all four rails to the actual viewport, including short landscape screens.
+
+  // Mobile portrait: keep high overhead perspective for optimal touch accuracy
+  // Desktop landscape: lower pitch angle to reveal near-side rail thickness, apron and depth
+  const pitchY = landscape ? 0.78 : 0.93;
+  const pitchZ = landscape ? 0.62 : 0.36;
+
   for (let distance = 6; distance <= 40; distance += 0.3) {
-    camera.position.set(0, distance * 0.92, distance * 0.4);
-    camera.lookAt(0, 0, 0);
+    camera.position.set(0, distance * pitchY, distance * pitchZ);
+    camera.lookAt(0, landscape ? -0.1 : 0, 0);
     camera.updateMatrixWorld();
     const fits = [-3.9, 3.9].every((x) =>
       [-6.1, 6.1].every((z) => {
         const p = new THREE.Vector3(x, 0, z).applyMatrix4(scene.matrixWorld).project(camera);
-        return Math.abs(p.x) < 0.97 && Math.abs(p.y) < 0.96;
+        return Math.abs(p.x) < (landscape ? 0.94 : 0.97) && Math.abs(p.y) < (landscape ? 0.92 : 0.96);
       })
     );
     if (fits) break;
@@ -341,12 +410,16 @@ function draw() {
         b.mesh.visible = false;
       } else moving = true;
     }
+  const ringOpacity = 0.65 + 0.15 * Math.sin(now * 0.005);
   for (const b of balls) {
     b.pendingRing.visible =
       b.mesh.visible &&
       b.start === null &&
       props.pendingBallNumbers.includes(b.number) &&
       !props.pocketedBallNumbers.includes(b.number);
+    if (b.pendingRing.visible) {
+      b.pendingRing.material.opacity = ringOpacity;
+    }
   }
   renderer.render(scene, camera);
   const w = host.value.clientWidth,
@@ -398,11 +471,9 @@ watch(
   }
 );
 onMounted(() => {
-  try {
-    build();
-  } catch {
+  build().catch(() => {
     failed.value = true;
-  }
+  });
   document.addEventListener('visibilitychange', visibility);
 });
 onBeforeUnmount(() => {
@@ -411,12 +482,12 @@ onBeforeUnmount(() => {
   observer?.disconnect();
   document.removeEventListener('visibilitychange', visibility);
   renderer?.domElement.removeEventListener('webglcontextlost', onContextLost);
-  scene?.traverse((object) => {
+  scene?.traverse((object: THREE.Object3D) => {
     if (object instanceof THREE.Mesh) {
       object.geometry.dispose();
       const materials = Array.isArray(object.material) ? object.material : [object.material];
-      materials.forEach((m) => {
-        if ('map' in m) m.map?.dispose();
+      materials.forEach((m: THREE.Material) => {
+        if ('map' in m) (m as THREE.MeshStandardMaterial).map?.dispose();
         m.dispose();
       });
     }

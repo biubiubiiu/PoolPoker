@@ -55,3 +55,8 @@ tauri.settings.gradle
 
 # 临时生成文件
 *.tmp
+
+# Blender local output; the source .blend itself is tracked with Git LFS.
+/assets/models/previews/
+*.blend1
+*.blend.bak

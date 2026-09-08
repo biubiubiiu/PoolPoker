@@ -26,6 +26,7 @@
   - [2. Local Development](#2-local-development)
   - [3. Production Build & Server](#3-production-build--server)
   - [4. Mobile & Wear OS Builds](#4-mobile--wear-os-builds)
+- [3D Table Asset](#3d-table-asset)
 - [Testing & Quality Assurance](#testing--quality-assurance)
 - [Configuration](#configuration)
 - [Documentation](#documentation)
@@ -49,6 +50,7 @@ The application features full real-time synchronization across Web browsers, iOS
 - ⚡ **Low-Latency Real-Time Sync**: Real-time card clearing, penalties, and game state updates via Socket.IO.
 - 📱⌚ **Cross-Platform Support**: Web browser, iOS & Android apps (Tauri v2), and native Wear OS smartwatch app (Jetpack Compose).
 - 🔒 **Seamless Reconnection**: Persistent player identity tokens restore hands automatically after app restart or page refresh.
+- 🎱 **Immersive 3D Table**: A Blender-authored six-pocket table rendered with Three.js, including leather pockets, net baskets, PBR materials, and responsive ball hit targets.
 
 ---
 
@@ -100,6 +102,7 @@ Before building or running the project, ensure your environment meets the follow
 - **Android SDK & JDK 17+ (Optional)**: For building `:app` and `:wear-app`
 - **macOS & Xcode 15+ (Optional)**: For building iOS App
 - **Rust Toolchain (Optional)**: Cargo & Rust for Tauri CLI native compilation
+- **Blender & Git LFS (Optional, for table asset maintenance)**: Blender edits `assets/models/billiards_table.blend`; Git LFS versions that source file.
 
 ---
 
@@ -170,6 +173,19 @@ npm run tauri:ios:build
 
 ---
 
+## 3D Table Asset
+
+The web runtime loads `public/models/billiards_table.glb`; its editable source is `assets/models/billiards_table.blend`. The Blender source is managed with Git LFS. Run this once when first maintaining the model in a clone:
+
+```bash
+git lfs install --local --skip-repo
+git lfs ls-files
+```
+
+Keep the six `PocketTarget_*` empty objects when exporting: they provide the targets for the web pocket animation. Preview renders and Blender backup files are local-only. See [Table Asset Pipeline](docs/table_asset_pipeline.md) for export settings and verification.
+
+---
+
 ## Testing & Quality Assurance
 
 ### Unit Tests (Vitest)
@@ -237,3 +253,4 @@ POOLPOKER_WATCH_PLAYER_NAME=WatchPlayer
 - 📱 **[Android & Tauri Architecture](docs/android_tauri_architecture.md)**: Android Gradle setup, Wearable DataLayer sync, and Tauri v2 integration.
 - ⌚ **[Wear OS Native App Architecture](docs/wear_app_architecture.md)**: Jetpack Compose for Wear OS UI layout and swipe-to-dismiss navigation.
 - 📝 **[Implementation Log](docs/implement_log.md)**: Historical design decisions and changelog.
+- 🎱 **[Table Asset Pipeline](docs/table_asset_pipeline.md)**: Blender source, GLB export, pocket anchors, and Git LFS maintenance workflow.
