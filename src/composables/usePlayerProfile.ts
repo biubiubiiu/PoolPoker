@@ -11,7 +11,10 @@ export function usePlayerProfile() {
 
   // 玩家个人设置
   const playerName = ref<string>(localStorage.getItem('billiards_player_name') || '');
-  const selectedBallConfigKey = ref<string>(localStorage.getItem('billiards_ball_config_key') || 'default');
+  const rawBallConfigKey = localStorage.getItem('billiards_ball_config_key');
+  const initialBallConfigKey = rawBallConfigKey && rawBallConfigKey !== 'default' ? rawBallConfigKey : 'xingpai';
+  localStorage.setItem('billiards_ball_config_key', initialBallConfigKey);
+  const selectedBallConfigKey = ref<string>(initialBallConfigKey);
 
   watch(playerName, (val) => {
     const trimmed = val.trim();

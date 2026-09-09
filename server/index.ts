@@ -4,7 +4,7 @@ import path from 'node:path';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '../shared/types/socket';
-import { appConfig, ballConfigs, rootDir } from './config';
+import { appConfig, ballConfigs, DEFAULT_BALL_CONFIG_KEY, rootDir } from './config';
 import { logSocketConnect } from './logger';
 import { getRobotWebhookUrl, setRobotWebhookUrl } from './robotConfig';
 import { getClientRoomState } from './roomManager';
@@ -37,7 +37,7 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, {
 
 app.get('/api/ball-configs', (_req: Request, res: Response) => {
   res.json({
-    defaultKey: 'default',
+    defaultKey: DEFAULT_BALL_CONFIG_KEY,
     configs: ballConfigs,
   });
 });

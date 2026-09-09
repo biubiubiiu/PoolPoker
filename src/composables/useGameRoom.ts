@@ -374,7 +374,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
     if (ballConfigs.value[selectedBallConfigKey.value]) {
       return selectedBallConfigKey.value;
     }
-    return 'default';
+    return 'xingpai';
   });
 
   const ballColorStyle = computed<Record<string, string>>(() => {

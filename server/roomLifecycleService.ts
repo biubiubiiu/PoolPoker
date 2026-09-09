@@ -9,7 +9,7 @@ import type {
   SocketCallbackResponse,
   UpdateSettingsPayload,
 } from '../shared/types/socket';
-import { isValidBallConfigKey } from './config';
+import { DEFAULT_BALL_CONFIG_KEY, isValidBallConfigKey } from './config';
 import { addLog } from './gameEngine';
 import {
   checkAndManageRoomCleanup,
@@ -109,7 +109,7 @@ function createRoom(
     avatar,
     isHost: true,
   });
-  const validatedConfigKey = deps.validateBallConfigKey(ballConfigKey) ? ballConfigKey : 'default';
+  const validatedConfigKey = deps.validateBallConfigKey(ballConfigKey) ? ballConfigKey : DEFAULT_BALL_CONFIG_KEY;
 
   const newRoom: ServerRoom = {
     code: roomCode,

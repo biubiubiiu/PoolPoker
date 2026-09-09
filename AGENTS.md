@@ -79,13 +79,13 @@ These are non-obvious and must be preserved when editing:
 ## Configuration
 
 - `config.yaml` — server runtime settings: `port` (default 3000), `room.default_cards_per_player` (5), `room.max_players` (8), `room.disconnect_timeout_ms` (1h). Loaded by `server/config.ts`; missing/invalid values fall back to defaults.
-- `ball_configs.json` — ball color themes (`default`, `xingpai`), each mapping ball numbers 0–15 to a `[hi, mid, lo]` gradient. Served via `GET /api/ball-configs`; missing/invalid `default` causes `process.exit(1)`.
+- `ball_configs.json` — ball color theme (`xingpai`), mapping ball numbers 0–15 to a `[hi, mid, lo]` gradient. Served via `GET /api/ball-configs`; missing/invalid `xingpai` causes `process.exit(1)`.
 - `android/gradle.properties.local` — local environment properties for Android/Wear OS (`POOLPOKER_SERVER_URL`, `POOLPOKER_WATCH_PLAYER_NAME`).
 - `assets/models/billiards_table.blend` / `public/models/billiards_table.glb` — editable Blender source and its web runtime export. The source-to-export process is documented in `docs/table_asset_pipeline.md`.
 
 ## HTTP API (Express, `server/index.ts`)
 
-- `GET /api/ball-configs` — ball color themes.
+- `GET /api/ball-configs` — ball color theme.
 - `GET /api/rooms/:code?userId=...` — HTTP snapshot of sanitized room state (used by clients for fast re-sync on reconnect/tab-foreground). 404 if the room doesn't exist.
 
 ## Docs

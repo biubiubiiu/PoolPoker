@@ -224,15 +224,14 @@ room:
 ```
 
 ### `ball_configs.json`
-Pool ball color themes and gradients (supports `default` and `xingpai` theme):
+Pool ball color theme and gradients (Xingpai `xingpai` theme):
 ```json
 {
-  "themes": {
-    "default": {
-      "balls": {
-        "1": ["#FFFF00", "#E6E600", "#999900"],
-        "8": ["#333333", "#1A1A1A", "#000000"]
-      }
+  "xingpai": {
+    "name": "Xingpai 星牌",
+    "colors": {
+      "1": ["#fad961", "#f5c01a", "#b88c00"],
+      "8": ["#3a3a3a", "#111111", "#000000"]
     }
   }
 }

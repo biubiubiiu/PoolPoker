@@ -20,7 +20,7 @@ const ready = ref(false);
 const failed = ref(false);
 const labels = ref<{ number: number; x: number; y: number; diameter: number; visible: boolean }[]>([]);
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-const fallbackColors = ['#dbad33', '#2b65a5', '#b64738', '#795592', '#bd6e36', '#367860', '#77392f', '#171c1c'];
+const fallbackColors = ['#f5c01a', '#1a4b9c', '#d92525', '#f45fa4', '#f27415', '#137b3e', '#691d24', '#111111'];
 let renderer: THREE.WebGLRenderer | undefined;
 let scene: THREE.Scene;
 let camera: THREE.PerspectiveCamera;

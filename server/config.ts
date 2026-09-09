@@ -53,14 +53,16 @@ if (!fs.existsSync(ballConfigPath)) {
   process.exit(1);
 }
 
+export const DEFAULT_BALL_CONFIG_KEY = 'xingpai';
+
 let ballConfigs: Record<string, BallConfig> = {};
 try {
   const parsed = JSON.parse(fs.readFileSync(ballConfigPath, 'utf8'));
   if (!parsed || typeof parsed !== 'object' || Object.keys(parsed).length === 0) {
     throw new Error('配置内容为空或格式非法');
   }
-  if (!parsed.default) {
-    throw new Error('缺少 default 配置');
+  if (!parsed[DEFAULT_BALL_CONFIG_KEY]) {
+    throw new Error(`缺少 ${DEFAULT_BALL_CONFIG_KEY} 配置`);
   }
   ballConfigs = parsed as Record<string, BallConfig>;
   console.log(`🎨 成功读取 ball_configs.json 配置文件 (配置数: ${Object.keys(ballConfigs).length})`);
