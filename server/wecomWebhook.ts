@@ -60,20 +60,21 @@ export async function sendRoundResultToWecom(room: ServerRoom): Promise<void> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(message),
+      signal: AbortSignal.timeout(5000),
     });
 
     if (!res.ok) {
       console.warn(`⚠️ [WeCom] 推送本局结果失败 (房间 ${room.code}, HTTP ${res.status})`);
-      return;
+      throw new Error(`WeCom HTTP ${res.status}`);
     }
 
     const result = (await res.json()) as { errcode?: number; errmsg?: string };
     if (result.errcode !== 0) {
-      console.warn(`⚠️ [WeCom] 推送本局结果失败 (房间 ${room.code}): ${result.errcode} ${result.errmsg ?? ''}`);
+      throw new Error(`WeCom error ${result.errcode}`);
     }
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
-    console.warn(`⚠️ [WeCom] 推送本局结果异常 (房间 ${room.code}): ${reason}`);
+    throw new Error(`结算推送失败 (${room.code}): ${reason}`);
   }
 }
 

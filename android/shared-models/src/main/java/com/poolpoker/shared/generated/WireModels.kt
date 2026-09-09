@@ -8,6 +8,50 @@ import kotlinx.serialization.descriptors.*
 import kotlinx.serialization.encoding.*
 
 @Serializable
+data class AuthUser (
+    val hasRecovery: Boolean,
+    val id: String,
+    val kind: Kind,
+    val nickname: String,
+    val passkeyCount: Int
+) {
+    companion object
+}
+
+@Serializable
+enum class Kind(val value: String) {
+    @SerialName("guest") GUEST("guest"),
+    @SerialName("registered") REGISTERED("registered");
+}
+
+@Serializable
+data class AuthSessionInfo (
+    val current: Boolean,
+    val expiresAt: String,
+    val id: String,
+    val name: String,
+    val role: Role
+) {
+    companion object
+}
+
+@Serializable
+enum class Role(val value: String) {
+    @SerialName("manager") MANAGER("manager"),
+    @SerialName("play") PLAY("play");
+}
+
+@Serializable
+data class AuthPairing (
+    val code: String,
+    val expiresAt: String,
+    val id: String,
+    val secret: String
+) {
+    companion object
+}
+
+@Serializable
 data class Room (
     val code: String,
     val currentTurnIndex: Int? = null,
@@ -20,6 +64,7 @@ data class Room (
     val players: List<Player>,
     val pocketedBallNumbers: List<Int>,
     val revision: Int? = null,
+    val roomId: String? = null,
     val roundCount: Int,
     val sceneEvent: SceneEvent? = null,
     val settings: RoomSettings,

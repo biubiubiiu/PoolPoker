@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import AccountPanel from '@/components/AccountPanel.vue';
 import GameHeader from '@/components/GameHeader.vue';
 import RefereeFoulModal from '@/components/RefereeFoulModal.vue';
 import RefereePocketModal from '@/components/RefereePocketModal.vue';
@@ -12,6 +13,7 @@ import { useGameRoom } from '@/composables/useGameRoom';
 import { usePlayerProfile } from '@/composables/usePlayerProfile';
 import { useSocket } from '@/composables/useSocket';
 import { useUiPreferences } from '@/composables/useUiPreferences';
+import { authReady, authUser } from '@/services/auth';
 import { preloadTableModel } from '@/utils/tableModelLoader';
 
 const { useNewUi } = useUiPreferences();
@@ -82,6 +84,11 @@ const pendingBallNumbers = computed(() =>
     ? [...new Set(sortedMyCards.value.filter((card) => !isCardDimmed(card)).map((card) => card.ballNumber))]
     : []
 );
+const showAccount = ref(false);
+const resumeAccountRoom = (code: string, id: string) => {
+  localStorage.setItem('billiards_room_id', id);
+  handleJoinRoom(code, id);
+};
 const showRulesModal = ref(false);
 const showControlDrawer = ref(false);
 
@@ -104,6 +111,9 @@ onMounted(() => {
 <template>
   <div :class="[useNewUi ? 'app-shell' : 'max-w-md', 'flex-1 flex flex-col mx-auto w-full safe-area-spacing relative min-h-dvh']" :style="ballColorStyle">
     
+    <AccountPanel v-if="!authUser || showAccount" :inRoom="!!room" @opened="showAccount=true" @close="showAccount=false" @resume="resumeAccountRoom" />
+    <template v-else>
+    <button class="account-access" @click="showAccount=true">{{ authUser.nickname }} · {{ authUser.kind==='guest'?'游客':'账号' }}</button>
     <!-- 顶部状态栏 (v1 在所有在房状态下显示，v2 仅在等待大厅时显示) -->
     <GameHeader v-if="room && (!useNewUi || room.status === 'waiting' || room.status === 'lobby')"
                 :room="room"
@@ -188,6 +198,7 @@ onMounted(() => {
       @open-referee-foul="openRefereeFoul"
     />
 
+    </template>
     <!-- 弹窗部分 -->
 
     <RefereePocketModal :show="showRefereePocketModal"
@@ -283,3 +294,7 @@ onMounted(() => {
 
   </div>
 </template>
+
+<style scoped>
+.account-access{align-self:flex-end;position:relative;z-index:30;color:#88e9b9;border:1px solid #35674c;border-radius:999px;padding:7px 14px;font-size:12px;background:#0b2118;margin:6px 12px;cursor:pointer}
+</style>

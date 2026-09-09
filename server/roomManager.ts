@@ -11,7 +11,7 @@ export interface SocketSession {
 }
 
 export const rooms: Record<string, ServerRoom> = {};
-const socketIndex = new Map<string, SocketSession>();
+export const socketIndex = new Map<string, SocketSession>();
 export const roomCleanupTimers = new Map<string, NodeJS.Timeout>();
 
 export function generateRoomCode(): string {
@@ -118,6 +118,7 @@ export function getClientRoomState(roomCode: string, targetUserId?: string): Roo
   const lastActionText = lastHistoryStep?.actionText || null;
 
   return {
+    roomId: room.roomId,
     code: room.code,
     revision: room.revision ?? 0,
     sceneEvent: room.sceneEvent,

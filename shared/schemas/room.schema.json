@@ -11,10 +11,18 @@
     "RoomSettings": {
       "type": "object",
       "properties": {
-        "cardsPerPlayer": { "type": "integer" },
-        "maxPlayers": { "type": "integer" },
-        "includeBlackEight": { "type": "boolean" },
-        "ballConfigKey": { "type": "string" }
+        "cardsPerPlayer": {
+          "type": "integer"
+        },
+        "maxPlayers": {
+          "type": "integer"
+        },
+        "includeBlackEight": {
+          "type": "boolean"
+        },
+        "ballConfigKey": {
+          "type": "string"
+        }
       },
       "required": ["cardsPerPlayer", "maxPlayers", "includeBlackEight", "ballConfigKey"],
       "additionalProperties": false
@@ -22,8 +30,12 @@
     "RoundScoreEntry": {
       "type": "object",
       "properties": {
-        "userId": { "type": "string" },
-        "delta": { "type": "integer" }
+        "userId": {
+          "type": "string"
+        },
+        "delta": {
+          "type": "integer"
+        }
       },
       "required": ["userId", "delta"],
       "additionalProperties": false
@@ -31,9 +43,15 @@
     "GameLog": {
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "time": { "type": "string" },
-        "text": { "type": "string" }
+        "id": {
+          "type": "string"
+        },
+        "time": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
       },
       "required": ["time", "text"],
       "additionalProperties": false
@@ -41,11 +59,21 @@
     "WinnerInfo": {
       "type": "object",
       "properties": {
-        "name": { "type": "string" },
-        "avatar": { "type": "string" },
-        "id": { "type": "string" },
-        "userId": { "type": "string" },
-        "wins": { "type": "integer" }
+        "name": {
+          "type": "string"
+        },
+        "avatar": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "userId": {
+          "type": "string"
+        },
+        "wins": {
+          "type": "integer"
+        }
       },
       "required": ["name", "avatar", "id", "userId", "wins"],
       "additionalProperties": false
@@ -53,26 +81,54 @@
     "Player": {
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "userId": { "type": "string" },
-        "sessionToken": { "type": "string" },
-        "name": { "type": "string" },
-        "avatar": { "type": "string" },
-        "isHost": { "type": "boolean" },
-        "online": { "type": "boolean" },
-        "cardCount": { "type": "integer" },
-        "activeCardCount": { "type": "integer" },
+        "id": {
+          "type": "string"
+        },
+        "userId": {
+          "type": "string"
+        },
+        "sessionToken": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "avatar": {
+          "type": "string"
+        },
+        "isHost": {
+          "type": "boolean"
+        },
+        "online": {
+          "type": "boolean"
+        },
+        "cardCount": {
+          "type": "integer"
+        },
+        "activeCardCount": {
+          "type": "integer"
+        },
         "cards": {
           "type": "array",
-          "items": { "$ref": "Card" }
+          "items": {
+            "$ref": "Card"
+          }
         },
         "pocketedCards": {
           "type": "array",
-          "items": { "$ref": "Card" }
+          "items": {
+            "$ref": "Card"
+          }
         },
-        "wins": { "type": "integer" },
-        "isWinner": { "type": "boolean" },
-        "totalScore": { "type": "integer" }
+        "wins": {
+          "type": "integer"
+        },
+        "isWinner": {
+          "type": "boolean"
+        },
+        "totalScore": {
+          "type": "integer"
+        }
       },
       "required": [
         "id",
@@ -94,11 +150,21 @@
     "SceneEvent": {
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "kind": { "type": "string" },
-        "revision": { "type": "integer" },
-        "targetUserId": { "type": "string" },
-        "ballNumber": { "type": "integer" }
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "integer"
+        },
+        "targetUserId": {
+          "type": "string"
+        },
+        "ballNumber": {
+          "type": "integer"
+        }
       },
       "required": ["id", "kind", "revision"],
       "additionalProperties": false
@@ -106,41 +172,78 @@
     "Room": {
       "type": "object",
       "properties": {
-        "code": { "type": "string" },
-        "hostUserId": { "type": "string" },
-        "hostSocketId": { "type": "string" },
-        "status": { "$ref": "RoomStatus" },
+        "code": {
+          "type": "string"
+        },
+        "hostUserId": {
+          "type": "string"
+        },
+        "hostSocketId": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "RoomStatus"
+        },
         "players": {
           "type": "array",
-          "items": { "$ref": "Player" }
+          "items": {
+            "$ref": "Player"
+          }
         },
         "turnOrder": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
-        "currentTurnIndex": { "type": "integer" },
+        "currentTurnIndex": {
+          "type": "integer"
+        },
         "pocketedBallNumbers": {
           "type": "array",
-          "items": { "type": "integer" }
+          "items": {
+            "type": "integer"
+          }
         },
-        "roundCount": { "type": "integer" },
-        "deckCount": { "type": "integer" },
+        "roundCount": {
+          "type": "integer"
+        },
+        "deckCount": {
+          "type": "integer"
+        },
         "winners": {
           "type": "array",
-          "items": { "$ref": "WinnerInfo" }
+          "items": {
+            "$ref": "WinnerInfo"
+          }
         },
-        "settings": { "$ref": "RoomSettings" },
+        "settings": {
+          "$ref": "RoomSettings"
+        },
         "logs": {
           "type": "array",
-          "items": { "$ref": "GameLog" }
+          "items": {
+            "$ref": "GameLog"
+          }
         },
         "lastRoundScores": {
           "type": "array",
-          "items": { "$ref": "RoundScoreEntry" }
+          "items": {
+            "$ref": "RoundScoreEntry"
+          }
         },
-        "lastActionText": { "type": ["string", "null"] },
-        "revision": { "type": "integer" },
-        "sceneEvent": { "$ref": "SceneEvent" }
+        "lastActionText": {
+          "type": ["string", "null"]
+        },
+        "revision": {
+          "type": "integer"
+        },
+        "sceneEvent": {
+          "$ref": "SceneEvent"
+        },
+        "roomId": {
+          "type": "string"
+        }
       },
       "required": [
         "code",

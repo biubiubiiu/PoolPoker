@@ -60,3 +60,9 @@ tauri.settings.gradle
 /assets/models/previews/
 *.blend1
 *.blend.bak
+
+# Data
+data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm

@@ -1,88 +1,94 @@
 import type { Room, RoomSettings } from './game';
 import { CLIENT_TO_SERVER_EVENTS, SERVER_TO_CLIENT_EVENTS } from './protocol';
 
-export interface CreateRoomPayload {
+export interface CommandMetadata {
+  commandId?: string;
+  expectedRoomId?: string;
+  expectedRevision?: number;
+}
+
+export interface CreateRoomPayload extends CommandMetadata {
   userId: string;
   name: string;
   avatar: string;
   ballConfigKey: string;
 }
 
-export interface JoinRoomPayload {
+export interface JoinRoomPayload extends CommandMetadata {
   roomCode: string;
   userId: string;
   name: string;
   avatar: string;
 }
 
-export interface RejoinRoomPayload {
+export interface RejoinRoomPayload extends CommandMetadata {
   roomCode: string;
   userId: string;
   sessionToken: string;
 }
 
-export interface UpdateSettingsPayload {
+export interface UpdateSettingsPayload extends CommandMetadata {
   roomCode: string;
   settings: Partial<RoomSettings>;
 }
 
-export interface StartGamePayload {
+export interface StartGamePayload extends CommandMetadata {
   roomCode: string;
 }
 
-export interface PocketBallPayload {
+export interface PocketBallPayload extends CommandMetadata {
   roomCode: string;
   cardId: string;
 }
 
-export interface DrawPenaltyPayload {
+export interface DrawPenaltyPayload extends CommandMetadata {
   roomCode: string;
 }
 
-export interface AccidentalPocketPayload {
-  roomCode: string;
-  ballNumber: number;
-}
-
-export interface BreakPocketPayload {
+export interface AccidentalPocketPayload extends CommandMetadata {
   roomCode: string;
   ballNumber: number;
 }
 
-export interface RetractBallPayload {
+export interface BreakPocketPayload extends CommandMetadata {
+  roomCode: string;
+  ballNumber: number;
+}
+
+export interface RetractBallPayload extends CommandMetadata {
   expectedRevision?: number;
   roomCode: string;
 }
 
-export interface RefereePocketBallPayload {
+export interface RefereePocketBallPayload extends CommandMetadata {
   roomCode: string;
   targetUserId: string;
   ballNumber: number;
 }
 
-export interface RefereeDrawPenaltyPayload {
+export interface RefereeDrawPenaltyPayload extends CommandMetadata {
   roomCode: string;
   targetUserId: string;
 }
 
-export interface RequestRestartPayload {
+export interface RequestRestartPayload extends CommandMetadata {
   roomCode: string;
 }
 
-export interface ConfirmRestartPayload {
+export interface ConfirmRestartPayload extends CommandMetadata {
   roomCode: string;
 }
 
-export interface RestartGamePayload {
+export interface RestartGamePayload extends CommandMetadata {
   roomCode: string;
 }
 
-export interface KickPlayerPayload {
+export interface KickPlayerPayload extends CommandMetadata {
   roomCode: string;
   targetUserId: string;
 }
 
-export interface LeaveRoomPayload {
+export interface LeaveRoomPayload extends CommandMetadata {
   roomCode: string;
 }
 
@@ -92,6 +98,7 @@ export interface SocketData {
 }
 
 export interface SocketCallbackResponse {
+  roomId?: string;
   success: boolean;
   message?: string;
   roomCode?: string;

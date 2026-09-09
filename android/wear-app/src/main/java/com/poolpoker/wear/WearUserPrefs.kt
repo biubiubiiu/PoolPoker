@@ -23,20 +23,23 @@ object WearUserPrefs {
         val url = prefs.getString("session_server", null) ?: return null
         val room = prefs.getString("session_room", null) ?: return null
         val user = prefs.getString("session_user", null) ?: return null
-        val token = prefs.getString("session_token", null) ?: return null
+        val token = runCatching { AuthTokenStore.load(context, url) }.getOrNull()?.takeIf { it.isNotBlank() } ?: return null
         return RoomSession(url, room, user, token)
     }
 
     fun saveRoomSession(context: Context, session: RoomSession) {
+        AuthTokenStore.save(context, session.serverUrl, session.token)
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
             .putString("session_server", session.serverUrl)
             .putString("session_room", session.roomCode)
             .putString("session_user", session.userId)
-            .putString("session_token", session.token)
+            .putString(KEY_USER_ID, session.userId)
+            .remove("session_token")
             .apply()
     }
 
     fun clearRoomSession(context: Context) {
+        getRoomSession(context)?.let { AuthTokenStore.save(context, it.serverUrl, "") }
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
             .remove("session_server").remove("session_room")
             .remove("session_user").remove("session_token").apply()

@@ -119,7 +119,7 @@
 
 ### 企业微信结算推送（`server/wecomWebhook.ts` / `server/robotConfig.ts`）
 
-- `wecomWebhook.ts`：`sendRoundResultToWecom(room)` 每局结算后把「房间号 + 各成员本局得分变化 + 累计积分」拼成文本，POST 到企业微信机器人 Webhook（`msgtype: text` + 固定提及成员列表）；未配置 Webhook 链接时直接返回不发送；HTTP 非 2xx / `errcode !== 0` / 异常时打印 `⚠️ [WeCom]` 警告日志，不抛出。
+- `wecomWebhook.ts`：`sendRoundResultToWecom(room)` 每局结算后把「房间号 + 各成员本局得分变化 + 累计积分」拼成文本，POST 到企业微信机器人 Webhook（`msgtype: text` + 固定提及成员列表）；未配置 Webhook 链接时直接返回不发送；HTTP 非 2xx / `errcode !== 0` / 异常时抛出，由持久化 Outbox 延迟重试。
 - `robotConfig.ts`：机器人 Webhook 链接运行时配置——内存变量 `robotWebhookUrl`，`getRobotWebhookUrl` / `setRobotWebhookUrl`（`trim` 后保存），服务重启即清空。
 
 ### 房间管理（`server/roomManager.ts`）
@@ -235,3 +235,11 @@
 - 当前为 Three.js WebGL 原型，尚未接入 WebGPU 专用材质，也未完成 iOS/Android 真机性能与触觉验证。既有 `e2e/poolpoker.spec.ts` 仍使用 v1 选择器，不作为本轮 v2 浏览器验收依据。
 
 - 袋口几何（2026-09-08）：桌布与木质底座使用同心的六个开孔，袋内壁和底面下沉；六段倒角库边在袋口处斜向收口，细金属袋沿贴近桌面。球体静止高度与袋口动画高度保持一致。
+
+## User 体系与 SQLite 更新（2026-09-09）
+
+账号实现以 [user_system_design.md](user_system_design.md) 为准。首页 AccountPanel 提供显式游客、注册与登录；auth service/routes 管理恢复签名、Passkey、设备授权和会话。Web 使用 HttpOnly Cookie，Socket 票据关联服务器身份；客户端 userId 不再是鉴权凭据。HTTP 局域网支持正式账号操作，只有浏览器受限能力按环境隐藏。
+
+RoomController 将内存领域操作和 SQLite 快照/撤回步/命令回执置于同一事务，提交后广播。房间重启恢复、内部 roomId 防复用、Outbox 结算推送取代仅内存生命周期。node:sqlite 随 pnpm 启动；备份入口 `pnpm backup:db -- /path/backup.sqlite`。
+
+Native 使用 Keystore/Keychain；Wear 使用房间受限会话或独立游客会话。旧版客户端持有的 userId/sessionToken 无法绕过新服务的账号鉴权，部署时应结束旧版内存牌局并同步更新客户端。

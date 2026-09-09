@@ -20,6 +20,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
 
   test('1. Player Profile & LocalStorage Persistence (usePlayerProfile)', async ({ page }) => {
     await page.goto('/');
+    await page.getByRole('button', { name: '以游客登录', exact: true }).click();
     await page.waitForTimeout(500);
 
     // 设置玩家姓名 (<=10字符)、选择球色配置
@@ -39,6 +40,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     expect(savedUserId).toBeTruthy();
 
     // 刷新页面，验证配置保存生效
+    await expect.poll(async () => (await (await page.request.get('/api/auth/me')).json()).user.nickname).toBe('Alice');
     await page.reload();
     await page.waitForTimeout(500);
     await expect(nameInput).toHaveValue('Alice');
@@ -51,6 +53,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
       (window as any).__TAURI__ = {};
     });
     await page.goto('/');
+    await page.getByRole('button', { name: '以游客登录', exact: true }).click();
     await page.waitForTimeout(500);
 
     // 点击右上角设置按钮，跳转到服务器设置页面
@@ -182,6 +185,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
 
     // Host 创建房间
     await hostPage.goto('/');
+    await hostPage.getByRole('button', { name: '以游客登录', exact: true }).click();
     await hostPage.waitForTimeout(500);
     await hostPage.locator('input[placeholder*="请输入你的大名/外号"]').fill('HostUser');
     await hostPage.click('button:has-text("创建新房间")');
@@ -193,6 +197,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
 
     // Guest 加入房间
     await guestPage.goto('/');
+    await guestPage.getByRole('button', { name: '以游客登录', exact: true }).click();
     await guestPage.waitForTimeout(500);
     await guestPage.locator('input[placeholder*="请输入你的大名/外号"]').fill('GuestUser');
     await guestPage.click('button:has-text("加入朋友房间")');
@@ -200,16 +205,16 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await guestPage.click('button:has-text("进入球局")');
 
     // 验证双向房间玩家列表同步
-    await expect(hostPage.locator('text=HostUser')).toBeVisible({
+    await expect(hostPage.getByText('HostUser', { exact: true })).toBeVisible({
       timeout: 5000,
     });
-    await expect(hostPage.locator('text=GuestUser')).toBeVisible({
+    await expect(hostPage.getByText('GuestUser', { exact: true })).toBeVisible({
       timeout: 5000,
     });
-    await expect(guestPage.locator('text=HostUser')).toBeVisible({
+    await expect(guestPage.getByText('HostUser', { exact: true })).toBeVisible({
       timeout: 5000,
     });
-    await expect(guestPage.locator('text=GuestUser')).toBeVisible({
+    await expect(guestPage.getByText('GuestUser', { exact: true })).toBeVisible({
       timeout: 5000,
     });
 
@@ -227,6 +232,8 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
   });
 
   test('3. Game Playback, Card Dimming, Accidental Pocket, Retract, Penalty & Restart Flow', async ({ browser }) => {
+    // The first pair of 3D tables compiles WebGL shaders on headless software rendering.
+    test.setTimeout(90000);
     const hostContext = await browser.newContext();
     const guestContext = await browser.newContext();
     await hostContext.addInitScript(() => localStorage.setItem('poolpoker_use_new_ui', 'true'));
@@ -240,6 +247,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
 
     // --- 初始化房间与开始对局 ---
     await hostPage.goto('/');
+    await hostPage.getByRole('button', { name: '以游客登录', exact: true }).click();
     await hostPage.waitForTimeout(500);
     await hostPage.locator('input[placeholder*="请输入你的大名/外号"]').fill('HostP1');
     await hostPage.click('button:has-text("创建新房间")');
@@ -250,6 +258,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     const roomCode = (await roomCodeElement.innerText()).trim();
 
     await guestPage.goto('/');
+    await guestPage.getByRole('button', { name: '以游客登录', exact: true }).click();
     await guestPage.waitForTimeout(500);
     await guestPage.locator('input[placeholder*="请输入你的大名/外号"]').fill('GuestP2');
     await guestPage.click('button:has-text("加入朋友房间")');
@@ -263,8 +272,8 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     // 房主点击开始发牌对局
     await hostPage.click('button:has-text("开始扑克发牌")');
 
-    await hostPage.waitForSelector('.hand-zone', { timeout: 10000 });
-    await guestPage.waitForSelector('.hand-zone', { timeout: 10000 });
+    await hostPage.waitForSelector('.hand-zone', { timeout: 30000 });
+    await guestPage.waitForSelector('.hand-zone', { timeout: 30000 });
 
     // 验证初始发牌手牌按球号/点数升序排列
     const initialHostHand = await getHandBallNumbers(hostPage);
@@ -380,6 +389,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
 
     // 1. 创建房间
     await page.goto('/');
+    await page.getByRole('button', { name: '以游客登录', exact: true }).click();
     await page.waitForTimeout(500);
     await page.locator('input[placeholder*="请输入你的大名/外号"]').fill('ScoreTester');
     await page.click('button:has-text("创建新房间")');
@@ -396,7 +406,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
 
     // 开始第 1 局
     await page.click('button:has-text("开始扑克发牌")');
-    await page.waitForSelector('.hand-zone', { timeout: 10000 });
+    await page.waitForSelector('.hand-zone', { timeout: 30000 });
 
     // 打掉手上的单张卡牌
     const cardToPocket = page.locator('.poker-prop-card:not(.is-dimmed):not([disabled])').first();
@@ -419,7 +429,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await page.waitForSelector('text=开始扑克发牌', { timeout: 5000 });
     await page.click('button:has-text("开始扑克发牌")');
 
-    await page.waitForSelector('.hand-zone', { timeout: 10000 });
+    await page.waitForSelector('.hand-zone', { timeout: 30000 });
 
     // 再次打掉手牌，获得第 2 胜
     const secondCardToPocket = page.locator('.poker-prop-card:not(.is-dimmed):not([disabled])').first();
@@ -450,6 +460,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
 
     // Host 创建房间
     await hostPage.goto('/');
+    await hostPage.getByRole('button', { name: '以游客登录', exact: true }).click();
     await hostPage.waitForTimeout(500);
     await hostPage.locator('input[placeholder*="请输入你的大名/外号"]').fill('HostWin');
     await hostPage.click('button:has-text("创建新房间")');
@@ -462,6 +473,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
 
     // Guest 加入房间
     await guestPage.goto('/');
+    await guestPage.getByRole('button', { name: '以游客登录', exact: true }).click();
     await guestPage.waitForTimeout(500);
     await guestPage.locator('input[placeholder*="请输入你的大名/外号"]').fill('GuestWin');
     await guestPage.click('button:has-text("加入朋友房间")');
@@ -481,8 +493,8 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
 
     // 开始第 1 局
     await hostPage.click('button:has-text("开始扑克发牌")');
-    await hostPage.waitForSelector('.hand-zone', { timeout: 10000 });
-    await guestPage.waitForSelector('.hand-zone', { timeout: 10000 });
+    await hostPage.waitForSelector('.hand-zone', { timeout: 30000 });
+    await guestPage.waitForSelector('.hand-zone', { timeout: 30000 });
 
     // 提取未消除的扑克球号数组
     const getUnpocketedBallList = async (page: any) => {
@@ -566,10 +578,8 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await hostPage.click('button:has-text("开始扑克发牌")');
 
     // 验证下一局 HostWin 优先作为第一位击球（在桌面击球顺序栏中展示）
-    await hostPage.waitForSelector('.hand-zone', { timeout: 10000 });
-    await hostPage.waitForSelector('.turn-order-strip', { timeout: 5000 });
-    const orderText = await hostPage.locator('.turn-order-strip').innerText();
-    expect(orderText).toMatch(/HostWin[\s\S]*GuestWin/);
+    await hostPage.waitForSelector('.hand-zone', { timeout: 30000 });
+    await expect(hostPage.getByLabel('本局击球顺序')).toContainText(/HostWin[\s\S]*GuestWin/, { timeout: 30000 });
 
     await hostContext.close();
     await guestContext.close();
@@ -589,6 +599,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
 
     // Host 创建房间
     await hostPage.goto('/');
+    await hostPage.getByRole('button', { name: '以游客登录', exact: true }).click();
     await hostPage.waitForTimeout(500);
     await hostPage.locator('input[placeholder*="请输入你的大名/外号"]').fill('RefereeP1');
     await hostPage.click('button:has-text("创建新房间")');
@@ -600,6 +611,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
 
     // Guest 加入房间
     await guestPage.goto('/');
+    await guestPage.getByRole('button', { name: '以游客登录', exact: true }).click();
     await guestPage.waitForTimeout(500);
     await guestPage.locator('input[placeholder*="请输入你的大名/外号"]').fill('RefereeP2');
     await guestPage.click('button:has-text("加入朋友房间")');
@@ -612,8 +624,8 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
 
     // 开始对局
     await hostPage.click('button:has-text("开始扑克发牌")');
-    await hostPage.waitForSelector('.hand-zone', { timeout: 10000 });
-    await guestPage.waitForSelector('.hand-zone', { timeout: 10000 });
+    await hostPage.waitForSelector('.hand-zone', { timeout: 30000 });
+    await guestPage.waitForSelector('.hand-zone', { timeout: 30000 });
 
     // 1. Guest (RefereeP2) 为 Host (RefereeP1) 记录进球
     await guestPage.click('button[aria-label="打开对局菜单"]');
@@ -684,6 +696,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
 
     // Host 创建房间
     await hostPage.goto('/');
+    await hostPage.getByRole('button', { name: '以游客登录', exact: true }).click();
     await hostPage.waitForTimeout(500);
     await hostPage.locator('input[placeholder*="请输入你的大名/外号"]').fill('PriHost');
     await hostPage.click('button:has-text("创建新房间")');
@@ -696,6 +709,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
 
     // Guest 加入房间
     await guestPage.goto('/');
+    await guestPage.getByRole('button', { name: '以游客登录', exact: true }).click();
     await guestPage.waitForTimeout(500);
     await guestPage.locator('input[placeholder*="请输入你的大名/外号"]').fill('PriGuest');
     await guestPage.click('button:has-text("加入朋友房间")');
@@ -706,8 +720,8 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
 
     // 房主发牌
     await hostPage.click('button:has-text("开始扑克发牌")');
-    await hostPage.waitForSelector('.hand-zone', { timeout: 10000 });
-    await guestPage.waitForSelector('.hand-zone', { timeout: 10000 });
+    await hostPage.waitForSelector('.hand-zone', { timeout: 30000 });
+    await guestPage.waitForSelector('.hand-zone', { timeout: 30000 });
 
     // 1. 验证双侧玩家初始发牌手牌均为严格升序
     const hostHand1 = await getHandBallNumbers(hostPage);
@@ -760,6 +774,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
   test('8. Immersive V2 Pool Table Features, Break Mode, Drawer & Rules Modal', async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('poolpoker_use_new_ui', 'true'));
     await page.goto('/');
+    await page.getByRole('button', { name: '以游客登录', exact: true }).click();
     await page.waitForTimeout(500);
     await page.locator('input[placeholder*="请输入你的大名/外号"]').fill('V2Tester');
     await page.click('button:has-text("创建新房间")');
@@ -767,7 +782,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
 
     await page.waitForSelector('text=已加入玩家');
     await page.click('button:has-text("开始扑克发牌")');
-    await page.waitForSelector('.hand-zone', { timeout: 10000 });
+    await page.waitForSelector('.hand-zone', { timeout: 30000 });
 
     // 1. 验证 3D 球桌画布及 15 个球号交互靶点渲染
     await expect(page.locator('.arena canvas')).toBeVisible();

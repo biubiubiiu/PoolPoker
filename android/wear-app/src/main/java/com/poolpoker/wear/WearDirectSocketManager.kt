@@ -19,6 +19,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 object WearDirectSocketManager {
@@ -30,6 +31,7 @@ object WearDirectSocketManager {
     private var appContext: Context? = null
     private var joinTimeout: Job? = null
     private var sessionToken: String? = null
+    private val transportAuth = mutableMapOf<String, String>()
     var lastStatus: String? = null
         private set
 
@@ -99,8 +101,36 @@ object WearDirectSocketManager {
         val configuredName = BuildConfig.WATCH_PLAYER_NAME
         userName = if (configuredName.isNotBlank()) configuredName else context.getString(R.string.watch_player_default)
 
+        if (sessionToken == null) {
+            connectionScope?.launch {
+                try {
+                    val result = withContext(Dispatchers.IO) {
+                        val connection = java.net.URL("${url.trimEnd('/')}/api/auth/guest").openConnection() as java.net.HttpURLConnection
+                        try {
+                            connection.requestMethod = "POST"
+                            connection.connectTimeout = 5000
+                            connection.readTimeout = 5000
+                            connection.doOutput = true
+                            connection.setRequestProperty("Content-Type", "application/json")
+                            connection.setRequestProperty("X-PoolPoker-Request", "1")
+                            connection.setRequestProperty("X-PoolPoker-Native", "1")
+                            connection.outputStream.use { it.write(JSONObject().put("nickname", userName).put("deviceName", "Wear OS").toString().toByteArray()) }
+                            JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
+                        } finally { connection.disconnect() }
+                    }
+                    val id = result.getJSONObject("user").getString("id")
+                    val token = result.getString("token")
+                    WearUserPrefs.saveRoomSession(context, WearUserPrefs.RoomSession(url, roomCode, id, token))
+                    connect(context, roomCode, url, id, token, onConnected)
+                } catch (e: Exception) { status("游客登录失败，请重试") }
+            }
+            return
+        }
         try {
             val opts = IO.Options()
+            transportAuth.clear()
+            sessionToken?.let { transportAuth[if (it.length == 36) "companionTicket" else "token"] = it }
+            opts.auth = transportAuth
             opts.forceNew = true
             opts.reconnection = true
             opts.transports = arrayOf("websocket", "polling")
@@ -230,7 +260,7 @@ object WearDirectSocketManager {
             }
         }
         joinTimeout = timeout
-        activeSocket.emit(if (token == null) SocketEvents.JOIN_ROOM else SocketEvents.REJOIN_ROOM, payload, Ack { args ->
+        activeSocket.emit(SocketEvents.JOIN_ROOM, payload, Ack { args ->
             scope.launch {
                 if (socket !== activeSocket || !activeSocket.connected()) return@launch
                 timeout.cancel()
@@ -244,12 +274,14 @@ object WearDirectSocketManager {
                     WearDataLayerListenerService.clearState()
                     return@launch
                 }
-                val receivedToken = response.optString("sessionToken").takeIf { it.isNotBlank() }
+                val receivedToken = response.optString("sessionToken").takeIf { it.isNotBlank() } ?: sessionToken
                 if (receivedToken == null) {
                     status(context.getString(R.string.status_room_failed))
                     return@launch
                 }
                 sessionToken = receivedToken
+                transportAuth.clear()
+                transportAuth["token"] = receivedToken
                 WearUserPrefs.saveRoomSession(context, WearUserPrefs.RoomSession(serverUrl, code, userId, receivedToken))
                 isConnected = true
                 status(context.getString(R.string.status_connected_direct))
@@ -261,6 +293,7 @@ object WearDirectSocketManager {
     fun pocketBall(roomCode: String, cardId: String) {
         if (isConnected && socket?.connected() == true) {
             val payload = JSONObject().apply {
+                put("commandId", java.util.UUID.randomUUID().toString())
                 put("roomCode", roomCode)
                 put("cardId", cardId)
             }
@@ -271,6 +304,7 @@ object WearDirectSocketManager {
     fun drawPenalty(roomCode: String) {
         if (isConnected && socket?.connected() == true) {
             val payload = JSONObject().apply {
+                put("commandId", java.util.UUID.randomUUID().toString())
                 put("roomCode", roomCode)
             }
             socket?.emit(SocketEvents.DRAW_PENALTY, payload)
@@ -280,6 +314,7 @@ object WearDirectSocketManager {
     fun retractBall(roomCode: String) {
         if (isConnected && socket?.connected() == true) {
             val payload = JSONObject().apply {
+                put("commandId", java.util.UUID.randomUUID().toString())
                 put("roomCode", roomCode)
             }
             socket?.emit(SocketEvents.RETRACT_BALL, payload)
@@ -289,6 +324,7 @@ object WearDirectSocketManager {
     fun accidentalPocket(roomCode: String, ballNumber: Int) {
         if (isConnected && socket?.connected() == true) {
             val payload = JSONObject().apply {
+                put("commandId", java.util.UUID.randomUUID().toString())
                 put("roomCode", roomCode)
                 put("ballNumber", ballNumber)
             }
@@ -299,6 +335,7 @@ object WearDirectSocketManager {
     fun refereePocketBall(roomCode: String, targetUserId: String, ballNumber: Int) {
         if (isConnected && socket?.connected() == true) {
             val payload = JSONObject().apply {
+                put("commandId", java.util.UUID.randomUUID().toString())
                 put("roomCode", roomCode)
                 put("targetUserId", targetUserId)
                 put("ballNumber", ballNumber)
@@ -310,6 +347,7 @@ object WearDirectSocketManager {
     fun refereeDrawPenalty(roomCode: String, targetUserId: String) {
         if (isConnected && socket?.connected() == true) {
             val payload = JSONObject().apply {
+                put("commandId", java.util.UUID.randomUUID().toString())
                 put("roomCode", roomCode)
                 put("targetUserId", targetUserId)
             }
@@ -320,6 +358,7 @@ object WearDirectSocketManager {
     fun breakPocket(roomCode: String, ballNumber: Int) {
         if (isConnected && socket?.connected() == true) {
             val payload = JSONObject().apply {
+                put("commandId", java.util.UUID.randomUUID().toString())
                 put("roomCode", roomCode)
                 put("ballNumber", ballNumber)
             }

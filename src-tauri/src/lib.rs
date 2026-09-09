@@ -165,12 +165,69 @@ fn sync_wear_state(payload: String) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn save_auth_token(server: String, token: String) -> Result<(), String> {
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    {
+        use security_framework::passwords::{delete_generic_password, set_generic_password};
+        if token.is_empty() { let _ = delete_generic_password("com.poolpoker.auth", &server); return Ok(()); }
+        return set_generic_password("com.poolpoker.auth", &server, token.as_bytes()).map_err(|e| e.to_string());
+    }
+    #[cfg(target_os = "android")]
+    { android_auth(&server, Some(&token)).map(|_| ()) }
+    #[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "android")))]
+    { let _ = (server, token); Err("Native secure token storage is not available on this platform".into()) }
+}
+
+#[tauri::command]
+fn load_auth_token(server: String) -> Result<String, String> {
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    {
+        use security_framework::passwords::get_generic_password;
+        return match get_generic_password("com.poolpoker.auth", &server) {
+            Ok(bytes) => String::from_utf8(bytes).map_err(|e| e.to_string()),
+            Err(e) if e.code() == -25300 => Ok(String::new()),
+            Err(e) => Err(e.to_string()),
+        };
+    }
+    #[cfg(target_os = "android")]
+    { android_auth(&server, None) }
+    #[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "android")))]
+    { let _ = server; Err("Native secure token storage is not available on this platform".into()) }
+}
+
+#[cfg(target_os = "android")]
+fn android_auth(server: &str, token: Option<&str>) -> Result<String, String> {
+    let guard = JAVA_VM.lock().map_err(|e| e.to_string())?;
+    let vm = guard.as_ref().ok_or("Android runtime not ready")?;
+    let mut env = vm.attach_current_thread().map_err(|e| e.to_string())?;
+    // Resolve the application class through the Activity's class loader on Rust threads.
+    let context = ndk_context::android_context();
+    let activity = unsafe { jni::objects::JObject::from_raw(context.context().cast()) };
+    let loader = env.call_method(&activity, "getClassLoader", "()Ljava/lang/ClassLoader;", &[]).map_err(|e| e.to_string())?.l().map_err(|e| e.to_string())?;
+    let name = env.new_string("com.poolpoker.app.MainActivity").map_err(|e| e.to_string())?;
+    let class = env.call_method(loader, "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;", &[(&name).into()]).map_err(|e| e.to_string())?.l().map_err(|e| e.to_string())?;
+    let class = jni::objects::JClass::from(class);
+    let account = env.new_string(server).map_err(|e| e.to_string())?;
+    if let Some(value) = token {
+        let secret = env.new_string(value).map_err(|e| e.to_string())?;
+        env.call_static_method(class, "saveAuthToken", "(Ljava/lang/String;Ljava/lang/String;)V", &[(&account).into(), (&secret).into()]).map_err(|e| e.to_string())?;
+        Ok(String::new())
+    } else {
+        let result = env.call_static_method(class, "loadAuthToken", "(Ljava/lang/String;)Ljava/lang/String;", &[(&account).into()]).map_err(|e| e.to_string())?.l().map_err(|e| e.to_string())?;
+        let text = jni::objects::JString::from(result);
+        let value: String = env.get_string(&text).map_err(|e| e.to_string())?.into();
+        Ok(value)
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_http::init())
-        .invoke_handler(tauri::generate_handler![is_android, sync_wear_state])
+        .plugin(tauri_plugin_opener::init())
+        .invoke_handler(tauri::generate_handler![is_android, sync_wear_state, save_auth_token, load_auth_token])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

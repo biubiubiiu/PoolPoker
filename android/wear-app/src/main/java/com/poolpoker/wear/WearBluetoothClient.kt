@@ -53,30 +53,11 @@ object WearBluetoothClient {
                     Log.d(TAG, "Attempting Bluetooth RFCOMM connection to paired device: $deviceName")
 
                     var clientSocket: BluetoothSocket? = null
-                    // Strategy 1: Insecure RFCOMM with Service UUID
                     try {
-                        val s = device.createInsecureRfcommSocketToServiceRecord(SERVICE_UUID)
-                        s.connect()
-                        clientSocket = s
-                    } catch (e1: Exception) {
-                        Log.d(TAG, "Insecure RFCOMM failed for $deviceName: ${e1.message}, trying Secure RFCOMM...")
-                        // Strategy 2: Secure RFCOMM with Service UUID
-                        try {
-                            val s = device.createRfcommSocketToServiceRecord(SERVICE_UUID)
-                            s.connect()
-                            clientSocket = s
-                        } catch (e2: Exception) {
-                            Log.d(TAG, "Secure RFCOMM failed for $deviceName: ${e2.message}, trying reflection channel 1...")
-                            // Strategy 3: Reflection fallback (channel 1)
-                            try {
-                                val m = device.javaClass.getMethod("createRfcommSocket", Int::class.javaPrimitiveType)
-                                val s = m.invoke(device, 1) as BluetoothSocket
-                                s.connect()
-                                clientSocket = s
-                            } catch (e3: Exception) {
-                                Log.d(TAG, "Reflection RFCOMM failed for $deviceName: ${e3.message}")
-                            }
-                        }
+                        val s = device.createRfcommSocketToServiceRecord(SERVICE_UUID)
+                        try { s.connect(); clientSocket = s } catch (e: Exception) { s.close(); throw e }
+                    } catch (e: Exception) {
+                        Log.d(TAG, "Secure RFCOMM unavailable: ${e.message}")
                     }
 
                     if (clientSocket == null) {

@@ -403,3 +403,17 @@
   3. 构建三级 GLB 资源预加载体系：`index.html` 增加 `<link rel="preload">` 底层预拉取；新增 `src/utils/tableModelLoader.ts` 开启 Three.js 内存缓存与 ArrayBuffer 单例管理；`App.vue` 在用户处于大厅阶段利用 `requestIdleCallback` 提前静默加载 `ThreeBilliardsArena` 代码块与 3.38MB GLB 模型。
 - **验证**：`pnpm run lint` 检查通过；`pnpm run test:unit` 全部 59 项通过；`pnpm run build` 成功，JS bundle 减少约 57KB，加载时间与过渡顺畅。
 
+
+### User 体系与 HTTP 能力开放 [2026-09-09]
+- 首页加入注册/登录/游客入口、可变昵称、12 词恢复备份、Passkey、二维码/六位码设备授权与会话管理。
+- HTTP 不限制正式账号权限；纯 JS 恢复签名不依赖 SubtleCrypto，Passkey 按实际环境显示；App 可通过系统浏览器配对授权完成登录。
+- 服务端统一会话鉴权，修复通过 query userId 读取私有手牌；游客原地注册保留座位，多设备加入自动恢复同一身份。
+- Node 24 内置 SQLite 持久化账号、会话、房间最新快照、独立撤回步、命令回执和 Outbox；新增在线备份命令。
+- Android/Wear 使用 Keystore 加密 token、Apple 使用 Keychain；蓝牙凭证同步使用安全 RFCOMM 与已配对设备，Wear 直连加入认证并支持独立游客。
+- 验证详情与部署约定见 docs/user_system_design.md；新增认证单元测试和 Playwright 账号/虚拟 Passkey 用例。原生真机后台恢复与蓝牙联调仍需设备验收。
+
+### User 体系最终回归 [2026-09-10]
+- 固定构建下 13 项 Playwright 与 66 项 Vitest 全部通过；Web 构建和 codegen 检查通过。
+- 修复 Passkey 能力检测与登录恢复的初始化竞争；切换服务器时丢弃旧上下文响应。
+- 普通记球使用 commandId 去重，撤回保留严格 revision 校验，避免重连导致正常罚牌被无谓拒绝。
+- 结算顺序测试使用状态断言等待，兼容无头软件 WebGL 渲染；所有真实业务断言保留。

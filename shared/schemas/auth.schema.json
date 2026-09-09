@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "AuthUser": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "nickname", "hasRecovery", "passkeyCount"],
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "type": "string", "enum": ["guest", "registered"] },
+        "nickname": { "type": "string" },
+        "hasRecovery": { "type": "boolean" },
+        "passkeyCount": { "type": "integer" }
+      }
+    },
+    "AuthSessionInfo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "current", "expiresAt", "role"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "current": { "type": "boolean" },
+        "expiresAt": { "type": "string" },
+        "role": { "type": "string", "enum": ["manager", "play"] }
+      }
+    },
+    "AuthPairing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "code", "secret", "expiresAt"],
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string" },
+        "secret": { "type": "string" },
+        "expiresAt": { "type": "string" }
+      }
+    }
+  }
+}

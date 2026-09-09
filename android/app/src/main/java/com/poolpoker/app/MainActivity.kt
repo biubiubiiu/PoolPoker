@@ -20,6 +20,7 @@ class MainActivity : TauriActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        appContext = applicationContext
 
         try {
             nativeInitJni()
@@ -57,13 +58,17 @@ class MainActivity : TauriActivity() {
     }
 
     companion object {
+        private lateinit var appContext: android.content.Context
+        @JvmStatic @Keep fun saveAuthToken(server: String, token: String) { AuthTokenStore.save(appContext, server, token) }
+        @JvmStatic @Keep fun loadAuthToken(server: String): String = AuthTokenStore.load(appContext, server)
+
         @JvmStatic
         private external fun nativeInitJni()
 
         @JvmStatic
         @Keep
         fun onNativeSyncWearState(payload: String) {
-            Log.d("MainActivity", "onNativeSyncWearState called: $payload")
+            Log.d("MainActivity", "Wear state received")
             BluetoothServerRelay.broadcastCredentials(payload)
         }
     }

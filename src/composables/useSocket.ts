@@ -1,5 +1,6 @@
 import { io, type Socket } from 'socket.io-client';
-import { onMounted, onUnmounted, ref, shallowRef } from 'vue';
+import { onMounted, onUnmounted, ref, shallowRef, watch } from 'vue';
+import { authFetch, authGeneration, authUser, loadAuth } from '@/services/auth';
 
 export interface ServerUrlConfig {
   id: string;
@@ -59,15 +60,16 @@ export function useSocket() {
       socket.value = null;
     }
 
-    const savedName = localStorage.getItem('billiards_player_name') || '';
-    const savedUserId = localStorage.getItem('billiards_user_id') || '';
+    if (!authUser.value) return;
     const url = normalizeUrl(serverUrl.value);
 
     const options = {
-      auth: {
-        name: savedName,
-        userId: savedUserId,
+      auth: (callback: (data: Record<string, string>) => void) => {
+        authFetch('/api/auth/socket-ticket', {})
+          .then((r) => callback({ ticket: r.ticket }))
+          .catch(() => callback({}));
       },
+      withCredentials: true,
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 300,
@@ -90,7 +92,7 @@ export function useSocket() {
     } else {
       localStorage.removeItem('poolpoker_server_url');
     }
-    connectSocket();
+    void loadAuth();
   };
 
   const addServerUrl = (urlOrPayload: string | { url: string; name?: string }, nameStr?: string) => {
@@ -126,8 +128,12 @@ export function useSocket() {
   };
 
   onMounted(() => {
-    connectSocket();
+    void loadAuth();
   });
+  watch(
+    () => [authUser.value?.id, authGeneration.value],
+    () => connectSocket()
+  );
 
   onUnmounted(() => {
     if (socket.value) {

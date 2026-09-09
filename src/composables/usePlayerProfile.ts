@@ -1,14 +1,8 @@
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { authFetch, authUser } from '@/services/auth';
 
 export function usePlayerProfile() {
-  // 玩家固定的唯一 userId (持久化存在 localStorage)
-  let savedUserId = localStorage.getItem('billiards_user_id');
-  if (!savedUserId) {
-    savedUserId = `u_${Math.random().toString(36).substring(2, 10)}${Date.now()}`;
-    localStorage.setItem('billiards_user_id', savedUserId);
-  }
-  const userId = ref<string>(savedUserId);
-
+  const userId = computed(() => authUser.value?.id || '');
   // 玩家个人设置
   const playerName = ref<string>(localStorage.getItem('billiards_player_name') || '');
   const rawBallConfigKey = localStorage.getItem('billiards_ball_config_key');
@@ -16,7 +10,21 @@ export function usePlayerProfile() {
   localStorage.setItem('billiards_ball_config_key', initialBallConfigKey);
   const selectedBallConfigKey = ref<string>(initialBallConfigKey);
 
+  let nameTimer: ReturnType<typeof setTimeout>;
+  watch(
+    () => authUser.value?.nickname,
+    (name) => {
+      if (name) playerName.value = name;
+    }
+  );
   watch(playerName, (val) => {
+    clearTimeout(nameTimer);
+    if (authUser.value && val.trim() && val.trim() !== authUser.value.nickname)
+      nameTimer = setTimeout(() => {
+        void authFetch('/api/auth/me', { nickname: val.trim() }, 'PATCH').catch(() => {
+          playerName.value = authUser.value?.nickname || '';
+        });
+      }, 400);
     const trimmed = val.trim();
     if (trimmed) {
       localStorage.setItem('billiards_player_name', trimmed);
@@ -35,7 +43,7 @@ export function usePlayerProfile() {
       localStorage.setItem('billiards_player_name', trimmed);
       return trimmed;
     }
-    return `球友${Math.floor(Math.random() * 900 + 100)}`;
+    return authUser.value?.nickname || '球友';
   };
 
   return {

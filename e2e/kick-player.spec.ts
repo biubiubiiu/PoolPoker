@@ -7,12 +7,14 @@ test('host can cancel or confirm removing a player from the preparation room', a
     const host = await hostContext.newPage();
     const guest = await guestContext.newPage();
     await host.goto('/');
+    await host.getByRole('button', { name: '以游客登录', exact: true }).click();
     await host.locator('input[placeholder*="请输入你的大名/外号"]').fill('KickHost');
     await host.getByRole('button', { name: '创建新房间' }).click();
     await host.getByRole('button', { name: '一键创建数字房间' }).click();
     await expect(host.getByText('已加入玩家', { exact: false })).toBeVisible();
     const code = (await host.locator('header span.font-mono').first().innerText()).trim();
     await guest.goto('/');
+    await guest.getByRole('button', { name: '以游客登录', exact: true }).click();
     await guest.locator('input[placeholder*="请输入你的大名/外号"]').fill('KickGuest');
     await guest.locator('input[placeholder*="输入 4 位数字房间码"]').fill(code);
     await guest.getByRole('button', { name: '进入球局' }).click();

@@ -25,7 +25,8 @@
     "tauri:android": "tauri android build --debug --apk",
     "tauri:android:build": "tauri android build --apk",
     "tauri:ios": "tauri ios dev",
-    "tauri:ios:build": "tauri ios build"
+    "tauri:ios:build": "tauri ios build",
+    "backup:db": "node scripts/backup-db.mjs"
   },
   "packageManager": "pnpm@11.22.0",
   "engines": {
@@ -47,13 +48,20 @@
   "license": "ISC",
   "dependencies": {
     "@fortawesome/fontawesome-free": "^7.3.1",
+    "@noble/curves": "^2.4.0",
+    "@noble/hashes": "^2.4.0",
+    "@scure/bip39": "^2.4.0",
+    "@simplewebauthn/browser": "^14.0.0",
+    "@simplewebauthn/server": "^14.0.1",
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-dialog": "~2.7.2",
     "@tauri-apps/plugin-http": "~2.5.9",
+    "@tauri-apps/plugin-opener": "^2.5.5",
     "@types/three": "^0.185.4",
     "canvas-confetti": "^1.9.4",
     "express": "^4.19.2",
     "js-yaml": "^4.1.0",
+    "qrcode": "^1.5.4",
     "socket.io": "^4.7.5",
     "socket.io-client": "^4.8.3",
     "three": "^0.185.1",
@@ -71,6 +79,7 @@
     "@types/express": "^5.0.6",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^26.2.0",
+    "@types/qrcode": "^1.5.6",
     "@vitejs/plugin-vue": "^6.0.8",
     "autoprefixer": "^10.5.4",
     "concurrently": "^10.0.5",

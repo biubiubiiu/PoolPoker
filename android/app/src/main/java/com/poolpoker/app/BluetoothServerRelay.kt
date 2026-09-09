@@ -39,22 +39,14 @@ object BluetoothServerRelay {
         isListening = true
         executor.execute {
             try {
-                serverSocket = try {
-                    adapter.listenUsingInsecureRfcommWithServiceRecord(SERVICE_NAME, SERVICE_UUID)
-                } catch (e: Exception) {
-                    try {
-                        adapter.listenUsingRfcommWithServiceRecord(SERVICE_NAME, SERVICE_UUID)
-                    } catch (secErr: SecurityException) {
-                        Log.w(TAG, "BLUETOOTH_CONNECT permission missing on phone: ${secErr.message}")
-                        null
-                    }
-                }
+                serverSocket = adapter.listenUsingRfcommWithServiceRecord(SERVICE_NAME, SERVICE_UUID)
                 if (serverSocket == null) return@execute
 
                 Log.d(TAG, "Bluetooth RFCOMM ServerSocket started listening...")
 
                 while (isListening) {
                     val socket = serverSocket?.accept() ?: break
+                    if (socket.remoteDevice.bondState != android.bluetooth.BluetoothDevice.BOND_BONDED) { socket.close(); continue }
                     val deviceName = try { socket.remoteDevice?.name } catch (_: SecurityException) { "Device" }
                     Log.d(TAG, "Watch connected via Bluetooth RFCOMM: $deviceName")
                     synchronized(activeSockets) {
