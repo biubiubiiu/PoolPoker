@@ -92,6 +92,84 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await expect(page.locator('h1:has-text("PoolPoker · 球霸扑克")')).toBeVisible();
   });
 
+  test('1.2 Game Entry UI Switch: Default Off on Web, Default On on Tauri, Persistence & UI Toggle', async ({
+    page,
+  }) => {
+    // 1. Web 环境下默认关闭
+    await page.goto('/');
+    await page.waitForTimeout(500);
+
+    const switchLabel = page.locator('label:has-text("新版界面")').first();
+    await expect(switchLabel).toBeVisible();
+    const switchInput = switchLabel.locator('input[type="checkbox"]');
+    expect(await switchInput.isChecked()).toBe(false);
+
+    // 2. 点击切换为开启，验证 localStorage 持久化
+    await switchLabel.click();
+    expect(await switchInput.isChecked()).toBe(true);
+    let savedPref = await page.evaluate(() => localStorage.getItem('poolpoker_use_new_ui'));
+    expect(savedPref).toBe('true');
+
+    // 刷新页面，验证仍保持开启
+    await page.reload();
+    await page.waitForTimeout(500);
+    const reloadedSwitch = page.locator('label:has-text("新版界面") input[type="checkbox"]').first();
+    expect(await reloadedSwitch.isChecked()).toBe(true);
+
+    // 再次点击切回关闭
+    await page.locator('label:has-text("新版界面")').first().click();
+    expect(await reloadedSwitch.isChecked()).toBe(false);
+    savedPref = await page.evaluate(() => localStorage.getItem('poolpoker_use_new_ui'));
+    expect(savedPref).toBe('false');
+
+    // 3. 模拟 Tauri 环境：清空 localStorage 后默认开启
+    await page.evaluate(() => localStorage.removeItem('poolpoker_use_new_ui'));
+    await page.addInitScript(() => {
+      (window as any).__TAURI__ = {};
+    });
+    await page.reload();
+    await page.waitForTimeout(500);
+    const tauriSwitch = page.locator('label:has-text("新版界面") input[type="checkbox"]').first();
+    expect(await tauriSwitch.isChecked()).toBe(true);
+  });
+
+  test('1.3 Classic V1 Gameplay Interface Verification (PokerCard, BilliardsTable, GameLogs, GameHeader)', async ({
+    page,
+  }) => {
+    page.on('dialog', (d) => d.accept());
+    await page.goto('/');
+    await page.waitForTimeout(500);
+    // 确保使用 V1 旧版界面（默认关闭）
+    await page.evaluate(() => localStorage.setItem('poolpoker_use_new_ui', 'false'));
+    await page.reload();
+    await page.waitForTimeout(500);
+
+    await page.locator('input[placeholder*="请输入你的大名/外号"]').fill('V1Player');
+    await page.click('button:has-text("创建新房间")');
+    await page.click('button:has-text("一键创建数字房间")');
+    await page.waitForSelector('text=已加入玩家');
+
+    // 开局
+    await page.click('button:has-text("开始扑克发牌")');
+    // 验证展示 V1 界面特有的组件元素：
+    // - 我的手上扑克手牌区
+    await expect(page.locator('text=我的手上扑克手牌')).toBeVisible();
+    // - 2D PokerCard 扑克手牌
+    const pokerCards = page.locator('.poker-card-frame');
+    await expect(pokerCards.first()).toBeVisible();
+    // - 局况对比与球盘表格 (BilliardsTable)
+    await expect(page.locator('text=全局赛况')).toBeVisible();
+    // - 对局实况日志 (GameLogs)
+    await expect(page.locator('text=对局实况日志')).toBeVisible();
+    // - 顶部 GameHeader 在游戏中正常显示
+    await expect(page.locator('header span.font-mono')).toBeVisible();
+
+    // 点击一张手牌消牌
+    const firstCard = pokerCards.first();
+    await firstCard.click();
+    await page.waitForTimeout(500);
+  });
+
   test('2. Multi-player Lobby Sync & Rules Adjustment (useGameRoom + Socket.io)', async ({ browser }) => {
     const hostContext = await browser.newContext();
     const guestContext = await browser.newContext();
@@ -151,6 +229,8 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
   test('3. Game Playback, Card Dimming, Accidental Pocket, Retract, Penalty & Restart Flow', async ({ browser }) => {
     const hostContext = await browser.newContext();
     const guestContext = await browser.newContext();
+    await hostContext.addInitScript(() => localStorage.setItem('poolpoker_use_new_ui', 'true'));
+    await guestContext.addInitScript(() => localStorage.setItem('poolpoker_use_new_ui', 'true'));
 
     const hostPage = await hostContext.newPage();
     const guestPage = await guestContext.newPage();
@@ -296,6 +376,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
 
   test('4. Cumulative Score & Victory Count Tracking Across Rounds', async ({ page }) => {
     page.on('dialog', (d) => d.accept());
+    await page.addInitScript(() => localStorage.setItem('poolpoker_use_new_ui', 'true'));
 
     // 1. 创建房间
     await page.goto('/');
@@ -358,6 +439,8 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     test.setTimeout(90000);
     const hostContext = await browser.newContext();
     const guestContext = await browser.newContext();
+    await hostContext.addInitScript(() => localStorage.setItem('poolpoker_use_new_ui', 'true'));
+    await guestContext.addInitScript(() => localStorage.setItem('poolpoker_use_new_ui', 'true'));
 
     const hostPage = await hostContext.newPage();
     const guestPage = await guestContext.newPage();
@@ -495,6 +578,8 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
   test('6. Referee Mode Proxy Ball Potting & Proxy Foul Drawing (记录进球与记录犯规功能)', async ({ browser }) => {
     const hostContext = await browser.newContext();
     const guestContext = await browser.newContext();
+    await hostContext.addInitScript(() => localStorage.setItem('poolpoker_use_new_ui', 'true'));
+    await guestContext.addInitScript(() => localStorage.setItem('poolpoker_use_new_ui', 'true'));
 
     const hostPage = await hostContext.newPage();
     const guestPage = await guestContext.newPage();
@@ -588,6 +673,8 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
   }) => {
     const hostContext = await browser.newContext();
     const guestContext = await browser.newContext();
+    await hostContext.addInitScript(() => localStorage.setItem('poolpoker_use_new_ui', 'true'));
+    await guestContext.addInitScript(() => localStorage.setItem('poolpoker_use_new_ui', 'true'));
 
     const hostPage = await hostContext.newPage();
     const guestPage = await guestContext.newPage();
@@ -671,6 +758,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
   });
 
   test('8. Immersive V2 Pool Table Features, Break Mode, Drawer & Rules Modal', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('poolpoker_use_new_ui', 'true'));
     await page.goto('/');
     await page.waitForTimeout(500);
     await page.locator('input[placeholder*="请输入你的大名/外号"]').fill('V2Tester');

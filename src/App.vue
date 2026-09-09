@@ -1,26 +1,21 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, onMounted, ref } from 'vue';
-import GameControlDrawer from '@/components/GameControlDrawer.vue';
+import { computed, onMounted, ref } from 'vue';
 import GameHeader from '@/components/GameHeader.vue';
-import GameMinimalHud from '@/components/GameMinimalHud.vue';
-import HandDeckFan from '@/components/HandDeckFan.vue';
-import RecordingPlayerDropdown from '@/components/RecordingPlayerDropdown.vue';
 import RefereeFoulModal from '@/components/RefereeFoulModal.vue';
 import RefereePocketModal from '@/components/RefereePocketModal.vue';
 import RestartModal from '@/components/RestartModal.vue';
 import RoomLobby from '@/components/RoomLobby.vue';
-import TableOpponentSeats from '@/components/TableOpponentSeats.vue';
 import VictoryModal from '@/components/VictoryModal.vue';
+import GameViewV1 from '@/components/v1/GameView.vue';
+import GameViewV2 from '@/components/v2/GameView.vue';
 import { useGameRoom } from '@/composables/useGameRoom';
 import { usePlayerProfile } from '@/composables/usePlayerProfile';
 import { useSocket } from '@/composables/useSocket';
+import { useUiPreferences } from '@/composables/useUiPreferences';
 import { preloadTableModel } from '@/utils/tableModelLoader';
 
-const loadArenaComponent = () => import('@/components/ThreeBilliardsArena.vue');
-const ThreeBilliardsArena = defineAsyncComponent(loadArenaComponent);
-
+const { useNewUi } = useUiPreferences();
 const { userId, playerName, selectedBallConfigKey, getFinalPlayerName } = usePlayerProfile();
-
 const { socket, serverUrl, savedServerUrls, updateServerUrl, addServerUrl, removeServerUrl } = useSocket();
 
 const {
@@ -61,6 +56,7 @@ const {
   handleStartGame,
   handleKickPlayer,
   handleHandCardClick,
+  handleConfirmPocket,
   handleTableBallClick,
   handleRetract,
   openRefereePocket,
@@ -90,9 +86,9 @@ const showRulesModal = ref(false);
 const showControlDrawer = ref(false);
 
 onMounted(() => {
-  // 利用空闲时间静默预加载 3D 球台组件与 3.38MB GLB 模型，消除开局等待
+  // 当开启新版界面时，利用空闲时间静默预加载 3D 球台组件与 3.38MB GLB 模型，消除开局等待
   const idlePreload = () => {
-    loadArenaComponent();
+    import('@/components/v2/ThreeBilliardsArena.vue');
     preloadTableModel();
   };
   if (typeof window !== 'undefined') {
@@ -106,10 +102,10 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="app-shell flex-1 flex flex-col mx-auto w-full safe-area-spacing relative min-h-dvh" :style="ballColorStyle">
+  <div :class="[useNewUi ? 'app-shell' : 'max-w-md', 'flex-1 flex flex-col mx-auto w-full safe-area-spacing relative min-h-dvh']" :style="ballColorStyle">
     
-    <!-- 顶部状态栏 (仅在等待大厅时显示传统 Header) -->
-    <GameHeader v-if="room && (room.status === 'waiting' || room.status === 'lobby')"
+    <!-- 顶部状态栏 (v1 在所有在房状态下显示，v2 仅在等待大厅时显示) -->
+    <GameHeader v-if="room && (!useNewUi || room.status === 'waiting' || room.status === 'lobby')"
                 :room="room"
                 :isHost="isHost"
                 @request-restart="showControlDrawer = false; showRestartConfirm = true"
@@ -122,6 +118,7 @@ onMounted(() => {
                :isHost="isHost"
                :serverUrl="serverUrl"
                :savedServerUrls="savedServerUrls"
+               v-model:useNewUi="useNewUi"
                v-model:playerName="playerName"
                v-model:selectedBallConfigKey="selectedBallConfigKey"
                :ballConfigOptions="ballConfigOptions"
@@ -134,63 +131,62 @@ onMounted(() => {
                @kick-player="handleKickPlayer"
                @start-game="handleStartGame" />
 
-    <main v-else-if="room" class="game-world">
-      <GameMinimalHud :room="room" :isHost="isHost" @open-menu="showControlDrawer = true" />
-      <TableOpponentSeats :players="room.players" :myUserId="userId"
-        :currentShooterUserId="breakMode ? undefined : currentShooter?.userId" :turnOrder="room.turnOrder"
-        @select-player="selectRecordingPlayer($event.userId)" />
-      <div class="recording-strip">
-        <div class="recording-caption">{{ breakMode ? '开球进球 · 不归属玩家' : '记球对象' }}</div>
-        <div class="recording-actions">
-          <RecordingPlayerDropdown v-if="!breakMode" :players="room.players" :userId="userId"
-            :selectedUserId="recordingUserId" @select="selectRecordingPlayer" />
-          <strong v-else>逐个点选已进球</strong>
-          <button v-if="!breakMode && room.players.length > 1" @click="nextRecordingPlayer" aria-label="切换下一位记球对象">下一位 →</button>
-          <button v-if="breakMode" @click="breakMode = false">完成开球</button>
-        </div>
-      </div>
-      <div v-if="turnOrderPlayers.length" class="turn-order-strip" aria-label="本局击球顺序">
-        <span>击球顺序</span>
-        <ol><li v-for="(player, index) in turnOrderPlayers" :key="player.userId"><span v-if="index" aria-hidden="true">→</span><span>{{ index + 1 }}. {{ player.name }}</span><small v-if="index === 0">首发</small></li></ol>
-      </div>
-      <div class="table-stage">
-        <ThreeBilliardsArena :pendingBallNumbers="pendingBallNumbers" :pocketedBallNumbers="room.pocketedBallNumbers" :animationId="sceneAnimationId"
-          :resetKey="sceneReset" :disabled="busy || room.status !== 'playing'" :colors="ballConfigs[activeBallConfigKey]?.colors"
-          @ball-click="handleTableBallClick" />
-      </div>
-      <div v-if="feedback" class="action-error" role="alert">{{ feedback }}</div>
-      <nav class="table-tools" aria-label="对局快捷操作">
-        <button :disabled="busy || room.status !== 'playing'" :aria-pressed="breakMode" @click="breakMode = !breakMode">开球模式</button>
-        <button :disabled="busy || room.status !== 'playing'" @click="openRefereeFoul()">犯规罚牌</button>
-        <button :disabled="busy || !room.lastActionText || room.status !== 'playing'" @click="handleRetract">↶ 撤回上一步</button>
-      </nav>
-      <section class="hand-zone" aria-label="我的手牌">
-        <div class="hand-heading"><span>我的手牌</span><strong>待打 {{ activeCards }} 张</strong>
-          <small>手牌 {{ sortedMyCards.length }} · 免打 {{ sortedMyCards.length - activeCards }}</small>
-          <small v-if="myInfo?.pocketedCards.length" class="played-cards">已出：{{ myInfo.pocketedCards.map(card => `${card.rank}${card.suit}`).join(' ') }}</small>
-        </div>
-        <HandDeckFan :key="sceneReset" :cards="displayCards ?? sortedMyCards"
-          :pocketedBallNumbers="displayPocketed ?? room.pocketedBallNumbers" :elevatedCardIds="elevatedCardIds"
-          :discardingCardId="discardingCardId" :disabled="busy || room.status !== 'playing'" @card-click="handleHandCardClick" />
-      </section>
+    <!-- v2 新版 3D 沉浸式对局界面 -->
+    <GameViewV2
+      v-else-if="room && useNewUi"
+      :room="room"
+      :userId="userId"
+      :isHost="isHost"
+      :myInfo="myInfo"
+      :sortedMyCards="sortedMyCards"
+      :turnOrderPlayers="turnOrderPlayers"
+      :currentShooter="currentShooter"
+      :breakMode="breakMode"
+      :recordingUserId="recordingUserId"
+      :busy="busy"
+      :pendingBallNumbers="pendingBallNumbers"
+      :sceneAnimationId="sceneAnimationId"
+      :sceneReset="sceneReset"
+      :ballConfigs="ballConfigs"
+      :activeBallConfigKey="activeBallConfigKey"
+      :feedback="feedback"
+      :activeCards="activeCards"
+      :displayCards="displayCards"
+      :displayPocketed="displayPocketed"
+      :elevatedCardIds="elevatedCardIds"
+      :discardingCardId="discardingCardId"
+      :showControlDrawer="showControlDrawer"
+      @open-drawer="showControlDrawer = true"
+      @close-drawer="showControlDrawer = false"
+      @select-recording-player="selectRecordingPlayer"
+      @next-recording-player="nextRecordingPlayer"
+      @update:breakMode="breakMode = $event"
+      @table-ball-click="handleTableBallClick"
+      @hand-card-click="handleHandCardClick"
+      @retract="handleRetract"
+      @open-referee-foul="showControlDrawer = false; openRefereeFoul()"
+      @open-referee-pocket="showControlDrawer = false; openRefereePocket()"
+      @open-rules="showControlDrawer = false; showRulesModal = true"
+      @request-restart="showControlDrawer = false; showRestartConfirm = true"
+      @leave-room="handleLeaveRoom"
+    />
 
-      <!-- 侧滑控制抽屉 (收敛次要操作与实况日志) -->
-      <GameControlDrawer
-        :show="showControlDrawer"
-        :room="room"
-        :userId="userId"
-        :isHost="isHost"
-        :turnOrderPlayers="turnOrderPlayers"
-        @close="showControlDrawer = false"
-        @retract="handleRetract"
-        @open-referee-pocket="showControlDrawer = false; openRefereePocket()"
-        @open-referee-foul="showControlDrawer = false; openRefereeFoul()"
-        @open-rules="showControlDrawer = false; showRulesModal = true"
-        @request-restart="showControlDrawer = false; showRestartConfirm = true"
-        @leave-room="handleLeaveRoom"
-      />
-
-    </main>
+    <!-- v1 旧版经典对局界面 -->
+    <GameViewV1
+      v-else-if="room"
+      :room="room"
+      :userId="userId"
+      :isHost="isHost"
+      :myInfo="myInfo"
+      :sortedMyCards="sortedMyCards"
+      :turnOrderPlayers="turnOrderPlayers"
+      :isCardDimmed="isCardDimmed"
+      @open-rules="showRulesModal = true"
+      @confirm-pocket="handleConfirmPocket"
+      @retract="handleRetract"
+      @open-referee-pocket="openRefereePocket"
+      @open-referee-foul="openRefereeFoul"
+    />
 
     <!-- 弹窗部分 -->
 

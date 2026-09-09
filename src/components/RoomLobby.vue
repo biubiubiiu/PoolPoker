@@ -14,12 +14,14 @@ const props = defineProps<{
   ballConfigsStatus?: string;
   serverUrl?: string;
   savedServerUrls?: ServerUrlConfig[];
+  useNewUi?: boolean;
 }>();
 
 const emit = defineEmits<{
   (e: 'update:playerName', name: string): void;
   (e: 'update:selectedBallConfigKey', key: string): void;
   (e: 'update:serverUrl', url: string): void;
+  (e: 'update:useNewUi', value: boolean): void;
   (e: 'add-server-url', payload: { url: string; name?: string }): void;
   (e: 'remove-server-url', id: string): void;
   (e: 'join-room', code: string): void;
@@ -194,9 +196,26 @@ const onJoin = async () => {
 
   <!-- View 1: 登录/创建与加入 (未在房间中) -->
   <div v-else-if="!room" class="flex-1 flex flex-col justify-center my-auto py-2 relative">
-    <!-- 右上角设置按钮 (仅在 Tauri 环境或已有自定义配置时显示) -->
-    <div v-if="isTauriEnv || props.serverUrl" class="flex justify-end mb-2">
-      <button @click="currentView = 'settings'" 
+    <!-- 右上角工具栏 (新界面 switch 开关 & 设置服务地址) -->
+    <div class="flex items-center justify-end gap-2 mb-2">
+      <!-- 切换至新界面的switch开关 -->
+      <label class="inline-flex items-center gap-2 cursor-pointer select-none px-2.5 py-1.5 bg-black/40 hover:bg-black/60 border border-white/10 hover:border-emerald-500/40 rounded-xl text-xs text-gray-300 hover:text-emerald-300 font-semibold shadow-lg transition active:scale-95">
+        <span class="text-[11px]">新版界面</span>
+        <div class="relative inline-flex items-center cursor-pointer">
+          <input
+            type="checkbox"
+            :checked="props.useNewUi"
+            @change="emit('update:useNewUi', ($event.target as HTMLInputElement).checked)"
+            class="sr-only peer"
+          />
+          <div
+            class="w-7 h-4 bg-gray-700/80 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-emerald-500 border border-white/10"
+          ></div>
+        </div>
+      </label>
+
+      <!-- 右上角设置按钮 (仅在 Tauri 环境或已有自定义配置时显示) -->
+      <button v-if="isTauriEnv || props.serverUrl" @click="currentView = 'settings'" 
               class="px-3 py-1.5 bg-black/40 hover:bg-black/60 border border-white/10 hover:border-amber-400/50 rounded-xl text-xs text-gray-300 hover:text-amber-300 font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-lg">
         <i class="fa-solid fa-gear text-amber-400"></i>
         <span>设置服务地址</span>
@@ -277,6 +296,20 @@ const onJoin = async () => {
           <i class="fa-solid fa-users text-emerald-400"></i> 已加入玩家 ({{ room.players.length }}/8)
         </h2>
         <div class="flex items-center gap-2">
+          <label class="inline-flex items-center gap-1.5 cursor-pointer select-none px-2 py-0.5 bg-black/40 hover:bg-black/60 border border-white/10 hover:border-emerald-500/40 rounded-lg text-xs text-gray-300 transition active:scale-95">
+            <span class="text-[10px]">新版</span>
+            <div class="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                :checked="props.useNewUi"
+                @change="emit('update:useNewUi', ($event.target as HTMLInputElement).checked)"
+                class="sr-only peer"
+              />
+              <div
+                class="w-6 h-3.5 bg-gray-700/80 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1.5px] after:left-[1.5px] after:bg-white after:rounded-full after:h-2.5 after:w-2.5 after:transition-all peer-checked:bg-emerald-500 border border-white/10"
+              ></div>
+            </div>
+          </label>
           <button v-if="isTauriEnv || props.serverUrl"
                   @click="currentView = 'settings'" 
                   title="设置服务地址"

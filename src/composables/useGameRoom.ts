@@ -507,7 +507,25 @@ export function useGameRoom(options: UseGameRoomOptions) {
       });
   };
 
-  const handleConfirmPocket = handleHandCardClick;
+  const handleConfirmPocket = async (card: Card) => {
+    if (room.value?.status !== 'playing') return;
+
+    if (isCardDimmed(card)) {
+      await showAlert(
+        `【${card.ballNumber}号球】已在场上被打进，你的卡片 [${card.suit}${card.rank}] 属于已进球免打卡，无需重复消去！`
+      );
+      return;
+    }
+
+    if (pendingAction.value || isPresenting.value) return;
+
+    const confirmText = `确认已经打进 ${card.ballNumber} 号球，消去卡片 [${card.suit}${card.rank}] 吗？`;
+    if (await showConfirm(confirmText, '确认出牌')) {
+      if (room.value?.status !== 'playing') return;
+      selectRecordingPlayer(userId.value);
+      sendAction(CLIENT_TO_SERVER_EVENTS.pocketBall, { cardId: card.id });
+    }
+  };
 
   // 6. 撤回上一步操作（整体回退到上一步状态）
   let retractConfirmOpen = false;
