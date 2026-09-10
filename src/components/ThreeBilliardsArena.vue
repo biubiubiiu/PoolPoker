@@ -33,7 +33,7 @@ let pockets = [-1, 1].flatMap((x) =>
 );
 interface Ball {
   number: number;
-  mesh: THREE.Mesh<THREE.SphereGeometry, THREE.MeshPhysicalMaterial>;
+  mesh: THREE.Mesh<THREE.SphereGeometry, THREE.MeshStandardMaterial>;
   pendingRing: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>;
   origin: THREE.Vector3;
   restRotation: THREE.Quaternion;
@@ -80,12 +80,12 @@ async function build() {
   host.value.prepend(renderer.domElement);
   renderer.domElement.setAttribute('aria-hidden', 'true');
   renderer.domElement.addEventListener('webglcontextlost', onContextLost);
-  // A broad overhead reflector gives the resin and walnut a consistent canopy reflection.
+  // Overhead soft ambient reflector for balanced environment tone without harsh glare box.
   const envScene = new THREE.Scene();
   envScene.background = new THREE.Color('#303730');
   const reflectorGeometry = new THREE.PlaneGeometry(5, 8);
   const reflectorMaterial = new THREE.MeshBasicMaterial({
-    color: new THREE.Color().setRGB(4.5, 4.3, 4),
+    color: new THREE.Color().setRGB(1.2, 1.2, 1.15),
     side: THREE.DoubleSide,
   });
   const reflector = new THREE.Mesh(reflectorGeometry, reflectorMaterial);
@@ -95,16 +95,16 @@ async function build() {
   const pmrem = new THREE.PMREMGenerator(renderer);
   environment = pmrem.fromScene(envScene, 0.04);
   scene.environment = environment.texture;
-  scene.environmentIntensity = 0.45;
+  scene.environmentIntensity = 0.25;
   reflectorGeometry.dispose();
   reflectorMaterial.dispose();
   pmrem.dispose();
 
   // 1. Soft ambient hemisphere (felt bounce & dark floor absorption)
-  scene.add(new THREE.HemisphereLight(0xe8ede5, 0x0c1611, 0.65));
+  scene.add(new THREE.HemisphereLight(0xe8ede5, 0x0c1611, 0.85));
 
-  // 2. Dedicated Overhead Billiard Canopy Key Light (tight contact shadows beneath balls)
-  const canopyKey = new THREE.DirectionalLight(0xfff7ea, 2.5);
+  // 2. Soft overhead key light for contact shadows without harsh specular glare
+  const canopyKey = new THREE.DirectionalLight(0xfff7ea, 1.6);
   canopyKey.position.set(-2.5, 9.5, 1.8);
   canopyKey.castShadow = true;
   canopyKey.shadow.mapSize.set(2048, 2048);
@@ -114,7 +114,7 @@ async function build() {
   scene.add(canopyKey);
 
   // A dim oblique bounce reveals the leather skirt and hanging baskets below the rail.
-  const apronFill = new THREE.DirectionalLight(0xd5dfd4, 0.65);
+  const apronFill = new THREE.DirectionalLight(0xd5dfd4, 0.7);
   apronFill.position.set(6, 3, 7);
   scene.add(apronFill);
 
@@ -139,15 +139,11 @@ async function build() {
   if (disposed) return;
   for (let n = 1; n <= 15; n++) {
     const origin = new THREE.Vector3((((n - 1) % 3) - 1) * 1.78, 0.655, (Math.floor((n - 1) / 3) - 2) * 2.05);
-    // Polished phenolic resin: glossy clearcoat, crisp specular reflection, legible numbers
-    const material = new THREE.MeshPhysicalMaterial({
+    // Simple diffuse reflection: soft matte finish, legible numbers, zero specular glare
+    const material = new THREE.MeshStandardMaterial({
       map: ballTexture(n),
-      roughness: 0.16,
+      roughness: 0.85,
       metalness: 0.0,
-      specularIntensity: 0.7,
-      envMapIntensity: 0.65,
-      clearcoat: 0.5,
-      clearcoatRoughness: 0.1,
     });
     const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 24), material);
     mesh.position.copy(origin);
