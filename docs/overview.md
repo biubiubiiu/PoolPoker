@@ -154,20 +154,31 @@
 - `useSocket`：Socket.IO 客户端初始化，`auth` 携带已存 name/userId，调优重连参数 `reconnectionAttempts: Infinity` / `reconnectionDelay: 300` / `reconnectionDelayMax: 1000` / `timeout: 5000`；封装 `on`/`off`/`emit`。
 - `useGameRoom`：核心业务状态与操作——`room` 状态、`isHost`/`myInfo`/`turnOrderPlayers` 计算属性、`sortedMyCards`（本人手牌按球号升序排序的计算属性）、球色配置加载与 CSS 变量生成（`--ball-N-hi/mid/lo`）、`isCardDimmed`（球号已打进则置灰免打）；挂载时 `fetchLatestRoomState`（HTTP 快照）+ `visibilitychange` 切前台时快照同步 + Socket 重连；`setupSocketListeners` 监听 `connect`（自动 `rejoin_room`）、`room_updated`（更新 `room` 并胜利时放彩带）、`room_created`、`error_message`；对外暴露建房/加入/调发牌数/开局/销牌/撤回上一步（`handleRetract`，`window.confirm` 确认后发 `retract_ball`）/记录进球/记录犯规/重开/离开等全部 `handle*` 方法。
 
-### 前端组件（`src/components/`）
+### 前端组件结构
 
-- `RoomLobby`：登录（昵称/头像/球色）+ 创建/加入选项卡（4 位房间码数字输入）+ 等待大厅（成员列表/房主发牌数调节/开始发牌）。
-- `BilliardsTable`：全局赛况——本局击球顺序、已打出球号列表（mini-ball 彩色球 + 条纹）、玩家赛况列表（胜场/剩余张数/暂离态/进度条/记录进球与犯规快捷按钮）。
-- `PokerCard`：手牌卡牌（牌面 rank/suit + 台球球号），已打进球号覆盖「已进球·无需打出」遮罩。
-- `VictoryModal`：结算弹窗——胜利者信息、图例、每位玩家三类手牌明细（已消除/免打卡/未消除，未消除牌按同 rank 倍乘标注 `-N分` 罚分）、本局积分变化（`+/-N分`）与累计总积分、房主「再来一局」。
-- `RefereePocketModal` / `RefereeFoulModal`：记录进球/犯规弹窗，默认选中当前玩家自己，进球额外选择未打进球号，并可切换「开球进球」记录不归属任何玩家的入袋球。
-- `RestartModal`：重开确认。
-- `GameHeader` / `GameLogs`：房间码与局数标题栏、对局实况日志。
-- `App.vue`：组装上述组件；手牌区含「规则」按钮弹出积分规则说明弹窗（牌基础分值/组合倍率/结算方式，内联在 App.vue）。
+- **公共组件（`src/components/`）**：
+  - `RoomLobby`：登录（昵称/球色）+ 创建/加入选项卡（4 位房间码数字输入）+ 等待大厅（成员列表/房主发牌数调节/开始发牌/新版 UI 切换开关）。
+  - `GameHeader`：顶部状态栏（在等待大厅中通用，以及 v1 对局中使用）。
+  - `VictoryModal`：结算弹窗——胜利者信息、图例、每位玩家三类手牌明细（已消除/免打卡/未消除，未消除牌按同 rank 倍乘标注 `-N分` 罚分）、本局积分变化（`+/-N分`）与累计总积分、房主「再来一局」。
+  - `RefereePocketModal` / `RefereeFoulModal`：记录进球/犯规弹窗，默认选中当前玩家自己，进球额外选择未打进球号，并可切换「开球进球」记录不归属任何玩家的入袋球。
+  - `RestartModal`：重开确认弹窗。
+- **v1 经典版组件（`src/components/v1/`）**：
+  - `GameView`：v1 对局主视图，装配手牌区、球盘与实况日志。
+  - `BilliardsTable`：全局赛况——本局击球顺序、已打出球号列表（mini-ball 彩色球 + 条纹）、玩家赛况列表（胜场/剩余张数/暂离态/进度条/记录进球与犯规快捷按钮）。
+  - `PokerCard`：2D 手牌卡牌（牌面 rank/suit + 台球球号），已打进球号覆盖「已进球·无需打出」遮罩。
+  - `GameLogs`：对局实况日志面板。
+- **v2 沉浸式组件（`src/components/v2/`）**：
+  - `GameView`：v2 3D 对局主视图，装配极简 HUD、对手席、3D 球台与扇形手牌。
+  - `ThreeBilliardsArena`：Three.js 3D 渲染球台、高光球号与入袋动画。
+  - `HandDeckFan` / `PokerCardProp`：3D 拟真弧形扇面手牌与卡牌组件。
+  - `GameMinimalHud`：极简顶栏（局数、比分概览、抽屉菜单入口）。
+  - `TableOpponentSeats` / `RecordingPlayerDropdown`：环绕对手座位席与代记目标下拉框。
+  - `GameControlDrawer`：侧边/底栏抽屉，收纳规则说明、对局实况日志与房间控制。
+- `App.vue`：组装公共组件与根据 `useNewUi` 切换加载 `GameViewV1` / `GameViewV2`；手牌区含「规则」按钮弹出积分规则说明弹窗。
 
 ### 配置文件与主题（`ball_configs.json` / `config.yaml`）
 
-- `ball_configs.json`：多套球色主题（`default` / `xingpai`），每套含 0\~15 号球的三段渐变配色（`[hi, mid, lo]`）；xingpai 4/12 号粉色、5 号红色（星牌真实配色）。
+- `ball_configs.json`：球色主题（`xingpai`），含 0~15 号球的三段渐变配色（`[hi, mid, lo]`）；星牌 4/12 号粉色、5 号红色真实配色。
 - `config.yaml`：`app_name`、`port`、`room.default_cards_per_player`（默认 5）、`room.max_players`（8）、`room.disconnect_timeout_ms`（默认 1 小时）。
 
 ### 工程化与测试
@@ -195,9 +206,11 @@
 | `shared/types/game.ts`（Card/Player/Room/ServerRoom/GameState/GamePlayerSnapshot/RoundScoreEntry/BallConfig 等） |
 | `shared/types/protocol.ts`（Socket 事件、Wear action、DataLayer path 协议常量） |
 | `shared/types/socket.ts`（事件 payload 与 Client/Server 事件接口） |
-| `src/composables/usePlayerProfile.ts` / `useSocket.ts` / `useGameRoom.ts` |
-| `src/App.vue`（页面组装、积分规则弹窗） |
-| `src/components/RoomLobby.vue` / `BilliardsTable.vue` / `PokerCard.vue` / `VictoryModal.vue` / `RefereePocketModal.vue` / `RefereeFoulModal.vue` / `RestartModal.vue` / `GameHeader.vue` / `GameLogs.vue` |
+| `src/composables/usePlayerProfile.ts` / `useSocket.ts` / `useGameRoom.ts` / `useUiPreferences.ts` |
+| `src/App.vue`（页面组装、v1/v2 路由分发、积分规则弹窗） |
+| `src/components/`（公共组件：`RoomLobby.vue` / `GameHeader.vue` / `VictoryModal.vue` / `RefereePocketModal.vue` / `RefereeFoulModal.vue` / `RestartModal.vue`） |
+| `src/components/v1/`（v1 经典版组件：`GameView.vue` / `BilliardsTable.vue` / `PokerCard.vue` / `GameLogs.vue`） |
+| `src/components/v2/`（v2 沉浸式组件：`GameView.vue` / `ThreeBilliardsArena.vue` / `HandDeckFan.vue` / `PokerCardProp.vue` / `GameMinimalHud.vue` / `TableOpponentSeats.vue` / `RecordingPlayerDropdown.vue` / `GameControlDrawer.vue`） |
 | `public/enter_robot.html`（机器人 Webhook 链接设置页面） |
 | `src/styles/main.css`（玻璃拟态、mini-ball 球色、条纹样式） |
 | `e2e/poolpoker.spec.ts`（Playwright 端到端测试） |

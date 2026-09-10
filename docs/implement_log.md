@@ -403,3 +403,22 @@
   3. 构建三级 GLB 资源预加载体系：`index.html` 增加 `<link rel="preload">` 底层预拉取；新增 `src/utils/tableModelLoader.ts` 开启 Three.js 内存缓存与 ArrayBuffer 单例管理；`App.vue` 在用户处于大厅阶段利用 `requestIdleCallback` 提前静默加载 `ThreeBilliardsArena` 代码块与 3.38MB GLB 模型。
 - **验证**：`pnpm run lint` 检查通过；`pnpm run test:unit` 全部 59 项通过；`pnpm run build` 成功，JS bundle 减少约 57KB，加载时间与过渡顺畅。
 
+---
+
+## 2026-09-11 清理 src/components/ 冗余组件与规范公共/版本化目录架构
+
+- **需求**：清理 commit `6be20f2` 引入 v1/v2 双套 UI 分离时残留在 `src/components/` 根目录下的重复组件副本，明确公共组件与版本专用组件的职责边界。
+- **探索与决策**：
+  - 确认根目录下的 10 个组件分别与 `v1/`（`BilliardsTable.vue`, `GameLogs.vue`, `PokerCard.vue`）和 `v2/`（`ThreeBilliardsArena.vue`, `GameControlDrawer.vue`, `GameMinimalHud.vue`, `HandDeckFan.vue`, `PokerCardProp.vue`, `RecordingPlayerDropdown.vue`, `TableOpponentSeats.vue`）内容完全一致，且应用代码（`App.vue`、`GameView.vue` 等）已全量切换为引用各自子目录中的版本或公共组件。
+  - 保留 `src/components/` 根目录下的 6 个真正跨版本公共组件：`RoomLobby.vue`, `GameHeader.vue`, `VictoryModal.vue`, `RefereePocketModal.vue`, `RefereeFoulModal.vue`, `RestartModal.vue`。
+  - 彻底删除根目录下遗留的 10 个未被引用的重名文件。
+- **改动**：
+  - `src/components/` — 删除：`BilliardsTable.vue`, `GameLogs.vue`, `PokerCard.vue`, `GameControlDrawer.vue`, `GameMinimalHud.vue`, `HandDeckFan.vue`, `PokerCardProp.vue`, `RecordingPlayerDropdown.vue`, `TableOpponentSeats.vue`, `ThreeBilliardsArena.vue`。
+  - `docs/overview.md` / `docs/implement_log.md` — 修改：更新组件目录划分结构与维护记录。
+- **验证**：
+  - `vue-tsc --noEmit` 类型校验通过。
+  - `biome check .` 检查全部通过。
+  - `vitest run` 9 个测试文件共 67 项测试全部通过。
+  - `vite build` 生产构建成功。
+
+
