@@ -42,6 +42,9 @@ if [[ "$1" == "--deploy" ]]; then
     echo "[1/3] git pull ..."
     git pull || { echo "错误：git pull 失败"; exit 1; }
 
+    git tag
+    git checkout v1.0
+
     # 2. 检查 tmux 会话是否存在
     echo "[2/3] 准备 tmux 会话 '$TMUX_SESSION' ..."
     if tm has-session -t "$TMUX_SESSION" 2>/dev/null; then
