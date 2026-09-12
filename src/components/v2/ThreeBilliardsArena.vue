@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useGameAudio } from '@/composables/useGameAudio';
+import { getBallOrigin } from '@/utils/ballLayout';
 import { createBallTextureCanvas } from '@/utils/ballTexture';
 import { loadTableGLTF } from '@/utils/tableModelLoader';
 
@@ -137,8 +138,9 @@ async function build() {
     return;
   }
   if (disposed) return;
+  const landscape = host.value.clientWidth >= 580;
   for (let n = 1; n <= 15; n++) {
-    const origin = new THREE.Vector3((((n - 1) % 3) - 1) * 1.78, 0.655, (Math.floor((n - 1) / 3) - 2) * 2.05);
+    const origin = getBallOrigin(n, landscape);
     // Simple diffuse reflection: soft matte finish, legible numbers, zero specular glare
     const material = new THREE.MeshStandardMaterial({
       map: ballTexture(n),
@@ -233,6 +235,13 @@ function resize() {
   // Face the numbered cap directly toward the viewer in both screen orientations.
   const localCamera = scene.worldToLocal(camera.position.clone());
   for (const b of balls) {
+    b.origin.copy(getBallOrigin(b.number, landscape));
+    if (b.start === null) {
+      b.mesh.position.copy(b.origin);
+      b.target.copy(b.origin);
+    }
+    b.pendingRing.position.set(b.origin.x, 0.168, b.origin.z);
+
     const orientation = new THREE.Object3D();
     orientation.up.setFromMatrixColumn(camera.matrixWorld, 1).transformDirection(scene.matrixWorld.clone().invert());
     orientation.position.copy(b.origin);
