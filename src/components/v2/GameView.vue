@@ -100,29 +100,6 @@ function handleAssignBreak(ballNum: number) {
     </div>
     <div v-if="feedback" class="action-error" role="alert">{{ feedback }}</div>
     <GameLogTicker :logs="room.logs || []" />
-    <nav class="table-tools" aria-label="对局快捷操作">
-      <button
-        type="button"
-        :disabled="busy || room.status !== 'playing'"
-        @click="emit('open-referee-pocket')"
-      >
-        记录进球
-      </button>
-      <button
-        type="button"
-        :disabled="busy || room.status !== 'playing'"
-        @click="emit('open-referee-foul')"
-      >
-        犯规罚牌
-      </button>
-      <button
-        type="button"
-        :disabled="busy || !room.lastActionText || room.status !== 'playing'"
-        @click="emit('retract')"
-      >
-        ↶ 撤回上一步
-      </button>
-    </nav>
     <section class="hand-zone" aria-label="我的手牌">
       <HandDeckFan
         :key="sceneReset"
