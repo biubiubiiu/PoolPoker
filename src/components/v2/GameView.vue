@@ -3,6 +3,7 @@ import type { BallConfig, Card, Player, Room } from '@shared/types/game';
 import { defineAsyncComponent, ref } from 'vue';
 import BallAssignSheet from './BallAssignSheet.vue';
 import GameControlDrawer from './GameControlDrawer.vue';
+import GameLogTicker from './GameLogTicker.vue';
 import GameMinimalHud from './GameMinimalHud.vue';
 import HandDeckFan from './HandDeckFan.vue';
 import TableOpponentSeats from './TableOpponentSeats.vue';
@@ -98,6 +99,7 @@ function handleAssignBreak(ballNum: number) {
       />
     </div>
     <div v-if="feedback" class="action-error" role="alert">{{ feedback }}</div>
+    <GameLogTicker :logs="room.logs || []" />
     <nav class="table-tools" aria-label="对局快捷操作">
       <button
         type="button"
