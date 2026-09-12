@@ -124,14 +124,6 @@ function handleAssignBreak(ballNum: number) {
       </button>
     </nav>
     <section class="hand-zone" aria-label="我的手牌">
-      <div class="hand-heading">
-        <span>我的手牌</span>
-        <strong>待打 {{ activeCards }} 张</strong>
-        <small>手牌 {{ sortedMyCards.length }} · 免打 {{ sortedMyCards.length - activeCards }}</small>
-        <small v-if="myInfo?.pocketedCards.length" class="played-cards">
-          已出：{{ myInfo.pocketedCards.map(card => `${card.rank}${card.suit}`).join(' ') }}
-        </small>
-      </div>
       <HandDeckFan
         :key="sceneReset"
         :cards="displayCards ?? sortedMyCards"
@@ -139,6 +131,7 @@ function handleAssignBreak(ballNum: number) {
         :elevatedCardIds="elevatedCardIds"
         :discardingCardId="discardingCardId"
         :disabled="busy || room.status !== 'playing'"
+        :playedCards="myInfo?.pocketedCards"
         @card-click="emit('hand-card-click', $event)"
       />
     </section>

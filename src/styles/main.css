@@ -470,41 +470,7 @@ select:focus-visible {
 .hand-zone {
   position: relative;
   flex-shrink: 0;
-  background: linear-gradient(0deg, #0c1712, #14271d80);
-  border-top: 1px solid #bfae7422;
-  padding-top: 13px;
-}
-.hand-heading {
-  padding: 0 24px;
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 6px;
-  padding-right: 80px;
-}
-.hand-heading > span {
-  color: #d5d9c8;
-  font-size: 12px;
-}
-.hand-heading strong {
-  color: #e9d4a7;
-  font-size: 14px;
-}
-.hand-heading small {
-  display: none;
-  color: #a0b19f;
-  font-size: 10px;
-}
-.hand-heading .played-cards {
-  display: block;
-  flex-basis: 100%;
-  color: #8fa08d;
-}
-@media (min-width: 420px) {
-  .hand-heading small {
-    display: inline;
-  }
+  padding: 4px 12px 10px;
 }
 @media (max-height: 740px) {
   .game-world {
