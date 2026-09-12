@@ -35,7 +35,6 @@ export interface GamePlayerSnapshot {
   cards: Card[];
   pocketedCards: Card[];
   cardCount: number;
-  activeCardCount: number;
 }
 
 // 一局游戏某一时刻的完整「进行态」快照，用于逐步撤回（每步操作 push 一份、撤回即 pop）

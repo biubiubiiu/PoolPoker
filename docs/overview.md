@@ -95,7 +95,7 @@
 
 ### 游戏进行态快照与撤回（`server/gameState.ts`）
 
-- 将一局游戏的「进行态」收敛为 `GameState`（`shared/types/game.ts`）：`status` / `players[]`（`GamePlayerSnapshot`，仅含 `cards`/`pocketedCards`/`cardCount`/`activeCardCount`/`wins`/`isWinner`/`totalScore`）/ `deck` / `accidentalBalls` / `breakBalls` / `winners` / `turnOrder` / `lastTurnOrder` / `lastWinnerUserId` / `roundCount` / `lastRoundScores`；不含 `logs` 与身份/连接/设置类字段。
+- 将一局游戏的「进行态」收敛为 `GameState`（`shared/types/game.ts`）：`status` / `players[]`（`GamePlayerSnapshot`，仅含 `cards`/`pocketedCards`/`cardCount`/`wins`/`isWinner`/`totalScore`）/ `deck` / `accidentalBalls` / `breakBalls` / `winners` / `turnOrder` / `lastTurnOrder` / `lastWinnerUserId` / `roundCount` / `lastRoundScores`；不含 `logs` 与身份/连接/设置类字段。
 - `snapshotGameState` / `restoreGameState`：深拷贝打包 / 还原进行态；`recordGameStep` 把「操作后」状态 push 进 `ServerRoom.gameHistory`；`undoGameStep` pop 掉当前状态回退到上一步（历史只剩基线时无效果）。
 - 撤回语义：`retract_ball` 不再按 `cardId` 精确撤牌，而是整体回退牌桌最近一步操作；日志属于审计记录不随快照回退，每次撤回额外追加一条日志。
 
@@ -238,7 +238,7 @@
 
 - 对局主屏由 `GameMinimalHud`、`TableOpponentSeats`、`ThreeBilliardsArena`、`HandDeckFan` / `PokerCardProp` 组成；规则、完整记录和重开/退出收进 `GameControlDrawer`。房间大厅和结算仍复用既有组件。
 - “记球对象”是当前设备的代记目标，默认本人。点头像、下拉框或“下一位”切换；它不代表服务器强制执行的击球回合。开球模式逐个登记多球，不消去任何玩家手牌；直接点具体手牌始终为本人销牌。
-- 桌面点球由服务端选择目标玩家第一张匹配牌；同号其他牌保留为免打牌。重复登记已经入袋的球不再消第二张牌。`cardCount` 表示实体手牌数，`activeCardCount` 表示未被全局已进球号覆盖的待打牌数。
+- 桌面点球由服务端选择目标玩家第一张匹配牌；同号其他牌保留为免打牌。重复登记已经入袋的球不再消第二张牌。`cardCount` 表示实体手牌数（向全员公开）；未打进的待打牌数由本地客户端仅为本人计算，不通过公网广播避免泄露手牌。
 - JSON Schema 中的可选 `Room.revision` / `Room.sceneEvent` 提供单调递增的版本和 UUID 事件标识。事件只含类型、目标玩家与公开进球号，罚抽事件不携带新牌。类型由 `codegen-models.mjs` 同步生成 TS/Kotlin。旧客户端可以忽略新增字段。
 - 记球、开球、代记罚抽和撤回支持可选 Socket 回调；前端先显示待确认，收到服务器的新事件才演出。撤回带 `expectedRevision`，若期间有新操作则拒绝过期撤回。结算后的撤回入口禁用，既有结算/积分规则不变。
 - `shouldAnimateRoomChange` 判断事件连续性；首次快照、HTTP 对齐、重连、后台更新和旧版本不重播。手牌临时保留上一状态以播放抬牌、出牌和免打转化，随后对齐权威状态；新事件到达会终止旧手牌演出，优先对齐新状态，不积压长动画队列。

@@ -16,7 +16,7 @@ const opponents = computed(() => props.players.filter((p) => p.userId !== props.
     <button v-for="p in opponents" :key="p.userId" class="seat" :class="{ selected: currentShooterUserId === p.userId }"
       :aria-pressed="currentShooterUserId === p.userId" :aria-label="`为 ${p.name} 记球`" @click="emit('select-player', p)">
       <span class="seat-name">{{ p.name }}</span>
-      <span class="seat-count">待打 <b>{{ p.activeCardCount }}</b><span v-if="!p.online"> · 暂离</span></span>
+      <span class="seat-count">手牌 <b>{{ p.cardCount }}</b><span v-if="!p.online"> · 暂离</span></span>
       <span v-if="p.pocketedCards.length" class="seat-played-cards">已出：{{ p.pocketedCards.map(card => `${card.rank}${card.suit}`).join(' ') }}</span>
     </button>
     <span v-if="!opponents.length" class="solo-seat">你的专属练习桌</span>

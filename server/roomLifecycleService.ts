@@ -399,7 +399,6 @@ function createPlayer(input: {
     isHost: input.isHost,
     online: true,
     cardCount: 0,
-    activeCardCount: 0,
     cards: [],
     pocketedCards: [],
     wins: 0,
@@ -417,7 +416,6 @@ function dealInitialCards(room: ServerRoom, player: Player): void {
     }
   }
   player.cardCount = player.cards.length;
-  player.activeCardCount = player.cards.length;
 }
 
 export function toSocketCallbackResponse(result: RoomLifecycleResult): SocketCallbackResponse | undefined {

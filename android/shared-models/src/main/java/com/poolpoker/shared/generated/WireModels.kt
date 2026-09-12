@@ -49,7 +49,6 @@ data class GameLog (
 
 @Serializable
 data class Player (
-    val activeCardCount: Int,
     val avatar: String,
     val cardCount: Int,
     val cards: List<Card>,

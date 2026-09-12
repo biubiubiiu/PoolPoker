@@ -32,7 +32,6 @@ export interface GameLog {
 }
 
 export interface Player {
-  activeCardCount: number;
   avatar: string;
   cardCount: number;
   cards: Card[];

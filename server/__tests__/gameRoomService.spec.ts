@@ -46,7 +46,6 @@ function createPlayer(overrides: Partial<Player>): Player {
     isHost: overrides.isHost ?? false,
     online: overrides.online ?? true,
     cardCount: overrides.cards?.length ?? overrides.cardCount ?? 0,
-    activeCardCount: overrides.activeCardCount ?? overrides.cards?.length ?? overrides.cardCount ?? 0,
     cards: overrides.cards ?? [],
     pocketedCards: overrides.pocketedCards ?? [],
     wins: overrides.wins ?? 0,
@@ -292,7 +291,6 @@ describe('v2 public presentation projection', () => {
       const view = getClientRoomState(room.code, 'user-1');
       expect(view?.players[1].cards).toEqual([]);
       expect(view?.players[1].cardCount).toBe(2);
-      expect(view?.players[1].activeCardCount).toBe(1);
       expect(view?.sceneEvent?.ballNumber).toBe(4);
       applyGameRoomCommand(room, { type: 'referee_draw_penalty', targetUserId: 'user-2' });
       const afterPenalty = getClientRoomState(room.code, 'user-1');

@@ -61,7 +61,6 @@
         "isHost": { "type": "boolean" },
         "online": { "type": "boolean" },
         "cardCount": { "type": "integer" },
-        "activeCardCount": { "type": "integer" },
         "cards": {
           "type": "array",
           "items": { "$ref": "Card" }
@@ -82,7 +81,6 @@
         "isHost",
         "online",
         "cardCount",
-        "activeCardCount",
         "cards",
         "pocketedCards",
         "wins",

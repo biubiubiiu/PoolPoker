@@ -421,4 +421,28 @@
   - `vitest run` 9 个测试文件共 67 项测试全部通过。
   - `vite build` 生产构建成功。
 
+### 第38轮：修复全局赛况手牌计数泄露手牌缺陷并彻底删除 activeCardCount [2026-09-13]
+- **需求**：玩家手上有 3 张实体手牌（其中 1 张因对应球号已被打进而置灰免打），但在全局赛况中显示为“还剩 2 张”，泄露了玩家手牌中包含免打牌的隐私信息。需要修复并彻底移除冗余有害的 `activeCardCount` 字段。
+- **探索与决策**：
+  - 排查历史提交 `031b2f3` 与 `6121685`，此前已定论：广播给客户端的手牌计数绝不能过滤已进球号（免打牌），否则场上一旦进球，持有对应球号的玩家计数无故突变减少，将直接出卖其持有该球；且当玩家实际拿着 3 张牌却在公屏显示 2 张时，所有对手都能断定其手中有免打牌。
+  - 后来在 v2 原型中，`activeCardCount` 意外被重新用于过滤死牌并作为公开字段广播；而在 v1 `BilliardsTable.vue` 和 v2 `TableOpponentSeats.vue` 中也优先展示了该过滤计数字段，造成信息泄露。
+  - 决议：彻底删除跨端 Schema 及前后端内部所有 `activeCardCount` 字段。所有全局公开展示（包括全局赛况卡片“还剩 X 张”、进度条、席位手牌等）统一严格使用实体手牌总数 `p.cardCount`（即 `p.cards.length`）。本人客户端的“待打 X 张”由前端本地基于自身私密可见的手牌 `myInfo.cards` 独立计算，绝不通过网络广播向其他对手暴露。
+- **改动**：
+  - `shared/schemas/room.schema.json` — 修改：从 `Player` 属性及必填列表中彻底删除 `activeCardCount`。
+  - `scripts/codegen-models.mjs` — 运行代码生成，同步刷新 TS wire models (`wire-models.ts`) 与 Kotlin wire models (`WireModels.kt`)。
+  - `shared/types/game.ts` — 修改：`GamePlayerSnapshot` 移除 `activeCardCount`。
+  - `server/gameState.ts` — 修改：`clonePlayer` 与 `restoreGameState` 移除 `activeCardCount`。
+  - `server/roomManager.ts` — 修改：`getClientRoomState` 不再组装与广播 `activeCardCount`，仅保留权威实体手牌数 `cardCount: p.cards.length`。
+  - `server/roomLifecycleService.ts` / `server/gameRoomService.ts` — 修改：创建玩家与重置游戏逻辑移除 `activeCardCount`。
+  - `src/components/v1/BilliardsTable.vue` — 修改：全局赛况计数及进度条百分比严格使用 `p.cardCount`。
+  - `src/components/v2/TableOpponentSeats.vue` — 修改：对手席位计数改为显示实体手牌数 `手牌 {{ p.cardCount }}`。
+  - `server/__tests__/` — 修改：更新 `gameState.spec.ts`、`gameRoomService.spec.ts`、`roomManager.spec.ts` 并新增对局中手牌隐私及计数防泄露断言。
+- **验证**：
+  - `pnpm run codegen:check` 通过。
+  - `pnpm run lint` (`biome check .`) 0 警告 0 报错通过。
+  - `pnpm exec vue-tsc --noEmit` 类型校验通过。
+  - `pnpm run test:unit` 9 个测试文件共 68 项测试全部通过。
+  - `pnpm run build` 生产构建成功。
+
+
 

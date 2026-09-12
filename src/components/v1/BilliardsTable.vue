@@ -37,9 +37,8 @@ const getBallName = (ballNum: number) => {
 
 const getCardProgressPercent = (player: Player) => {
   const total = props.room.settings?.cardsPerPlayer || 5;
-  const activeCount =
-    player.activeCardCount !== undefined ? player.activeCardCount : player.cards ? player.cards.length : 0;
-  return Math.max(0, Math.min(100, Math.round((activeCount / total) * 100)));
+  const count = player.cardCount !== undefined ? player.cardCount : player.cards ? player.cards.length : 0;
+  return Math.max(0, Math.min(100, Math.round((count / total) * 100)));
 };
 
 const isPlayerWinner = (player: Player) => {
@@ -126,7 +125,7 @@ const emit = defineEmits<{
         <div class="text-right flex flex-col items-end">
           <div class="flex items-center space-x-1.5">
             <span :class="['font-mono font-black text-sm', isPlayerWinner(p) ? 'text-emerald-400 animate-bounce' : 'text-amber-300']">
-              {{ isPlayerWinner(p) ? '🏆 胜出' : `还剩 ${p.activeCardCount !== undefined ? p.activeCardCount : (p.cards ? p.cards.length : p.cardCount)} 张` }}
+              {{ isPlayerWinner(p) ? '🏆 胜出' : `还剩 ${p.cardCount !== undefined ? p.cardCount : (p.cards ? p.cards.length : 0)} 张` }}
             </span>
 
             <!-- 记录快捷入口按钮 -->

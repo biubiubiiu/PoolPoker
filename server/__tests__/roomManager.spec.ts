@@ -112,7 +112,6 @@ describe('roomManager getClientRoomState', () => {
           cards: [card1],
           pocketedCards: [pocketedCard],
           cardCount: 1,
-          activeCardCount: 1,
           wins: 0,
           isWinner: false,
           totalScore: 0,
@@ -127,7 +126,6 @@ describe('roomManager getClientRoomState', () => {
           cards: [card2],
           pocketedCards: [],
           cardCount: 1,
-          activeCardCount: 1,
           wins: 0,
           isWinner: false,
           totalScore: 0,
@@ -182,6 +180,55 @@ describe('roomManager getClientRoomState', () => {
 
     delete rooms[roomCode];
   });
+
+  it('should not leak dead/dimmed cards through card count when unpocketed cards match already pocketed balls', () => {
+    const cardPocketedAlready = createDummyCard('c-dead', 'J', 11);
+    const cardActive = createDummyCard('c-live', '6', 6);
+    const roomCode = 'test-room-no-leak';
+    rooms[roomCode] = {
+      code: roomCode,
+      status: 'playing',
+      hostUserId: 'u1',
+      hostSocketId: 's1',
+      settings: { cardsPerPlayer: 5, maxPlayers: 8, includeBlackEight: true, ballConfigKey: 'xingpai' },
+      players: [
+        {
+          id: 's1',
+          userId: 'u1',
+          name: 'Player 1',
+          avatar: '😀',
+          isHost: true,
+          online: true,
+          cards: [cardPocketedAlready, cardActive],
+          pocketedCards: [],
+          cardCount: 2,
+          wins: 0,
+          isWinner: false,
+          totalScore: 0,
+        },
+      ],
+      deck: [],
+      accidentalBalls: [11], // 11号球已打进，故 Player 1 手中的 J 牌为免打牌
+      breakBalls: [],
+      winners: [],
+      turnOrder: ['u1'],
+      roundCount: 1,
+      logs: [],
+      lastRoundScores: [],
+      gameHistory: [],
+    } as ServerRoom;
+
+    const selfState = getClientRoomState(roomCode, 'u1');
+    const opponentState = getClientRoomState(roomCode, 'u2');
+
+    // 本人和对手看到的 cardCount 都必须是物理手牌数 2，而不是被过滤后的 1，严禁通过计数泄露手牌中是否包含免打牌
+    expect(selfState?.players[0].cardCount).toBe(2);
+    expect(opponentState?.players[0].cardCount).toBe(2);
+    expect('activeCardCount' in (selfState?.players[0] ?? {})).toBe(false);
+    expect('activeCardCount' in (opponentState?.players[0] ?? {})).toBe(false);
+
+    delete rooms[roomCode];
+  });
 });
 
 describe('roomManager room cleanup timers', () => {
@@ -205,7 +252,6 @@ describe('roomManager room cleanup timers', () => {
           cards: [],
           pocketedCards: [],
           cardCount: 0,
-          activeCardCount: 0,
           wins: 0,
           isWinner: false,
           totalScore: 0,
@@ -258,7 +304,6 @@ describe('roomManager room cleanup timers', () => {
           cards: [],
           pocketedCards: [],
           cardCount: 0,
-          activeCardCount: 0,
           wins: 0,
           isWinner: false,
           totalScore: 0,

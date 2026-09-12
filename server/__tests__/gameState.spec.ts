@@ -57,7 +57,6 @@ function createDummyRoom(): ServerRoom {
         cards: [card1, card2],
         pocketedCards: [],
         cardCount: 2,
-        activeCardCount: 2,
         wins: 0,
         isWinner: false,
         totalScore: 0,
@@ -102,7 +101,6 @@ describe('gameState logic', () => {
           cards: [createDummyCard('c15', 'BigJoker', 15, 'joker-big')],
           pocketedCards: [],
           cardCount: 1,
-          activeCardCount: 1,
         },
       ],
     };

@@ -258,7 +258,6 @@ function restartGame(room: ServerRoom, actorUserId: string): GameRoomCommandResu
     p.pocketedCards = [];
     p.isWinner = false;
     p.cardCount = 0;
-    p.activeCardCount = 0;
   });
 
   addLog(room, '🔄 房主重置了游戏，回到发牌等待状态。');

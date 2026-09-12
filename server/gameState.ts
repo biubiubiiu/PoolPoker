@@ -20,7 +20,6 @@ function clonePlayer(p: GamePlayerSnapshot): GamePlayerSnapshot {
     cards: deepClone(p.cards),
     pocketedCards: deepClone(p.pocketedCards),
     cardCount: p.cardCount,
-    activeCardCount: p.activeCardCount,
   };
 }
 
@@ -57,7 +56,6 @@ export function restoreGameState(room: ServerRoom, state: GameState): void {
     p.cards = deepClone(snap.cards);
     p.pocketedCards = deepClone(snap.pocketedCards);
     p.cardCount = snap.cardCount;
-    p.activeCardCount = snap.activeCardCount;
   });
 }
 
