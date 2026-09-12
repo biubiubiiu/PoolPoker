@@ -783,21 +783,16 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await expandBtn.click();
     await expect(expandBtn).toHaveText('展开手牌');
 
-    // 3. 验证开球模式 (Break Mode) 切换与状态展示
-    const breakModeBtn = page.locator('button:has-text("开球模式")');
-    await expect(breakModeBtn).toHaveAttribute('aria-pressed', 'false');
-    await breakModeBtn.click();
-    await expect(breakModeBtn).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('text=开球进球 · 不归属玩家')).toBeVisible();
-
-    // 点击 1 号球触发开球进球
+    // 3. 验证点球呼出归属浮层 (BallAssignSheet) 并选择开球进球
     const ball1Target = page.locator('.ball-target[aria-label*="1 号球入袋"]').first();
     await ball1Target.click();
-    await page.waitForTimeout(600);
+    await expect(page.locator('text=已入袋')).toBeVisible();
+    await expect(page.locator('text=开球进球 / 公球免打')).toBeVisible();
 
-    // 退出开球模式
-    await page.click('button:has-text("完成开球")');
-    await expect(page.locator('text=记球对象')).toBeVisible();
+    // 点击开球进球 / 公球免打
+    await page.click('button:has-text("开球进球 / 公球免打")');
+    await page.waitForTimeout(600);
+    await expect(page.locator('text=已入袋')).not.toBeVisible();
 
     // 4. 验证对局控制抽屉与积分计算规则说明弹窗
     await page.click('button[aria-label="打开对局菜单"]');

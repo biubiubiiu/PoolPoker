@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import type { BallConfig, Card, Player, Room } from '@shared/types/game';
-import { defineAsyncComponent } from 'vue';
+import { defineAsyncComponent, ref } from 'vue';
+import BallAssignSheet from './BallAssignSheet.vue';
 import GameControlDrawer from './GameControlDrawer.vue';
 import GameMinimalHud from './GameMinimalHud.vue';
 import HandDeckFan from './HandDeckFan.vue';
-import RecordingPlayerDropdown from './RecordingPlayerDropdown.vue';
 import TableOpponentSeats from './TableOpponentSeats.vue';
 
 const ThreeBilliardsArena = defineAsyncComponent(() => import('./ThreeBilliardsArena.vue'));
 
-defineProps<{
+const props = defineProps<{
   room: Room;
   userId: string;
   isHost: boolean;
@@ -17,8 +17,7 @@ defineProps<{
   sortedMyCards: Card[];
   turnOrderPlayers: Player[];
   currentShooter?: Player | null;
-  breakMode: boolean;
-  recordingUserId: string;
+  recordingUserId?: string;
   busy: boolean;
   pendingBallNumbers: number[];
   sceneAnimationId?: string | null;
@@ -38,9 +37,8 @@ const emit = defineEmits<{
   (e: 'open-drawer'): void;
   (e: 'close-drawer'): void;
   (e: 'select-recording-player', userId: string): void;
-  (e: 'next-recording-player'): void;
-  (e: 'update:breakMode', val: boolean): void;
-  (e: 'table-ball-click', ballNum: number): void;
+  (e: 'referee-pocket', targetUserId: string, ballNum: number): void;
+  (e: 'break-pocket', ballNum: number): void;
   (e: 'hand-card-click', card: Card): void;
   (e: 'retract'): void;
   (e: 'open-referee-foul'): void;
@@ -49,6 +47,23 @@ const emit = defineEmits<{
   (e: 'request-restart'): void;
   (e: 'leave-room'): void;
 }>();
+
+const selectedBallForAssign = ref<number | null>(null);
+
+function onTableBallClick(ballNum: number) {
+  if (props.busy || props.room.status !== 'playing' || props.room.pocketedBallNumbers.includes(ballNum)) {
+    return;
+  }
+  selectedBallForAssign.value = ballNum;
+}
+
+function handleAssignPlayer(targetUserId: string, ballNum: number) {
+  emit('referee-pocket', targetUserId, ballNum);
+}
+
+function handleAssignBreak(ballNum: number) {
+  emit('break-pocket', ballNum);
+}
 </script>
 
 <template>
@@ -57,32 +72,10 @@ const emit = defineEmits<{
     <TableOpponentSeats
       :players="room.players"
       :myUserId="userId"
-      :currentShooterUserId="breakMode ? undefined : currentShooter?.userId"
+      :currentShooterUserId="currentShooter?.userId"
       :turnOrder="room.turnOrder"
       @select-player="emit('select-recording-player', $event.userId)"
     />
-    <div class="recording-strip">
-      <div class="recording-caption">{{ breakMode ? '开球进球 · 不归属玩家' : '记球对象' }}</div>
-      <div class="recording-actions">
-        <RecordingPlayerDropdown
-          v-if="!breakMode"
-          :players="room.players"
-          :userId="userId"
-          :selectedUserId="recordingUserId"
-          @select="emit('select-recording-player', $event)"
-        />
-        <strong v-else>逐个点选已进球</strong>
-        <button
-          type="button"
-          v-if="!breakMode && room.players.length > 1"
-          @click="emit('next-recording-player')"
-          aria-label="切换下一位记球对象"
-        >
-          下一位 →
-        </button>
-        <button type="button" v-if="breakMode" @click="emit('update:breakMode', false)">完成开球</button>
-      </div>
-    </div>
     <div v-if="turnOrderPlayers.length" class="turn-order-strip" aria-label="本局击球顺序">
       <span>击球顺序</span>
       <ol>
@@ -101,7 +94,7 @@ const emit = defineEmits<{
         :resetKey="sceneReset"
         :disabled="busy || room.status !== 'playing'"
         :colors="ballConfigs[activeBallConfigKey]?.colors"
-        @ball-click="emit('table-ball-click', $event)"
+        @ball-click="onTableBallClick"
       />
     </div>
     <div v-if="feedback" class="action-error" role="alert">{{ feedback }}</div>
@@ -109,10 +102,9 @@ const emit = defineEmits<{
       <button
         type="button"
         :disabled="busy || room.status !== 'playing'"
-        :aria-pressed="breakMode"
-        @click="emit('update:breakMode', !breakMode)"
+        @click="emit('open-referee-pocket')"
       >
-        开球模式
+        记录进球
       </button>
       <button
         type="button"
@@ -148,6 +140,18 @@ const emit = defineEmits<{
         @card-click="emit('hand-card-click', $event)"
       />
     </section>
+
+    <!-- 极速归属派发浮层 (方案 A: 点球即选人归属/公球免打) -->
+    <BallAssignSheet
+      :show="selectedBallForAssign !== null"
+      :ballNumber="selectedBallForAssign"
+      :players="room.players"
+      :myUserId="userId"
+      :currentShooterUserId="currentShooter?.userId"
+      @close="selectedBallForAssign = null"
+      @assign-player="handleAssignPlayer"
+      @assign-break="handleAssignBreak"
+    />
 
     <!-- 侧滑控制抽屉 (收敛次要操作与实况日志) -->
     <GameControlDrawer
