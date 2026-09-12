@@ -150,15 +150,16 @@ async function build() {
 
     mesh.castShadow = true;
     scene.add(mesh);
-    // Thinner, restrained pending indicator ring
+    // High-visibility blue pending indicator ring
     const pendingRing = new THREE.Mesh(
-      new THREE.RingGeometry(0.525, 0.555, 64),
+      new THREE.RingGeometry(0.53, 0.6, 64),
       new THREE.MeshBasicMaterial({
-        color: '#70b7a5',
+        color: '#0095ff',
         transparent: true,
-        opacity: 0.75,
+        opacity: 0.85,
         depthWrite: false,
         side: THREE.DoubleSide,
+        toneMapped: false,
       })
     );
     pendingRing.rotation.x = -Math.PI / 2;
@@ -271,7 +272,7 @@ function draw() {
         b.mesh.visible = false;
       } else moving = true;
     }
-  const ringOpacity = 0.65 + 0.15 * Math.sin(now * 0.005);
+  const ringOpacity = 0.75 + 0.2 * Math.sin(now * 0.005);
   for (const b of balls) {
     b.pendingRing.visible =
       b.mesh.visible &&
