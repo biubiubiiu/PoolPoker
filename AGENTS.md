@@ -24,11 +24,13 @@ pnpm run format       # biome format --write .
 pnpm run codegen:models # generate TS and Kotlin wire models from JSON schemas
 pnpm run codegen:check  # verify generated wire models match JSON schemas
 npm run tauri:build        # Tauri desktop production build
-npm run tauri:android      # Tauri Android debug APK build (tauri android build --debug --apk)
-npm run tauri:android:build# Tauri Android standalone release APK build (tauri android build --apk)
-npm run tauri:ios          # Tauri iOS dev mode on Xcode Simulator (tauri ios dev)
-npm run tauri:ios:build    # Tauri iOS production build (tauri ios build)
+pnpm pipeline android-debug --full   # Android Debug APK with model generation + checks
+pnpm pipeline android-release --full # Android Release APK with model generation + checks + unit tests
+pnpm pipeline ios-debug --full       # iOS Debug build with model generation + checks
+pnpm pipeline ios-release --full     # iOS Release build with model generation + checks + unit tests
 ```
+
+- Mobile pipelines require pnpm >=12.6.0 and share one `poolpoker-native` concurrency slot because Tauri rebuilds `dist/`. Use `--full --dry-run` to inspect a pipeline. See `docs/mobile_build_pipeline.md`; use `pnpm exec tauri ios dev` for live development. The `build:android:*` and `build:ios:*` scripts are pipeline implementation tasks.
 
 - **Run unit tests**: `pnpm run test:unit` or `pnpm run test:unit:watch` (test files located in `server/__tests__/*.spec.ts`).
 - **Run a single Playwright test**: `pnpm exec playwright test -g "<test name>"` (spec is `e2e/poolpoker.spec.ts`).
@@ -48,7 +50,7 @@ server/socketHandlers.ts  →  gameEngine.ts / pokerDeck.ts / roomManager.ts
 ```
 
 - **Web Frontend & Tauri** (`src/`, `src-tauri/`): Vue 3 + TypeScript + Vite + Tailwind CSS. Business logic lives in composables (`useGameRoom`, `useSocket`, `usePlayerProfile`, `useWearSync`); components handle presentation + events. `ThreeBilliardsArena` loads `public/models/billiards_table.glb` and keeps the fixed ball layout, projected DOM hit targets, and pocket animation in sync with the model. Tauri v2 packages the Web frontend into Android APK/AAB (`android/app`), iOS App (`apple/`, symlinked via `src-tauri/gen/apple -> ../../apple`), and desktop applications.
-- **iOS App** (`apple/`): Native iOS application bundle created by Tauri v2. Xcode workspace/project configured in `apple/poolpoker.xcodeproj` (managed via `apple/project.yml`). Supports iOS simulator dev (`npm run tauri:ios`) and release builds (`npm run tauri:ios:build`).
+- **iOS App** (`apple/`): Native iOS application bundle created by Tauri v2. Xcode workspace/project configured in `apple/poolpoker.xcodeproj` (managed via `apple/project.yml`). Supports iOS simulator dev (`pnpm exec tauri ios dev`) and release builds (`pnpm pipeline ios-release --full`).
 - **Android & Wear OS** (`android/`):
   - `:app`: Tauri Android App module extending `TauriActivity` with `TauriWearSyncPlugin` and `WearableDataLayerService`.
   - `:shared-models`: Kotlin data models (`WearSyncRoomPayload`, `WearActionPayload`) and DataLayer contracts.

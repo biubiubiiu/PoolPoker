@@ -1,2 +1,42 @@
 allowBuilds:
   esbuild: true
+
+includeWorkspaceRoot: true
+
+tasks:
+  codegen:models:
+    dependsOn: []
+    concurrencyGroup: poolpoker-native
+    cache: false
+  codegen:check:
+    dependsOn: [codegen:models]
+    concurrencyGroup: poolpoker-native
+  test:unit:
+    dependsOn: [codegen:check]
+    concurrencyGroup: poolpoker-native
+  build:android:debug:
+    dependsOn: [codegen:check]
+    concurrencyGroup: poolpoker-native
+    cache: false
+  build:android:release:
+    dependsOn: [codegen:check, test:unit]
+    concurrencyGroup: poolpoker-native
+    cache: false
+  build:ios:debug:
+    dependsOn: [codegen:check]
+    concurrencyGroup: poolpoker-native
+    cache: false
+  build:ios:release:
+    dependsOn: [codegen:check, test:unit]
+    concurrencyGroup: poolpoker-native
+    cache: false
+
+# Codegen, checks and native builds share generated models; Tauri also rebuilds dist/.
+concurrencyGroups:
+  poolpoker-native: 1
+
+pipelines:
+  android-debug: [build:android:debug]
+  android-release: [build:android:release]
+  ios-debug: [build:ios:debug]
+  ios-release: [build:ios:release]

@@ -30,6 +30,7 @@
         "visibleOnAllWorkspaces": false,
         "contentProtected": false,
         "skipTaskbar": false,
+        "theme": "dark",
         "titleBarStyle": "Visible",
         "hiddenTitle": false,
         "acceptFirstMouse": false,
@@ -38,6 +39,7 @@
         "zoomHotkeysEnabled": false,
         "browserExtensionsEnabled": false,
         "useHttpsScheme": false,
+        "backgroundColor": [11, 25, 18, 255],
         "javascriptDisabled": false,
         "allowLinkPreview": true,
         "disableInputAccessoryView": false,
@@ -59,8 +61,8 @@
   "build": {
     "devUrl": "http://localhost:5173/",
     "frontendDist": "../dist",
-    "beforeDevCommand": "npm run dev:frontend",
-    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "pnpm run dev:frontend",
+    "beforeBuildCommand": "pnpm run build",
     "removeUnusedCommands": false,
     "additionalWatchFolders": []
   },

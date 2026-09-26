@@ -155,20 +155,23 @@ The project uses Tauri v2 to package the web frontend into Android and iOS mobil
 #### Android Build (`android/`)
 ```bash
 # Build Debug APK
-npm run tauri:android
+pnpm pipeline android-debug --full
 
 # Build Release APK (with R8 obfuscation and signing)
-npm run tauri:android:build
+pnpm pipeline android-release --full
 ```
 > 💡 Generated Release APK is located at `android/app/build/outputs/apk/release/app-release.apk`. You can also open `android/` directly in Android Studio for multi-module debugging.
 
 #### iOS Build & Debug (`apple/`)
 ```bash
 # Launch iOS simulator / dev mode
-npm run tauri:ios
+pnpm exec tauri ios dev
+
+# Build iOS Debug bundle
+pnpm pipeline ios-debug --full
 
 # Build iOS production bundle
-npm run tauri:ios:build
+pnpm pipeline ios-release --full
 ```
 
 ---

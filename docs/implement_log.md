@@ -474,3 +474,22 @@
 - 缓存仅在内存按 Socket 保存，供页面恢复、重连、建房复用；显式首页重试清除缓存。所有迟到回调均按采集轮次作废。
 - 进入任何房间、开局、后台或卸载均取消监听。房主不再定位，只发布已有首页位置剩余有效期；没有位置或位置过期时附近不可见，保留房间码加入。未修改服务端坐标过期策略。
 - 验证：118 项单元测试、4 项附近发现 Playwright 用例、生产构建、lint、codegen:check 均通过。浏览器测试发现并修复了手动重试复用浏览器旧定位缓存的问题（手动请求 maximumAge=0）。本轮未重复真实 Safari/Chrome Computer-use 测试。
+
+### 2026-09-26 pnpm 移动端构建编排
+
+- 接入 Android/iOS Debug、Release 四个 pnpm pipeline；根项目纳入任务图，Debug 前置 codegen:check，Release 再加单元测试。
+- 新增 tauri:ios:debug 有限时长构建，保留原有 iOS 热重载开发入口和所有直接构建命令；Tauri 前端钩子统一使用 pnpm。
+- 四个原生构建共用 poolpoker-native 单并发组，避免共享 dist/ 写入冲突；不启用 APK/IPA 结果缓存，沿用 Gradle/Cargo 增量构建和既有签名配置。
+- 验证：pnpm 12.6.0 下四条 pipeline 的 --full --dry-run --json 任务图及前置依赖断言通过；模型一致性、118 项单元测试、TypeScript/Vite 生产构建、修改 JSON 的 Biome 检查通过。未执行 Android/iOS 原生打包或签名验证。
+
+### 2026-09-26 移除旧移动端构建入口
+
+- 用户确认四条 pipeline 已实际验证可用；移除 tauri:android* / tauri:ios* 旧脚本，底层构建任务改名为 build:android:* / build:ios:*，四个 pipeline 名称和依赖保持不变。
+- README、中英文说明、AGENTS 和移动端构建文档统一使用 pnpm pipeline；iOS 热重载改用 pnpm exec tauri ios dev，同步 XcodeGen 源文件和现有 Xcode 工程的诊断提示。
+- 验证：四条 pipeline dry-run 的任务存在性和前置依赖断言通过，package.json Biome 和 git diff --check 通过。本轮只调整入口，未重复原生打包。
+
+### 2026-09-26 构建前生成 wire models
+
+- 四条移动端 pipeline 增加 codegen:models → codegen:check 依赖链，Release 单元测试等待检查完成，确保使用最新生成类型。
+- 生成、检查和测试也加入 poolpoker-native 并发组，避免多个编排进程读写共享生成文件冲突；独立 pnpm run codegen:check 保持只检查语义。
+- 验证：四条 pipeline dry-run 依赖图断言通过；实际递归运行按顺序完成生成、一致性检查和 118 项单元测试，生成文件无内容变化。未重复原生打包。

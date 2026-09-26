@@ -100,12 +100,14 @@ android/
 
 ## 6. 常用构建与调试命令
 
+推荐使用 `pnpm pipeline android-debug --full` 或 `pnpm pipeline android-release --full` 执行包含前置检查的构建；iOS 和更多选项见 [移动端构建编排](mobile_build_pipeline.md)。
+
 ```bash
 # 1. 编译生成 Debug 测试 APK
-npm run tauri:android
+pnpm pipeline android-debug --full
 
 # 2. 编译生成 Standalone 独立 Release APK (已代码混淆 + 自动签名)
-npm run tauri:android:build
+pnpm pipeline android-release --full
 ```
 
 - 生成的 Debug APK 位置：`android/app/build/outputs/apk/debug/app-debug.apk`

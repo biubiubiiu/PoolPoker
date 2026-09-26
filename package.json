@@ -22,15 +22,15 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
-    "tauri:android": "tauri android build --debug --apk",
-    "tauri:android:build": "tauri android build --apk",
-    "tauri:ios": "tauri ios dev",
-    "tauri:ios:build": "tauri ios build"
+    "build:android:debug": "tauri android build --debug --apk",
+    "build:android:release": "tauri android build --apk",
+    "build:ios:debug": "tauri ios build --debug",
+    "build:ios:release": "tauri ios build"
   },
   "packageManager": "pnpm@12.6.0",
   "engines": {
     "node": ">=24.0.0",
-    "pnpm": ">=10.0.0"
+    "pnpm": ">=12.6.0"
   },
   "lint-staged": {
     "*.{ts,js,vue,json}": [

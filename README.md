@@ -155,20 +155,23 @@ pnpm start
 #### Android 打包 (`android/`)
 ```bash
 # 编译生成 Debug 测试 APK
-npm run tauri:android
+pnpm pipeline android-debug --full
 
 # 编译生成 Release 正式 APK (包含 R8 代码混淆与签名)
-npm run tauri:android:build
+pnpm pipeline android-release --full
 ```
 > 💡 打包生成的 Release APK 位于 `android/app/build/outputs/apk/release/app-release.apk`。亦可在 Android Studio 中直接打开 `android/` 目录进行多模块联合调试。
 
 #### iOS 打包与调试 (`apple/`)
 ```bash
 # 启动 iOS 模拟器/真机调试模式
-npm run tauri:ios
+pnpm exec tauri ios dev
+
+# 构建 iOS Debug 安装包
+pnpm pipeline ios-debug --full
 
 # 构建 iOS 生产安装包
-npm run tauri:ios:build
+pnpm pipeline ios-release --full
 ```
 
 ---
