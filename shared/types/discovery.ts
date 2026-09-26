@@ -22,10 +22,10 @@ export function discoveryPositionIssue(value: unknown, now: number): string | nu
   )
     return '定位数据无效，请重新定位';
   if (p.accuracy > DISCOVERY.maxAccuracyMeters) {
-    return `定位精度约 ${Math.ceil(p.accuracy)} 米，需 ${DISCOVERY.maxAccuracyMeters} 米以内；正在重试`;
+    return '定位精度不足，正在重试…';
   }
   const age = now - p.timestamp;
-  if (age >= DISCOVERY.positionMaxAgeMs) return `定位结果已过期（${Math.floor(age / 1000)} 秒前），正在重新定位`;
+  if (age >= DISCOVERY.positionMaxAgeMs) return '位置已过期，正在重新定位…';
   if (age < -15_000) return '定位时间异常，请检查设备时间后重新定位';
   return null;
 }

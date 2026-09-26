@@ -134,9 +134,10 @@ describe('geolocation discovery provider lifecycle', () => {
     fix();
     stop?.();
     stop = createGeolocationProvider(socket as unknown as Socket).start('advertise', callbacks);
+    expect(callbacks.status).toHaveBeenLastCalledWith('附近玩家可发现此房间');
     vi.advanceTimersByTime(62_000);
     expect(watchLocation).toHaveBeenCalledTimes(1);
-    expect(callbacks.status).toHaveBeenLastCalledWith('首页位置已过期，房间不再向附近公开；可使用房间码加入');
+    expect(callbacks.status).toHaveBeenLastCalledWith('位置已过期，已停止向附近公开');
   });
 
   it('bounds an unsuccessful acquisition and retries after a cooldown', () => {
@@ -186,7 +187,7 @@ describe('geolocation discovery provider lifecycle', () => {
     start();
     fix(2000);
     expect(socket.sent.some((s) => s.event === 'discovery_update')).toBe(false);
-    expect(callbacks.status).toHaveBeenLastCalledWith('定位精度约 2000 米，需 300 米以内；正在重试');
+    expect(callbacks.status).toHaveBeenLastCalledWith('定位精度不足，正在重试…');
   });
 
   it('explains and rejects an old browser fix rather than reporting an accuracy error', () => {
@@ -196,7 +197,7 @@ describe('geolocation discovery provider lifecycle', () => {
       timestamp: Date.now() - 120_000,
     } as GeolocationPosition);
     expect(socket.sent.some((s) => s.event === 'discovery_update')).toBe(false);
-    expect(callbacks.status).toHaveBeenLastCalledWith('定位结果已过期（120 秒前），正在重新定位');
+    expect(callbacks.status).toHaveBeenLastCalledWith('位置已过期，正在重新定位…');
   });
 
   it('clears results on disconnect and reuses a fresh fix on reconnect', () => {

@@ -13,7 +13,7 @@ export function useNearbyRooms(
 ) {
   const enabled = ref(localStorage.getItem('poolpoker_nearby_enabled') !== 'false');
   const nearbyRooms = ref<NearbyRoom[]>([]);
-  const status = ref('正在准备附近房间…');
+  const status = ref('正在获取位置…');
   let appliedRetryVersion = 0;
   let lastProviderStatus = '';
   const visible = ref(!document.hidden);
@@ -56,8 +56,7 @@ export function useNearbyRooms(
       return;
     }
     if (!visible.value) {
-      const paused = retainAdvertisement ? '已暂停定位，房间在最近位置过期前仍可被发现' : '回到页面后自动恢复';
-      status.value = lastProviderStatus ? `${lastProviderStatus}；${paused}` : paused;
+      status.value = '已暂停定位';
       return;
     }
     if (!mounted.value || !socket.value || !mode.value) return;

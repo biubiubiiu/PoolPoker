@@ -73,9 +73,7 @@ export function createGeolocationProvider(socket: Socket): RoomDiscoveryProvider
                 upload = setTimeout(send, DISCOVERY.refreshMs);
                 return;
               }
-              callbacks.status(
-                mode === 'advertise' ? '附近玩家可发现此房间（使用首页位置，定位已停止）' : '正在自动发现附近房间'
-              );
+              callbacks.status(mode === 'advertise' ? '附近玩家可发现此房间' : '正在自动发现附近房间');
             }
           );
       };
@@ -83,9 +81,7 @@ export function createGeolocationProvider(socket: Socket): RoomDiscoveryProvider
         if (!active || mode !== 'browse' || acquiring || denied || !socket.connected || position) return;
         if (!window.isSecureContext || !navigator.geolocation) {
           denied = true;
-          callbacks.status(
-            !window.isSecureContext ? '定位需要 HTTPS，请使用安全网址打开' : '当前浏览器不支持定位，可输入房间码加入'
-          );
+          callbacks.status(!window.isSecureContext ? '定位需要 HTTPS，请使用安全网址打开' : '当前浏览器不支持定位');
           return;
         }
         acquiring = true;
@@ -127,16 +123,14 @@ export function createGeolocationProvider(socket: Socket): RoomDiscoveryProvider
             clear();
             callbacks.status('未获定位权限，请在浏览器设置中允许位置后重试');
           } else if (!position) {
-            callbacks.status(
-              error.code === 3 ? '定位超时，正在重试；也可输入房间码' : '暂时无法定位，正在重试；也可输入房间码'
-            );
+            callbacks.status(error.code === 3 ? '定位超时，正在重试…' : '暂时无法定位，正在重试…');
           }
         };
         callbacks.status('正在获取位置…');
         deadline = setTimeout(() => {
           stopLocation();
           nextAttemptAt = Date.now() + DISCOVERY.refreshMs;
-          if (!position) callbacks.status('暂未取得有效位置，稍后重试；也可输入房间码');
+          if (!position) callbacks.status('暂未取得有效位置，稍后重试');
         }, ACQUISITION_MS);
         // Quick cached/coarse fix first, then higher-accuracy updates. Late one-shot callbacks are ignored.
         navigator.geolocation.getCurrentPosition(accept, failure, {
@@ -162,7 +156,7 @@ export function createGeolocationProvider(socket: Socket): RoomDiscoveryProvider
         } else {
           fixes.delete(socket);
           if (mode === 'browse') locate();
-          else callbacks.status('没有有效的首页位置，房间未向附近公开；可使用房间码加入');
+          else callbacks.status('未获取有效位置，房间未公开到附近');
         }
       };
       const onRooms = (rooms: NearbyRoom[]) => {
@@ -196,9 +190,7 @@ export function createGeolocationProvider(socket: Socket): RoomDiscoveryProvider
           stopLocation();
           clear();
           fixes.delete(socket);
-          callbacks.status(
-            mode === 'browse' ? '位置已过期，正在重新定位…' : '首页位置已过期，房间不再向附近公开；可使用房间码加入'
-          );
+          callbacks.status(mode === 'browse' ? '位置已过期，正在重新定位…' : '位置已过期，已停止向附近公开');
         }
         if (Date.now() >= nextAttemptAt) locate();
       }, DISCOVERY.publishMs);
