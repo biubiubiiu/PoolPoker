@@ -61,10 +61,10 @@ if [[ "$1" == "--deploy" ]]; then
             sleep 1
         fi
 
-        # 清除上次由脚本写入的端口，避免影响下一次 checkout。
-        if git -C "$dir" ls-files --error-unmatch config.yaml >/dev/null 2>&1; then
-            git -C "$dir" restore --source=HEAD --worktree -- config.yaml || return 1
-        fi
+        # 部署目录只运行远端代码：丢弃本地修改、清除未跟踪残留，再固定到目标版本。
+        # 不清理脚本所在的控制目录；不加 -x，保留 node_modules、日志、.env 等忽略文件。
+        git -C "$dir" reset --hard "$revision" || return 1
+        git -C "$dir" clean -fd || return 1
         git -C "$dir" checkout --detach "$revision" || return 1
         # 后端实际读取 config.yaml，单独设置 PORT 环境变量并不会改变监听端口。
         python3 - "$dir/config.yaml" "$app_port" <<'CONFIG'
@@ -101,6 +101,17 @@ echo "  监听端口：$PORT"
 echo ""
 echo "  触发方式：curl -X POST http://<服务器IP>:$PORT/deploy"
 echo ""
+
+# 仅启动监听器时释放端口；--deploy 在上方已退出，不会中断正在监听的 Webhook。
+command -v lsof >/dev/null 2>&1 || { echo "错误：请先安装 lsof（sudo apt install lsof）"; exit 1; }
+LISTENER_PIDS=$(lsof -t -iTCP:"$PORT" -sTCP:LISTEN)
+if [[ -n "$LISTENER_PIDS" ]]; then
+    echo "终止占用 $PORT 端口的进程：$LISTENER_PIDS"
+    for pid in $LISTENER_PIDS; do
+        kill -9 "$pid" || { echo "错误：无法终止进程 $pid，请使用有权限的用户启动"; exit 1; }
+    done
+    sleep 1
+fi
 
 python3 - << 'PYTHON'
 import os, subprocess, threading, sys
