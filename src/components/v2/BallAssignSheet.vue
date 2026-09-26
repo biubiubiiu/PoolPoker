@@ -9,7 +9,6 @@ const props = defineProps<{
   players: Player[];
   myUserId: string;
   currentShooterUserId?: string;
-  ballTheme?: string;
 }>();
 
 const emit = defineEmits<{
@@ -102,7 +101,6 @@ function assignBreak() {
             <BallIcon
               v-if="ballNumber !== null"
               :ballNumber="ballNumber"
-              :ballTheme="ballTheme || 'xingpai'"
               size="md"
             />
             <div>

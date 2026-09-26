@@ -158,6 +158,7 @@ Android/iOS Debug 与 Release 由 pnpm 任务图编排，构建入口、前置�
 
 - `usePlayerProfile`：玩家身份持久化——`userId`（首次生成 `u_随机串`）、`playerName`、`selectedAvatar`（6 个头像）、`selectedBallConfigKey` 均存 `localStorage`；`getFinalPlayerName` 空名回退「球友+随机三位数」。
 - `useSocket`：Socket.IO 客户端初始化，`auth` 携带已存 name/userId，调优重连参数 `reconnectionAttempts: Infinity` / `reconnectionDelay: 300` / `reconnectionDelayMax: 1000` / `timeout: 5000`；封装 `on`/`off`/`emit`。
+- `useBallAppearance`：由 `App` 通过 provide/inject 提供只读、响应式的球主题和当前配色；复用 `useGameRoom.activeBallConfigKey` 的房间配置 → 个人选择 → 星牌优先级。`BallIcon` 和 `ThreeBilliardsArena` 直接读取，容器、卡牌与弹窗不再透传主题。`BallIcon.ballTheme` 可显式覆盖主题；无 provider 时默认星牌。
 - `useGameRoom`：核心业务状态与操作——`room` 状态、`isHost`/`myInfo`/`turnOrderPlayers` 计算属性、`sortedMyCards`（本人手牌按球号升序排序的计算属性）、球色配置加载与 CSS 变量生成（`--ball-N-hi/mid/lo`）、`isCardDimmed`（球号已打进则置灰免打）；挂载时 `fetchLatestRoomState`（HTTP 快照）+ `visibilitychange` 切前台时快照同步 + Socket 重连；`setupSocketListeners` 监听 `connect`（自动 `rejoin_room`）、`room_updated`（更新 `room` 并胜利时放彩带）、`room_created`、`error_message`；对外暴露建房/加入/调发牌数/开局/销牌/撤回上一步（`handleRetract`，`window.confirm` 确认后发 `retract_ball`）/记录进球/记录犯规/重开/离开等全部 `handle*` 方法。
 
 ### 前端组件结构

@@ -9,7 +9,6 @@ const props = defineProps<{
   pocketedBallNumbers: number[];
   defaultUserId?: string;
   defaultBallNumber?: number | null;
-  ballTheme?: string;
 }>();
 
 const emit = defineEmits<{
@@ -144,7 +143,7 @@ const onConfirm = () => {
                   @click="selectBall(b)"
                   :class="['p-1.5 rounded-xl border flex flex-col items-center justify-center transition-all relative cursor-pointer',
                            selectedBall === b ? 'bg-amber-400/20 border-amber-400 ring-2 ring-amber-400 scale-105' : 'bg-black/40 border-white/10 hover:border-white/30']">
-            <BallIcon :ballNumber="b" :ballTheme="ballTheme || 'xingpai'" size="md" />
+            <BallIcon :ballNumber="b" size="md" />
             <span class="text-[9px] font-bold mt-1 text-gray-200">{{ b }}号</span>
           </button>
         </div>

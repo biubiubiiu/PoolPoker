@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { useBallAppearance } from '@/composables/useBallAppearance';
 
 const props = withDefaults(
   defineProps<{
@@ -8,22 +9,24 @@ const props = withDefaults(
     size?: 'sm' | 'md' | 'lg';
   }>(),
   {
-    ballTheme: 'xingpai',
     size: 'md',
   }
 );
 
+const appearance = useBallAppearance();
+const effectiveTheme = computed(() => props.ballTheme || appearance.theme);
+
 const hasError = ref(false);
 
 watch(
-  () => [props.ballNumber, props.ballTheme],
+  () => [props.ballNumber, effectiveTheme.value],
   () => {
     hasError.value = false;
   }
 );
 
 const imageSrc = computed(() => {
-  return `/assets/balls/${props.ballTheme || 'xingpai'}/2d/${props.ballNumber}.webp`;
+  return `/assets/balls/${effectiveTheme.value}/2d/${props.ballNumber}.webp`;
 });
 
 const getBallClass = (ballNum: number) => {

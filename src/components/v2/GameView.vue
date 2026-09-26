@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { BallConfig, Card, Player, Room } from '@shared/types/game';
+import type { Card, Player, Room } from '@shared/types/game';
 import { defineAsyncComponent, ref } from 'vue';
 import BallAssignSheet from './BallAssignSheet.vue';
 import GameControlDrawer from './GameControlDrawer.vue';
@@ -23,8 +23,6 @@ const props = defineProps<{
   pendingBallNumbers: number[];
   sceneAnimationId?: string | null;
   sceneReset: number;
-  ballConfigs: Record<string, BallConfig>;
-  activeBallConfigKey: string;
   feedback: string | null;
   activeCards: number;
   displayCards?: Card[] | null;
@@ -89,13 +87,11 @@ function handleAssignBreak(ballNum: number) {
     </div>
     <div class="table-stage">
       <ThreeBilliardsArena
-        :activeBallConfigKey="activeBallConfigKey"
         :pendingBallNumbers="pendingBallNumbers"
         :pocketedBallNumbers="room.pocketedBallNumbers"
         :animationId="sceneAnimationId"
         :resetKey="sceneReset"
         :disabled="busy || room.status !== 'playing'"
-        :colors="ballConfigs[activeBallConfigKey]?.colors"
         @ball-click="onTableBallClick"
       />
     </div>
@@ -118,7 +114,6 @@ function handleAssignBreak(ballNum: number) {
     <BallAssignSheet
       :show="selectedBallForAssign !== null"
       :ballNumber="selectedBallForAssign"
-      :ballTheme="activeBallConfigKey"
       :players="room.players"
       :myUserId="userId"
       :currentShooterUserId="currentShooter?.userId"

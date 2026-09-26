@@ -51,7 +51,6 @@ const emit = defineEmits<{
           :key="card.id"
           :card="card"
           :isDimmed="isCardDimmed(card)"
-          :ballTheme="room.settings?.ballConfigKey || 'xingpai'"
           @click="emit('confirm-pocket', card)"
         />
       </div>

@@ -2,16 +2,10 @@
 import type { Card } from '@shared/types/game';
 import BallIcon from '@/components/BallIcon.vue';
 
-const props = withDefaults(
-  defineProps<{
-    card: Card;
-    isDimmed: boolean;
-    ballTheme?: string;
-  }>(),
-  {
-    ballTheme: 'xingpai',
-  }
-);
+const props = defineProps<{
+  card: Card;
+  isDimmed: boolean;
+}>();
 
 const emit = defineEmits<(e: 'click', card: Card) => void>();
 
@@ -33,7 +27,7 @@ const getColorClass = (color: string) => {
     </div>
 
     <div class="my-auto py-1 flex items-center justify-center">
-      <BallIcon :ballNumber="card.ballNumber" :ballTheme="ballTheme" size="lg" />
+      <BallIcon :ballNumber="card.ballNumber" size="lg" />
     </div>
 
     <div class="text-[9px] text-center font-bold text-gray-700 leading-none">

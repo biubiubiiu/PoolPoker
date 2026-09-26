@@ -89,7 +89,7 @@ const emit = defineEmits<{
       <div v-if="room.pocketedBallNumbers && room.pocketedBallNumbers.length > 0" class="flex flex-wrap gap-1.5 items-center">
         <span v-for="ballNum in room.pocketedBallNumbers" :key="ballNum"
               class="inline-flex items-center justify-center text-xs font-black px-2 py-0.5 rounded-full bg-emerald-950/90 text-amber-300 border border-emerald-500/40 shadow-sm">
-          <BallIcon :ballNumber="ballNum" :ballTheme="room.settings?.ballConfigKey || 'xingpai'" size="sm" class="mr-1" />
+          <BallIcon :ballNumber="ballNum" size="sm" class="mr-1" />
           {{ getBallName(ballNum) }}
         </span>
       </div>

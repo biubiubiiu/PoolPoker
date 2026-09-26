@@ -8,6 +8,7 @@ import RoomLobby from '@/components/RoomLobby.vue';
 import VictoryModal from '@/components/VictoryModal.vue';
 import GameViewV1 from '@/components/v1/GameView.vue';
 import GameViewV2 from '@/components/v2/GameView.vue';
+import { provideBallAppearance } from '@/composables/useBallAppearance';
 import { useGameRoom } from '@/composables/useGameRoom';
 import { useNearbyRooms } from '@/composables/useNearbyRooms';
 import { usePlayerProfile } from '@/composables/usePlayerProfile';
@@ -76,6 +77,11 @@ const {
   getFinalPlayerName,
   serverUrl,
 });
+
+provideBallAppearance(
+  activeBallConfigKey,
+  computed(() => ballConfigs.value[activeBallConfigKey.value]?.colors)
+);
 
 const nearby = useNearbyRooms(socket, room, isHost);
 
@@ -156,8 +162,6 @@ onMounted(() => {
       :pendingBallNumbers="pendingBallNumbers"
       :sceneAnimationId="sceneAnimationId"
       :sceneReset="sceneReset"
-      :ballConfigs="ballConfigs"
-      :activeBallConfigKey="activeBallConfigKey"
       :feedback="feedback"
       :activeCards="activeCards"
       :displayCards="displayCards"
@@ -203,7 +207,6 @@ onMounted(() => {
                         :pocketedBallNumbers="room?.pocketedBallNumbers || []"
                         :defaultUserId="refereeTargetUserId"
                         :defaultBallNumber="refereeSelectedBallNum"
-                        :ballTheme="activeBallConfigKey"
                         @close="showRefereePocketModal = false"
                         @confirm="handleRefereePocketConfirm"
                         @confirm-break="handleBreakPocketConfirm" />

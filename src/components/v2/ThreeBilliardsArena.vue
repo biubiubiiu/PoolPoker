@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import * as THREE from 'three';
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { useBallAppearance } from '@/composables/useBallAppearance';
 import { useGameAudio } from '@/composables/useGameAudio';
 import { getBallOrigin } from '@/utils/ballLayout';
 import { createBallTextureCanvas } from '@/utils/ballTexture';
@@ -12,10 +13,9 @@ const props = defineProps<{
   animationId?: string | null;
   resetKey?: number;
   disabled?: boolean;
-  colors?: Record<string, [string, string, string]>;
-  activeBallConfigKey?: string;
 }>();
 const emit = defineEmits<(e: 'ball-click', number: number) => void>();
+const appearance = useBallAppearance();
 const { playBallHitSound, playPocketDropSound } = useGameAudio();
 const host = ref<HTMLDivElement>();
 const ready = ref(false);
@@ -47,7 +47,7 @@ interface Ball {
 const balls: Ball[] = [];
 
 function ballTexture(n: number) {
-  const theme = props.activeBallConfigKey || 'xingpai';
+  const theme = appearance.theme;
   const textureUrl = `/assets/balls/${theme}/3d/${n}.webp`;
   const texture = textureLoader.load(
     textureUrl,
@@ -62,7 +62,7 @@ function ballTexture(n: number) {
     undefined,
     () => {
       // Fallback: procedural canvas if texture fails to load
-      const color = props.colors?.[String(n)]?.[1] || fallbackColors[(n - 1) % 8];
+      const color = appearance.colors?.[String(n)]?.[1] || fallbackColors[(n - 1) % 8];
       const canvas = createBallTextureCanvas(n, color);
       texture.image = canvas as unknown as HTMLImageElement;
       texture.colorSpace = THREE.SRGBColorSpace;
@@ -353,7 +353,7 @@ watch(
   }
 );
 watch(() => props.pendingBallNumbers, draw);
-watch([() => props.colors, () => props.activeBallConfigKey], () => {
+watch([() => appearance.colors, () => appearance.theme], () => {
   balls.forEach((b) => {
     b.mesh.material.map?.dispose();
     b.mesh.material.map = ballTexture(b.number);
