@@ -8,7 +8,7 @@ import bpy
 import math
 import os
 
-PROJECT_ROOT = "/Users/raymond/Desktop/Workspace/dev/PoolPoker"
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUTPUT_DIR = os.path.join(PROJECT_ROOT, "public", "assets", "balls")
 FONT_DIN = "/System/Library/Fonts/Supplemental/DIN Condensed Bold.ttf"
 FONT_ARIAL = "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
@@ -16,9 +16,12 @@ FONT_ARIAL = "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
 THEMES = {
     "xingpai": {
         "font": FONT_ARIAL,
-        "style": "classic",  # Ivory disc on all balls, bold black sans-serif font
-        "single_font_size": 1.28,
-        "double_font_size": 1.12,
+        "style": "classic",  # Ivory disc on solids, numbers directly on striped balls' white caps
+        "stripe_axis": "Y",  # Number projection faces +/-Y: both numbers sit on white caps
+        "stripe_half_width": 0.56,
+        "single_font_size": 1.40,
+        "double_font_size": 1.23,
+        "font_outline_offset": 0.022,  # Thicken the printed strokes without adding depth
         "colors": {
             1: "#f5c01a", 2: "#1a4b9c", 3: "#d92525", 4: "#f45fa4",
             5: "#f27415", 6: "#137b3e", 7: "#691d24", 8: "#111111",
@@ -29,6 +32,8 @@ THEMES = {
     "xingjue": {
         "font": FONT_DIN,
         "style": "xingjue",  # No disc (transparent bg), black ring & black tall font (white on 8), underline on 6 & 9
+        "stripe_axis": "Z",
+        "stripe_half_width": 0.63,  # Ring projects to radius ~0.55; leave color beyond its edge
         "single_font_size": 1.68,
         "double_font_size": 1.48,
         "colors": {
@@ -210,6 +215,7 @@ def render_medallion(m_scene, disc, ring, txt, line, mat_ivory, mat_black, mat_w
     is_double_digit = (ball_num >= 10)
     font_size = theme_cfg["double_font_size"] if is_double_digit else theme_cfg["single_font_size"]
     txt.data.size = font_size
+    txt.data.offset = theme_cfg.get("font_outline_offset", 0.0)
 
     if theme_key == "xingjue":
         # Xingjue: transparent background (disc hidden), ring + font directly on ball body/stripe
@@ -240,8 +246,8 @@ def render_medallion(m_scene, disc, ring, txt, line, mat_ivory, mat_black, mat_w
                 line.hide_render = True
                 txt.location = (0, 0.02, 0.01)
     else:
-        # Xingpai: ivory disc visible on all balls, no ring, bold black font
-        disc.hide_render = False
+        # Xingpai: striped balls use their white caps, without an extra ivory disc.
+        disc.hide_render = ball_num >= 9
         disc.data.materials.clear()
         disc.data.materials.append(mat_ivory)
 
@@ -302,14 +308,14 @@ def build_ball_shader(sphere, theme_key, ball_num, medallion_img_path):
     links.new(mapping.outputs['Vector'], tex_node.inputs['Vector'])
 
     if is_striped:
-        abs_z = nodes.new('ShaderNodeMath')
-        abs_z.operation = 'ABSOLUTE'
-        links.new(sep_xyz.outputs['Z'], abs_z.inputs[0])
+        abs_stripe_axis = nodes.new('ShaderNodeMath')
+        abs_stripe_axis.operation = 'ABSOLUTE'
+        links.new(sep_xyz.outputs[theme_cfg['stripe_axis']], abs_stripe_axis.inputs[0])
 
         stripe_mask = nodes.new('ShaderNodeMath')
         stripe_mask.operation = 'LESS_THAN'
-        stripe_mask.inputs[1].default_value = 0.56
-        links.new(abs_z.outputs['Value'], stripe_mask.inputs[0])
+        stripe_mask.inputs[1].default_value = theme_cfg['stripe_half_width']
+        links.new(abs_stripe_axis.outputs['Value'], stripe_mask.inputs[0])
 
         mix_body = nodes.new('ShaderNodeMix')
         mix_body.data_type = 'RGBA'
