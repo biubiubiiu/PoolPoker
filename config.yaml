@@ -10,3 +10,7 @@ room:
   max_players: 8
   disconnect_timeout_ms: 3600000 # 断线重连等待限时 (毫秒, 默认1小时)
 
+
+# 面对面发现范围（米）；定位数据仅在服务端内存短暂保留
+discovery:
+  radius_meters: 300

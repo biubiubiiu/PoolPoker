@@ -9,6 +9,7 @@ import VictoryModal from '@/components/VictoryModal.vue';
 import GameViewV1 from '@/components/v1/GameView.vue';
 import GameViewV2 from '@/components/v2/GameView.vue';
 import { useGameRoom } from '@/composables/useGameRoom';
+import { useNearbyRooms } from '@/composables/useNearbyRooms';
 import { usePlayerProfile } from '@/composables/usePlayerProfile';
 import { useSocket } from '@/composables/useSocket';
 import { useUiPreferences } from '@/composables/useUiPreferences';
@@ -52,6 +53,7 @@ const {
   isCardDimmed,
   handleCreateRoom,
   handleJoinRoom,
+  joiningRoom,
   handleAdjustCards,
   handleStartGame,
   handleKickPlayer,
@@ -74,6 +76,8 @@ const {
   getFinalPlayerName,
   serverUrl,
 });
+
+const nearby = useNearbyRooms(socket, room, isHost);
 
 const busy = computed(() => pendingAction.value || isPresenting.value);
 const activeCards = computed(() => sortedMyCards.value.filter((c) => !isCardDimmed(c)).length);
@@ -113,6 +117,12 @@ onMounted(() => {
 
     <!-- 登录大厅 / 房间等待视图 -->
     <RoomLobby v-if="!room || room.status === 'waiting' || room.status === 'lobby'"
+               :nearbyRooms="nearby.nearbyRooms.value"
+               :nearbyStatus="nearby.status.value"
+               :nearbyEnabled="nearby.enabled.value"
+               :joiningRoom="joiningRoom"
+               @update:nearbyEnabled="nearby.setEnabled"
+               @retry-nearby="nearby.retry"
                :room="room"
                :userId="userId"
                :isHost="isHost"

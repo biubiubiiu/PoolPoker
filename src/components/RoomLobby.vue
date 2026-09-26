@@ -1,10 +1,16 @@
 <script setup lang="ts">
+import type { DiscoverySource, NearbyRoom } from '@shared/types/discovery';
 import type { Room } from '@shared/types/game';
 import { computed, ref } from 'vue';
+import NearbyRooms from '@/components/NearbyRooms.vue';
 import type { ServerUrlConfig } from '@/composables/useSocket';
 import { showAlert, showConfirm } from '@/utils/dialog';
 
 const props = defineProps<{
+  nearbyRooms: NearbyRoom[];
+  nearbyStatus: string;
+  nearbyEnabled: boolean;
+  joiningRoom: boolean;
   room: Room | null;
   userId: string;
   isHost: boolean;
@@ -24,7 +30,9 @@ const emit = defineEmits<{
   (e: 'update:useNewUi', value: boolean): void;
   (e: 'add-server-url', payload: { url: string; name?: string }): void;
   (e: 'remove-server-url', id: string): void;
-  (e: 'join-room', code: string): void;
+  (e: 'join-room', code: string, source?: DiscoverySource): void;
+  (e: 'update:nearbyEnabled', value: boolean): void;
+  (e: 'retry-nearby'): void;
   (e: 'create-room'): void;
   (e: 'adjust-cards', delta: number): void;
   (e: 'start-game'): void;
@@ -265,13 +273,18 @@ const onJoin = async () => {
         </button>
       </div>
 
+      <NearbyRooms
+        :rooms="nearbyRooms" :status="nearbyStatus" :enabled="nearbyEnabled" :joining="joiningRoom"
+        @update:enabled="emit('update:nearbyEnabled', $event)" @retry="emit('retry-nearby')"
+        @join="(room) => emit('join-room', room.roomCode, room.source)" />
+
       <!-- TAB A: 输入 4 位数字房间码加入 -->
       <div v-if="tab === 'join'" class="space-y-4">
         <div>
           <input v-model="joinCode" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="输入 4 位数字房间码 (如 6824)" maxlength="4"
                  class="w-full bg-black/50 border-2 border-emerald-500/50 text-center font-mono text-2xl font-black tracking-widest py-3 rounded-xl text-amber-300 placeholder:font-sans placeholder:text-sm placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-500 focus:outline-none focus:border-amber-400">
         </div>
-        <button @click="onJoin" :disabled="!joinCode" 
+        <button @click="onJoin" :disabled="!joinCode || joiningRoom"
                 class="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-black font-extrabold rounded-xl shadow-lg transition active:scale-98 disabled:opacity-50 cursor-pointer">
           进入球局 <i class="fa-solid fa-arrow-right ml-1"></i>
         </button>
@@ -289,6 +302,9 @@ const onJoin = async () => {
 
   <!-- View 2: 房间等待大厅 -->
   <div v-else-if="room && (room.status === 'waiting' || room.status === 'lobby')" class="flex-1 flex flex-col justify-between py-2 space-y-4">
+    <NearbyRooms v-if="isHost"
+      :rooms="[]" :status="nearbyStatus" :enabled="nearbyEnabled" :advertising="true" :joining="false"
+      @update:enabled="emit('update:nearbyEnabled', $event)" @retry="emit('retry-nearby')" />
     <!-- 成员列表 -->
     <div class="glass-panel rounded-2xl p-4 shadow-xl flex-1 flex flex-col">
       <div class="flex items-center justify-between mb-3 border-b border-white/10 pb-2">

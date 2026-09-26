@@ -5,6 +5,7 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '../shared/types/socket';
 import { appConfig, ballConfigs, DEFAULT_BALL_CONFIG_KEY, rootDir } from './config';
+import { startDiscoveryBroadcast } from './discoveryBroadcast';
 import { logSocketConnect } from './logger';
 import { getRobotWebhookUrl, setRobotWebhookUrl } from './robotConfig';
 import { getClientRoomState } from './roomManager';
@@ -99,6 +100,9 @@ if (fs.existsSync(distDir)) {
 } else {
   console.warn('⚠️ 注意: 未发现 dist 构建目录，请先运行 `pnpm run build` 进行项目构建。');
 }
+
+const stopDiscoveryBroadcast = startDiscoveryBroadcast(io);
+server.on('close', stopDiscoveryBroadcast);
 
 io.on('connection', (socket: any) => {
   logSocketConnect(socket);

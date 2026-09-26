@@ -6,6 +6,9 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 object SocketEvents {
+    const val NEARBY_ROOMS = "nearby_rooms"
+    const val DISCOVERY_UPDATE = "discovery_update"
+    const val DISCOVERY_STOP = "discovery_stop"
     const val ROOM_CREATED = "room_created"
     const val ROOM_KICKED = "room_kicked"
     const val KICK_PLAYER = "kick_player"

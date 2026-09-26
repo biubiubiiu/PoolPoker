@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://poolpoker.app/schemas/discovery.schema.json",
+  "title": "DiscoverySchemaGroup",
+  "definitions": {
+    "DiscoverySource": { "type": "string", "enum": ["geolocation", "bluetooth"] },
+    "DiscoveryMode": { "type": "string", "enum": ["browse", "advertise"] },
+    "DiscoveryPosition": {
+      "type": "object",
+      "properties": {
+        "latitude": { "type": "number", "minimum": -90, "maximum": 90 },
+        "longitude": { "type": "number", "minimum": -180, "maximum": 180 },
+        "accuracy": { "type": "number", "minimum": 0 },
+        "timestamp": { "type": "number" },
+        "mode": { "$ref": "DiscoveryMode" }
+      },
+      "required": ["latitude", "longitude", "accuracy", "timestamp", "mode"],
+      "additionalProperties": false
+    },
+    "NearbyRoom": {
+      "type": "object",
+      "properties": {
+        "roomCode": { "type": "string" },
+        "hostName": { "type": "string" },
+        "playerCount": { "type": "integer" },
+        "maxPlayers": { "type": "integer" },
+        "source": { "$ref": "DiscoverySource" }
+      },
+      "required": ["roomCode", "hostName", "playerCount", "maxPlayers", "source"],
+      "additionalProperties": false
+    }
+  }
+}

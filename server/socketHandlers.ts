@@ -21,6 +21,7 @@ import type {
 } from '../shared/types/socket';
 import { applyGameRoomCommand } from './gameRoomService';
 import { logSocketDisconnect } from './logger';
+import { roomDiscovery } from './roomDiscovery';
 import { applyRoomLifecycleCommand, type RoomLifecycleResult } from './roomLifecycleService';
 import { broadcastRoomState, getRoom, getSocketSession } from './roomManager';
 
@@ -61,6 +62,19 @@ function respond(callback: ((res: SocketCallbackResponse) => void) | undefined, 
 }
 
 export function registerSocketHandlers(io: Server, socket: Socket): void {
+  socket.on(CLIENT_TO_SERVER_EVENTS.discoveryUpdate, (position: unknown, callback) => {
+    const result = roomDiscovery.update(socket.id, position);
+    socket.data.discoveryBrowsing = result.success && (position as { mode: string }).mode === 'browse';
+    if (socket.data.discoveryBrowsing) {
+      socket.emit(SERVER_TO_CLIENT_EVENTS.nearbyRooms, roomDiscovery.nearby(socket.id));
+    }
+    if (typeof callback === 'function') callback(result);
+  });
+  socket.on(CLIENT_TO_SERVER_EVENTS.discoveryStop, () => {
+    roomDiscovery.remove(socket.id);
+    socket.data.discoveryBrowsing = false;
+  });
+
   // 1. 创建房间
   socket.on(
     CLIENT_TO_SERVER_EVENTS.createRoom,
@@ -75,6 +89,14 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   socket.on(
     CLIENT_TO_SERVER_EVENTS.joinRoom,
     (data: JoinRoomPayload, callback?: (res: SocketCallbackResponse) => void) => {
+      if (
+        data.discoverySource &&
+        (data.discoverySource !== 'geolocation' ||
+          !roomDiscovery.nearby(socket.id).some((r) => r.roomCode === data.roomCode))
+      ) {
+        callback?.({ success: false, message: '附近房间已不可加入，请刷新列表或输入房间码' });
+        return;
+      }
       const result = applyRoomLifecycleCommand({ type: 'join_room', socketId: socket.id, payload: data });
       respond(callback, result);
       applyLifecycleResult(io, socket, result);
@@ -271,6 +293,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
 
   // 14. 断开连接处理
   socket.on('disconnect', (reason?: string) => {
+    roomDiscovery.remove(socket.id);
     logSocketDisconnect(socket, reason);
     const result = applyRoomLifecycleCommand({ type: 'disconnect', socketId: socket.id });
     applyLifecycleResult(io, socket, result);

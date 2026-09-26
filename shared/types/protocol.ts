@@ -1,4 +1,5 @@
 export const SERVER_TO_CLIENT_EVENTS = {
+  nearbyRooms: 'nearby_rooms',
   roomCreated: 'room_created',
   roomUpdated: 'room_updated',
   roomKicked: 'room_kicked',
@@ -6,6 +7,8 @@ export const SERVER_TO_CLIENT_EVENTS = {
 } as const;
 
 export const CLIENT_TO_SERVER_EVENTS = {
+  discoveryUpdate: 'discovery_update',
+  discoveryStop: 'discovery_stop',
   createRoom: 'create_room',
   joinRoom: 'join_room',
   rejoinRoom: 'rejoin_room',

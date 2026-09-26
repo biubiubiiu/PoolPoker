@@ -34,6 +34,10 @@
   - 身份校验：每个玩家持有 `sessionToken`（`crypto.randomUUID`），`rejoin_room` 重连必须校验 token，防止会话劫持。
   - 随机性统一用 `node:crypto` CSPRNG（洗牌 `crypto.randomInt`、房间码 `crypto.randomInt`、token `crypto.randomUUID`），不使用 `Math.random`。
 
+### 面对面加入（Web 定位发现）
+
+大厅通过 `useNearbyRooms` 和可替换的 `RoomDiscoveryProvider` 自动发现附近等待中的房间，默认范围 300 米、2 秒推送列表变化。仅首页无有效位置时先快速获取粗略位置并持续改善，精度达到 50 米或 10 秒无明显改善后停止监听；原始样本 60 秒过期后首页才重启。进房/开局停止定位，房主仅沿用首页位置剩余有效期发布，过期后退出附近列表。房主位置与浏览者位置只保存在服务端短期 Socket presence 中，最长 60 秒；不加入 `Room` 或公开 HTTP 快照。附近入口复用 `join_room`，加入前再次检查可见性；手动房间码行为保留。跨端发现模型由 `shared/schemas/discovery.schema.json` 生成 TS/Kotlin，原生 BLE 预留适配接口和来源类型。部署、权限、隐私、生命周期和扩展说明见 [nearby_room_discovery.md](nearby_room_discovery.md)。
+
 ### 目录结构
 
 ├── apple/                   # iOS 原生工程 (Tauri v2 iOS 打包与 Xcode 配置)

@@ -29,12 +29,15 @@ function expectUniqueValues(name: string, values: string[]) {
 describe('shared protocol contract', () => {
   it('keeps Socket.IO event names stable and unique', () => {
     expect(SERVER_TO_CLIENT_EVENTS).toEqual({
+      nearbyRooms: 'nearby_rooms',
       roomCreated: 'room_created',
       roomUpdated: 'room_updated',
       roomKicked: 'room_kicked',
       errorMessage: 'error_message',
     });
     expect(CLIENT_TO_SERVER_EVENTS).toEqual({
+      discoveryUpdate: 'discovery_update',
+      discoveryStop: 'discovery_stop',
       createRoom: 'create_room',
       joinRoom: 'join_room',
       rejoinRoom: 'rejoin_room',

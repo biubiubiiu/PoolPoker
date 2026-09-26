@@ -8,6 +8,40 @@ import kotlinx.serialization.descriptors.*
 import kotlinx.serialization.encoding.*
 
 @Serializable
+data class DiscoveryPosition (
+    val accuracy: Double,
+    val latitude: Double,
+    val longitude: Double,
+    val mode: DiscoveryMode,
+    val timestamp: Double
+) {
+    companion object
+}
+
+@Serializable
+enum class DiscoveryMode(val value: String) {
+    @SerialName("advertise") ADVERTISE("advertise"),
+    @SerialName("browse") BROWSE("browse");
+}
+
+@Serializable
+data class NearbyRoom (
+    val hostName: String,
+    val maxPlayers: Int,
+    val playerCount: Int,
+    val roomCode: String,
+    val source: DiscoverySource
+) {
+    companion object
+}
+
+@Serializable
+enum class DiscoverySource(val value: String) {
+    @SerialName("bluetooth") BLUETOOTH("bluetooth"),
+    @SerialName("geolocation") GEOLOCATION("geolocation");
+}
+
+@Serializable
 data class Room (
     val code: String,
     val currentTurnIndex: Int? = null,

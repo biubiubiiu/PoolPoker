@@ -5,6 +5,7 @@ import type { BallConfig } from '../shared/types/game';
 
 export interface AppConfig {
   port: number;
+  discovery?: { radius_meters?: number };
   room?: {
     default_cards_per_player?: number;
     max_players?: number;

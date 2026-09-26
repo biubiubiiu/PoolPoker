@@ -1,3 +1,4 @@
+import type { DiscoveryPosition, DiscoverySource, NearbyRoom } from './discovery';
 import type { Room, RoomSettings } from './game';
 import { CLIENT_TO_SERVER_EVENTS, SERVER_TO_CLIENT_EVENTS } from './protocol';
 
@@ -9,6 +10,7 @@ export interface CreateRoomPayload {
 }
 
 export interface JoinRoomPayload {
+  discoverySource?: DiscoverySource;
   roomCode: string;
   userId: string;
   name: string;
@@ -87,6 +89,7 @@ export interface LeaveRoomPayload {
 }
 
 export interface SocketData {
+  discoveryBrowsing?: boolean;
   userName?: string;
   userId?: string;
 }
@@ -100,6 +103,7 @@ export interface SocketCallbackResponse {
 
 // 客户端接收的事件 (Server -> Client)
 export interface ServerToClientEvents {
+  [SERVER_TO_CLIENT_EVENTS.nearbyRooms]: (rooms: NearbyRoom[]) => void;
   [SERVER_TO_CLIENT_EVENTS.roomKicked]: (payload: { roomCode: string }) => void;
   [SERVER_TO_CLIENT_EVENTS.roomCreated]: (payload: { roomCode: string }) => void;
   [SERVER_TO_CLIENT_EVENTS.roomUpdated]: (room: Room) => void;
@@ -108,6 +112,11 @@ export interface ServerToClientEvents {
 
 // 客户端发送的事件 (Client -> Server)
 export interface ClientToServerEvents {
+  [CLIENT_TO_SERVER_EVENTS.discoveryUpdate]: (
+    position: DiscoveryPosition,
+    callback?: (res: SocketCallbackResponse) => void
+  ) => void;
+  [CLIENT_TO_SERVER_EVENTS.discoveryStop]: () => void;
   [CLIENT_TO_SERVER_EVENTS.kickPlayer]: (payload: KickPlayerPayload) => void;
   [CLIENT_TO_SERVER_EVENTS.createRoom]: (
     payload: CreateRoomPayload,

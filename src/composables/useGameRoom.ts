@@ -1,3 +1,4 @@
+import type { DiscoverySource } from '@shared/types/discovery';
 import type { Card, Player, Room } from '@shared/types/game';
 import { CLIENT_TO_SERVER_EVENTS, SERVER_TO_CLIENT_EVENTS } from '@shared/types/protocol';
 import type { SocketCallbackResponse } from '@shared/types/socket';
@@ -421,17 +422,32 @@ export function useGameRoom(options: UseGameRoomOptions) {
   };
 
   // 2. 加入房间
-  const handleJoinRoom = (code: string) => {
+  const joiningRoom = ref(false);
+  const handleJoinRoom = (code: string, discoverySource?: DiscoverySource) => {
+    if (joiningRoom.value) return;
+    if (!socket.value?.connected) {
+      showAlert('尚未连接服务器，请稍后重试');
+      return;
+    }
+    joiningRoom.value = true;
+    const joiningSocket = socket.value;
     const finalName = getFinalPlayerName();
-    socket.value?.emit(
+    joiningSocket.timeout(5000).emit(
       CLIENT_TO_SERVER_EVENTS.joinRoom,
       {
         roomCode: code,
+        discoverySource,
         userId: userId.value,
         name: finalName,
         avatar: '🎱',
       },
-      (res: SocketCallbackResponse) => {
+      (error: Error | null, res?: SocketCallbackResponse) => {
+        joiningRoom.value = false;
+        if (socket.value !== joiningSocket) return;
+        if (error || !res) {
+          showAlert('连接超时，请稍后重试');
+          return;
+        }
         if (!res.success) {
           showAlert(res.message || '加入房间失败');
         } else if (res.roomCode) {
@@ -636,6 +652,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
     isCardDimmed,
     handleCreateRoom,
     handleJoinRoom,
+    joiningRoom,
     handleAdjustCards,
     handleStartGame,
     handleKickPlayer,
