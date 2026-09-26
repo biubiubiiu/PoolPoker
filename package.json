@@ -27,7 +27,7 @@
     "tauri:ios": "tauri ios dev",
     "tauri:ios:build": "tauri ios build"
   },
-  "packageManager": "pnpm@11.22.0",
+  "packageManager": "pnpm@12.6.0",
   "engines": {
     "node": ">=24.0.0",
     "pnpm": ">=10.0.0"

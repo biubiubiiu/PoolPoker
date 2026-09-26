@@ -5,7 +5,7 @@
 🌐 **Language**: [简体中文](README.md) | **English**
 
 [![Node.js](https://img.shields.io/badge/Node.js-v24-brightgreen?logo=nodedotjs)](https://nodejs.org/)
-[![pnpm](https://img.shields.io/badge/pnpm-v11-orange?logo=pnpm)](https://pnpm.io/)
+[![pnpm](https://img.shields.io/badge/pnpm-v12-orange?logo=pnpm)](https://pnpm.io/)
 [![Vue.js](https://img.shields.io/badge/Vue.js-v3.0-emerald?logo=vuedotjs)](https://vuejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-v5.8-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![Tauri](https://img.shields.io/badge/Tauri-v2.0-blue?logo=tauri)](https://tauri.app/)
