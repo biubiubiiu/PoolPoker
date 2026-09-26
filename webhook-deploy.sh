@@ -1,10 +1,11 @@
 #!/bin/bash
 # webhook-deploy.sh
-# 收到 POST 请求后，执行 git pull，然后在 tmux 里调用 run.sh 重启服务
+# 收到 POST 请求后，在独立目录和 tmux 会话中部署 v1.0:3000 与 master:3001
 
 # ─── 配置 ─────────────────────────────────────────────────
 PORT=9999
 TMUX_SESSION="PollPoker"
+PREVIEW_SESSION="PollPoker-preview"
 APP_DIR="$(cd "$(dirname "$0")" && pwd)"   # 默认为脚本所在目录，可手动修改
 TMUX_SOCKET="default"                       # tmux socket 名称（tmux -L 的值）
 # 显式锚定 tmux server：保证 webhook 后台进程与交互式 shell 连到同一个 server
@@ -38,40 +39,54 @@ if [[ "$1" == "--deploy" ]]; then
         . "$NVM_DIR/nvm.sh"
     fi
 
-    # 1. 拉取最新代码
-    echo "[1/3] git pull ..."
-    git pull || { echo "错误：git pull 失败"; exit 1; }
+    # 1. 只更新引用，不切换脚本所在目录的分支（它可能已处于 v1.0 detached HEAD）
+    git fetch origin tag v1.0 || exit 1
+    git fetch origin +refs/heads/master:refs/remotes/origin/master || exit 1
 
-    git tag
-    git checkout v1.0
-
-    # 2. 检查 tmux 会话是否存在
-    echo "[2/3] 准备 tmux 会话 '$TMUX_SESSION' ..."
-    if tm has-session -t "$TMUX_SESSION" 2>/dev/null; then
-        echo "  会话已存在，发送 Ctrl+C 中断当前进程"
-        tm send-keys -t "$TMUX_SESSION" C-c
-        sleep 1
-    else
-        echo "  会话不存在，新建后台会话（工作目录：$APP_DIR）"
-        if ! tm new-session -d -s "$TMUX_SESSION" -c "$APP_DIR"; then
-            echo "错误：tmux new-session 失败"; exit 1
+    deploy_version() {
+        local ref="$1" dir="$2" session="$3" app_port="$4" revision command
+        revision=$(git rev-parse "$ref^{commit}") || return 1
+        # 两个目录仅供部署使用，各自保留独立的依赖和构建产物。
+        if [[ ! -d "$dir" ]]; then
+            git clone --no-checkout "$APP_DIR" "$dir" || return 1
         fi
-        # 等待新会话内的 shell 初始化完成，避免 send-keys 丢失
-        sleep 1
-    fi
+        git -C "$dir" fetch "$APP_DIR" "$revision" || return 1
 
-    # 再次确认会话确实存在
-    if ! tm has-session -t "$TMUX_SESSION" 2>/dev/null; then
-        echo "错误：tmux 会话 '$TMUX_SESSION' 创建/查找失败，当前会话列表："
-        tm ls 2>&1 || echo "  （无法列出会话，tmux server 可能未运行）"
-        exit 1
-    fi
+        # 2. 沿用原来的 Ctrl+C + run.sh 重启方式
+        if tm has-session -t "=$session" 2>/dev/null; then
+            tm send-keys -t "=$session:" C-c || return 1
+            sleep 1
+        else
+            tm new-session -d -s "$session" -c "$dir" || return 1
+            sleep 1
+        fi
 
-    # 3. 在 tmux 会话里执行 ./run.sh 启动项目，服务常驻后台
-    echo "[3/3] 执行 ./run.sh 启动项目 ..."
-    tm send-keys -t "$TMUX_SESSION" "cd $APP_DIR && ./run.sh" ENTER
+        # 清除上次由脚本写入的端口，避免影响下一次 checkout。
+        if git -C "$dir" ls-files --error-unmatch config.yaml >/dev/null 2>&1; then
+            git -C "$dir" restore --source=HEAD --worktree -- config.yaml || return 1
+        fi
+        git -C "$dir" checkout --detach "$revision" || return 1
+        # 后端实际读取 config.yaml，单独设置 PORT 环境变量并不会改变监听端口。
+        python3 - "$dir/config.yaml" "$app_port" <<'CONFIG'
+import pathlib, re, sys
+path = pathlib.Path(sys.argv[1])
+text = path.read_text()
+text, count = re.subn(r'^port:.*$', 'port: ' + sys.argv[2], text, flags=re.MULTILINE)
+path.write_text(text if count else 'port: ' + sys.argv[2] + '\n' + text)
+CONFIG
+        [[ $? -eq 0 ]] || return 1
 
-    echo "=== 部署完成 $(date '+%Y-%m-%d %H:%M:%S') ==="
+        # 3. 正确引用目录名，且不让 Webhook 的 PORT=9999 传给游戏进程。
+        printf -v command 'cd %q && PORT=%q bash ./run.sh' "$dir" "$app_port"
+        tm send-keys -t "=$session:" -l "$command" || return 1
+        tm send-keys -t "=$session:" ENTER || return 1
+        echo "已启动部署：$ref → $session，端口 $app_port"
+    }
+
+    deploy_version refs/tags/v1.0 "$APP_DIR-v1.0" "$TMUX_SESSION" 3000 || exit 1
+    deploy_version refs/remotes/origin/master "$APP_DIR-preview" "$PREVIEW_SESSION" 3001 || exit 1
+
+    echo "=== 已发送两版启动命令 $(date '+%Y-%m-%d %H:%M:%S') ==="
     exit 0
 fi
 
@@ -110,7 +125,7 @@ class DeployHandler(BaseHTTPRequestHandler):
             self.wfile.write(b'{"status":"deploying"}')
             self.wfile.flush()
 
-            # 3. 异步启动部署，并加 5 分钟超时防护，防止 git pull 卡死
+            # 3. 异步启动部署，并加 5 分钟超时防护，防止 git fetch 卡死
             env = os.environ.copy()
             def run_deploy():
                 try:
