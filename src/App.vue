@@ -193,6 +193,7 @@ onMounted(() => {
                         :pocketedBallNumbers="room?.pocketedBallNumbers || []"
                         :defaultUserId="refereeTargetUserId"
                         :defaultBallNumber="refereeSelectedBallNum"
+                        :ballTheme="activeBallConfigKey"
                         @close="showRefereePocketModal = false"
                         @confirm="handleRefereePocketConfirm"
                         @confirm-break="handleBreakPocketConfirm" />

@@ -89,6 +89,7 @@ function handleAssignBreak(ballNum: number) {
     </div>
     <div class="table-stage">
       <ThreeBilliardsArena
+        :activeBallConfigKey="activeBallConfigKey"
         :pendingBallNumbers="pendingBallNumbers"
         :pocketedBallNumbers="room.pocketedBallNumbers"
         :animationId="sceneAnimationId"
@@ -117,6 +118,7 @@ function handleAssignBreak(ballNum: number) {
     <BallAssignSheet
       :show="selectedBallForAssign !== null"
       :ballNumber="selectedBallForAssign"
+      :ballTheme="activeBallConfigKey"
       :players="room.players"
       :myUserId="userId"
       :currentShooterUserId="currentShooter?.userId"

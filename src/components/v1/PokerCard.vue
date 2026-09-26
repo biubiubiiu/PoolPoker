@@ -1,10 +1,17 @@
 <script setup lang="ts">
 import type { Card } from '@shared/types/game';
+import BallIcon from '@/components/BallIcon.vue';
 
-const props = defineProps<{
-  card: Card;
-  isDimmed: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    card: Card;
+    isDimmed: boolean;
+    ballTheme?: string;
+  }>(),
+  {
+    ballTheme: 'xingpai',
+  }
+);
 
 const emit = defineEmits<(e: 'click', card: Card) => void>();
 
@@ -13,13 +20,6 @@ const getColorClass = (color: string) => {
   if (color === 'black') return 'color-black';
   if (color === 'gold') return 'color-gold';
   return 'color-gray';
-};
-
-const getBallClass = (ballNum: number) => {
-  if (ballNum >= 9 && ballNum <= 15) {
-    return `ball-${ballNum} ball-striped`;
-  }
-  return `ball-${ballNum}`;
 };
 </script>
 
@@ -32,8 +32,8 @@ const getBallClass = (ballNum: number) => {
       <span class="text-sm leading-none">{{ card.suit }}</span>
     </div>
 
-    <div :class="['billiard-ball', getBallClass(card.ballNumber)]">
-      <div class="ball-number">{{ card.ballNumber }}</div>
+    <div class="my-auto py-1 flex items-center justify-center">
+      <BallIcon :ballNumber="card.ballNumber" :ballTheme="ballTheme" size="lg" />
     </div>
 
     <div class="text-[9px] text-center font-bold text-gray-700 leading-none">

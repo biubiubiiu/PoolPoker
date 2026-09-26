@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Player } from '@shared/types/game';
 import { computed, ref, watch } from 'vue';
+import BallIcon from '@/components/BallIcon.vue';
 
 const props = defineProps<{
   show: boolean;
@@ -8,6 +9,7 @@ const props = defineProps<{
   pocketedBallNumbers: number[];
   defaultUserId?: string;
   defaultBallNumber?: number | null;
+  ballTheme?: string;
 }>();
 
 const emit = defineEmits<{
@@ -142,9 +144,7 @@ const onConfirm = () => {
                   @click="selectBall(b)"
                   :class="['p-1.5 rounded-xl border flex flex-col items-center justify-center transition-all relative cursor-pointer',
                            selectedBall === b ? 'bg-amber-400/20 border-amber-400 ring-2 ring-amber-400 scale-105' : 'bg-black/40 border-white/10 hover:border-white/30']">
-            <div :class="['w-7 h-7 rounded-full text-xs flex items-center justify-center font-bold text-white mini-ball shadow', getBallClass(b)]">
-              <span class="relative z-10 leading-none text-[9px]">{{ b }}</span>
-            </div>
+            <BallIcon :ballNumber="b" :ballTheme="ballTheme || 'xingpai'" size="md" />
             <span class="text-[9px] font-bold mt-1 text-gray-200">{{ b }}号</span>
           </button>
         </div>

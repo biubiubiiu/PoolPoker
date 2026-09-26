@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Player } from '@shared/types/game';
 import { computed, nextTick, ref, watch } from 'vue';
+import BallIcon from '@/components/BallIcon.vue';
 
 const props = defineProps<{
   show: boolean;
@@ -8,6 +9,7 @@ const props = defineProps<{
   players: Player[];
   myUserId: string;
   currentShooterUserId?: string;
+  ballTheme?: string;
 }>();
 
 const emit = defineEmits<{
@@ -97,12 +99,12 @@ function assignBreak() {
         <!-- 标题栏：展示当前击中的球号与名称 -->
         <div class="flex items-center justify-between border-b border-white/10 pb-3">
           <div class="flex items-center gap-2.5">
-            <div
-              :class="['w-7 h-7 rounded-full text-xs flex items-center justify-center font-bold text-white mini-ball shadow-md shrink-0', getBallClass(ballNumber)]"
-              aria-hidden="true"
-            >
-              <span class="relative z-10 leading-none text-[10px] font-black">{{ ballNumber }}</span>
-            </div>
+            <BallIcon
+              v-if="ballNumber !== null"
+              :ballNumber="ballNumber"
+              :ballTheme="ballTheme || 'xingpai'"
+              size="md"
+            />
             <div>
               <h3 id="sheet-title" class="text-sm font-black text-amber-300 tracking-wide">
                 {{ ballLabel }} 已入袋

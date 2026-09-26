@@ -60,3 +60,6 @@ tauri.settings.gradle
 /assets/models/previews/
 *.blend1
 *.blend.bak
+__pycache__/
+data/
+_tmp_medallions/

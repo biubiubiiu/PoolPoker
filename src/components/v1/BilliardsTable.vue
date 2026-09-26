@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Player, Room } from '@shared/types/game';
+import BallIcon from '@/components/BallIcon.vue';
 
 const props = defineProps<{
   room: Room;
@@ -88,9 +89,7 @@ const emit = defineEmits<{
       <div v-if="room.pocketedBallNumbers && room.pocketedBallNumbers.length > 0" class="flex flex-wrap gap-1.5 items-center">
         <span v-for="ballNum in room.pocketedBallNumbers" :key="ballNum"
               class="inline-flex items-center justify-center text-xs font-black px-2 py-0.5 rounded-full bg-emerald-950/90 text-amber-300 border border-emerald-500/40 shadow-sm">
-          <span :class="['w-3.5 h-3.5 rounded-full mr-1 text-[9px] flex items-center justify-center font-bold text-white mini-ball shrink-0', getBallClass(ballNum)]">
-            <span class="relative z-10 leading-none text-[8px]">{{ ballNum }}</span>
-          </span>
+          <BallIcon :ballNumber="ballNum" :ballTheme="room.settings?.ballConfigKey || 'xingpai'" size="sm" class="mr-1" />
           {{ getBallName(ballNum) }}
         </span>
       </div>

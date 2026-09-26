@@ -24,37 +24,37 @@
 
 /* Begin PBXFileReference section */
 		089ACCD440E1A6B2B32EEA3B /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
-		0DC035413E90DD3092EA62D7 /* useGameRoom.ts */ = {isa = PBXFileReference; path = useGameRoom.ts; sourceTree = "<group>"; };
+		0DC035413E90DD3092EA62D7 /* useGameRoom.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = useGameRoom.ts; sourceTree = "<group>"; };
 		11169BFD1843766FE2399720 /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
-		114CB9FE8ED57163CA958871 /* RestartModal.vue */ = {isa = PBXFileReference; path = RestartModal.vue; sourceTree = "<group>"; };
-		1A7D4AF79AF704551627F1B5 /* GameHeader.vue */ = {isa = PBXFileReference; path = GameHeader.vue; sourceTree = "<group>"; };
-		1EDE7C6C5AF6092920B45E31 /* PokerCard.vue */ = {isa = PBXFileReference; path = PokerCard.vue; sourceTree = "<group>"; };
+		114CB9FE8ED57163CA958871 /* RestartModal.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = RestartModal.vue; sourceTree = "<group>"; };
+		1A7D4AF79AF704551627F1B5 /* GameHeader.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = GameHeader.vue; sourceTree = "<group>"; };
+		1EDE7C6C5AF6092920B45E31 /* PokerCard.vue */ = {isa = PBXFileReference; lastKnownFileType = file; path = PokerCard.vue; sourceTree = "<group>"; };
 		22F75D582AED0A711AE69CBD /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
-		265229D3208BABF2471F8B1C /* GameLogs.vue */ = {isa = PBXFileReference; path = GameLogs.vue; sourceTree = "<group>"; };
-		2BCD7009D4DDF2C4EC6CE275 /* dialog.ts */ = {isa = PBXFileReference; path = dialog.ts; sourceTree = "<group>"; };
-		334A80F55889756065870C16 /* RefereePocketModal.vue */ = {isa = PBXFileReference; path = RefereePocketModal.vue; sourceTree = "<group>"; };
-		388D79B9F7F48850BE166419 /* RoomLobby.vue */ = {isa = PBXFileReference; path = RoomLobby.vue; sourceTree = "<group>"; };
+		265229D3208BABF2471F8B1C /* GameLogs.vue */ = {isa = PBXFileReference; lastKnownFileType = file; path = GameLogs.vue; sourceTree = "<group>"; };
+		2BCD7009D4DDF2C4EC6CE275 /* dialog.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = dialog.ts; sourceTree = "<group>"; };
+		334A80F55889756065870C16 /* RefereePocketModal.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = RefereePocketModal.vue; sourceTree = "<group>"; };
+		388D79B9F7F48850BE166419 /* RoomLobby.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = RoomLobby.vue; sourceTree = "<group>"; };
 		43B843AA3809A46755EFA922 /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
 		4867ED4AC496203BF31258BE /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
 		48D3AAC67060EACAD8F3434D /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
-		4ED9B4A454EF1495E3CB5361 /* BilliardsTable.vue */ = {isa = PBXFileReference; path = BilliardsTable.vue; sourceTree = "<group>"; };
+		4ED9B4A454EF1495E3CB5361 /* BilliardsTable.vue */ = {isa = PBXFileReference; lastKnownFileType = file; path = BilliardsTable.vue; sourceTree = "<group>"; };
 		558E802AFB6505312AA9395B /* main.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = main.css; sourceTree = "<group>"; };
 		5C75A90F0308C3FDD7B701C1 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
-		73492674D5BC0E268174E775 /* useSocket.ts */ = {isa = PBXFileReference; path = useSocket.ts; sourceTree = "<group>"; };
-		9F6940AA0B5083AC9F55FFAD /* App.vue */ = {isa = PBXFileReference; path = App.vue; sourceTree = "<group>"; };
+		73492674D5BC0E268174E775 /* useSocket.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = useSocket.ts; sourceTree = "<group>"; };
+		9F6940AA0B5083AC9F55FFAD /* App.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = App.vue; sourceTree = "<group>"; };
 		A3400366B982B211CD19C140 /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
 		B1D950B32ABE36124496A632 /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = SOURCE_ROOT; };
 		B491DF3C209E8763DED5DC36 /* poolpoker_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = poolpoker_iOS.entitlements; sourceTree = "<group>"; };
 		BE64EC480980599D01421337 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
-		C02697BDA965D41BC5B32A68 /* usePlayerProfile.ts */ = {isa = PBXFileReference; path = usePlayerProfile.ts; sourceTree = "<group>"; };
+		C02697BDA965D41BC5B32A68 /* usePlayerProfile.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = usePlayerProfile.ts; sourceTree = "<group>"; };
 		C81EBECE8421318ABA804B13 /* LaunchScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchScreenView.swift; sourceTree = "<group>"; };
 		CA56DA66FD94A99318CA4B92 /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
-		D09CF97F97097F4E0D8B4ABB /* poolpoker_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = poolpoker_iOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D09CF97F97097F4E0D8B4ABB /* PoolPoker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PoolPoker.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D41D9D37F8BEFCD21370C442 /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
-		DA6165FCBFAC4FC46C74C536 /* main.ts */ = {isa = PBXFileReference; path = main.ts; sourceTree = "<group>"; };
+		DA6165FCBFAC4FC46C74C536 /* main.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = main.ts; sourceTree = "<group>"; };
 		E34E7DFCF2391F0E79A78A3C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		ECE94D94052D0EE3B7A686FA /* VictoryModal.vue */ = {isa = PBXFileReference; path = VictoryModal.vue; sourceTree = "<group>"; };
-		FC4D4149E53676586427EDE6 /* RefereeFoulModal.vue */ = {isa = PBXFileReference; path = RefereeFoulModal.vue; sourceTree = "<group>"; };
+		ECE94D94052D0EE3B7A686FA /* VictoryModal.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = VictoryModal.vue; sourceTree = "<group>"; };
+		FC4D4149E53676586427EDE6 /* RefereeFoulModal.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = RefereeFoulModal.vue; sourceTree = "<group>"; };
 		FD1449EA6F211B59E739C9E0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -134,7 +134,7 @@
 		65CA7E90D63485281DC8E003 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				D09CF97F97097F4E0D8B4ABB /* poolpoker_iOS.app */,
+				D09CF97F97097F4E0D8B4ABB /* PoolPoker.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -229,13 +229,6 @@
 			path = Sources;
 			sourceTree = "<group>";
 		};
-		"TEMP_BAAD1571-1F01-4156-8FAD-2142B28D2829" /* x86_64 */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = x86_64;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -256,7 +249,7 @@
 			packageProductDependencies = (
 			);
 			productName = poolpoker_iOS;
-			productReference = D09CF97F97097F4E0D8B4ABB /* poolpoker_iOS.app */;
+			productReference = D09CF97F97097F4E0D8B4ABB /* PoolPoker.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -266,9 +259,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1430;
-				TargetAttributes = {
-				};
+				LastUpgradeCheck = 2700;
 			};
 			buildConfigurationList = 6510634782A0C1AD43FF6D95 /* Build configuration list for PBXProject "poolpoker" */;
 			developmentRegion = en;
@@ -376,6 +367,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -389,6 +381,7 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -398,10 +391,6 @@
 		853EC65F9179EE28ACD0A39A /* debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
-				ARCHS = (
-					arm64,
-				);
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = poolpoker_iOS/poolpoker_iOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
@@ -412,12 +401,25 @@
 					"\".\"",
 				);
 				INFOPLIST_FILE = poolpoker_iOS/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				"LIBRARY_SEARCH_PATHS[arch=arm64]" = "$(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)";
-				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = "$(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				"LIBRARY_SEARCH_PATHS[arch=arm64]" = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION)",
+					"$(SDKROOT)/usr/lib/swift",
+					"$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME)",
+					"$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)",
+				);
+				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION)",
+					"$(SDKROOT)/usr/lib/swift",
+					"$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME)",
+					"$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.poolpoker.app;
 				PRODUCT_NAME = PoolPoker;
 				SDKROOT = iphoneos;
@@ -463,6 +465,7 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -483,6 +486,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -492,10 +496,6 @@
 		D6A18A22AECEA46C5FC8CC5F /* release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
-				ARCHS = (
-					arm64,
-				);
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = poolpoker_iOS/poolpoker_iOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
@@ -506,12 +506,25 @@
 					"\".\"",
 				);
 				INFOPLIST_FILE = poolpoker_iOS/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				"LIBRARY_SEARCH_PATHS[arch=arm64]" = "$(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)";
-				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = "$(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				"LIBRARY_SEARCH_PATHS[arch=arm64]" = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION)",
+					"$(SDKROOT)/usr/lib/swift",
+					"$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME)",
+					"$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)",
+				);
+				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION)",
+					"$(SDKROOT)/usr/lib/swift",
+					"$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME)",
+					"$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.poolpoker.app;
 				PRODUCT_NAME = PoolPoker;
 				SDKROOT = iphoneos;

@@ -13,6 +13,7 @@ const props = defineProps<{
   resetKey?: number;
   disabled?: boolean;
   colors?: Record<string, [string, string, string]>;
+  activeBallConfigKey?: string;
 }>();
 const emit = defineEmits<(e: 'ball-click', number: number) => void>();
 const { playBallHitSound, playPocketDropSound } = useGameAudio();
@@ -22,6 +23,7 @@ const failed = ref(false);
 const labels = ref<{ number: number; x: number; y: number; diameter: number; visible: boolean }[]>([]);
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const fallbackColors = ['#f5c01a', '#1a4b9c', '#d92525', '#f45fa4', '#f27415', '#137b3e', '#691d24', '#111111'];
+const textureLoader = new THREE.TextureLoader();
 let renderer: THREE.WebGLRenderer | undefined;
 let scene: THREE.Scene;
 let camera: THREE.PerspectiveCamera;
@@ -45,8 +47,29 @@ interface Ball {
 const balls: Ball[] = [];
 
 function ballTexture(n: number) {
-  const color = props.colors?.[String(n)]?.[1] || fallbackColors[(n - 1) % 8];
-  const texture = new THREE.CanvasTexture(createBallTextureCanvas(n, color));
+  const theme = props.activeBallConfigKey || 'xingpai';
+  const textureUrl = `/assets/balls/${theme}/3d/${n}.webp`;
+  const texture = textureLoader.load(
+    textureUrl,
+    (tex) => {
+      tex.colorSpace = THREE.SRGBColorSpace;
+      if (renderer) {
+        tex.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 8);
+      }
+      tex.needsUpdate = true;
+      draw();
+    },
+    undefined,
+    () => {
+      // Fallback: procedural canvas if texture fails to load
+      const color = props.colors?.[String(n)]?.[1] || fallbackColors[(n - 1) % 8];
+      const canvas = createBallTextureCanvas(n, color);
+      texture.image = canvas as unknown as HTMLImageElement;
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.needsUpdate = true;
+      draw();
+    }
+  );
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
 }
@@ -141,11 +164,11 @@ async function build() {
   const landscape = host.value.clientWidth >= 580;
   for (let n = 1; n <= 15; n++) {
     const origin = getBallOrigin(n, landscape);
-    // Simple diffuse reflection: soft matte finish, legible numbers, zero specular glare
+    // Realistic polished resin finish with clear numbers and subtle specular shine
     const material = new THREE.MeshStandardMaterial({
       map: ballTexture(n),
-      roughness: 0.85,
-      metalness: 0.0,
+      roughness: 0.35,
+      metalness: 0.05,
     });
     const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 24), material);
     mesh.position.copy(origin);
@@ -330,17 +353,14 @@ watch(
   }
 );
 watch(() => props.pendingBallNumbers, draw);
-watch(
-  () => props.colors,
-  () => {
-    balls.forEach((b) => {
-      b.mesh.material.map?.dispose();
-      b.mesh.material.map = ballTexture(b.number);
-      b.mesh.material.needsUpdate = true;
-    });
-    draw();
-  }
-);
+watch([() => props.colors, () => props.activeBallConfigKey], () => {
+  balls.forEach((b) => {
+    b.mesh.material.map?.dispose();
+    b.mesh.material.map = ballTexture(b.number);
+    b.mesh.material.needsUpdate = true;
+  });
+  draw();
+});
 function cleanupScene() {
   cancelAnimationFrame(frame);
   observer?.disconnect();
