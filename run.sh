@@ -30,6 +30,8 @@ NODE_VERSION=$(node -v)
 echo "✅ 检测到 Node.js 环境: $NODE_VERSION"
 
 # 3. 检查并启用 pnpm 环境
+export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+
 if ! command -v pnpm &> /dev/null; then
     echo "⚠️ 未检测到 pnpm，尝试启用 corepack..."
     corepack enable 2>/dev/null || true
