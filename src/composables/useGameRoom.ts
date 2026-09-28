@@ -23,13 +23,14 @@ export interface UseGameRoomOptions {
   socket: Ref<Socket | null>;
   userId: Ref<string>;
   playerName: Ref<string>;
+  selectedAvatar?: Ref<string>;
   selectedBallConfigKey: Ref<string>;
   getFinalPlayerName: () => string;
   serverUrl?: Ref<string>;
 }
 
 export function useGameRoom(options: UseGameRoomOptions) {
-  const { socket, userId, playerName, selectedBallConfigKey, getFinalPlayerName, serverUrl } = options;
+  const { socket, userId, playerName, selectedAvatar, selectedBallConfigKey, getFinalPlayerName, serverUrl } = options;
 
   const getApiUrl = (endpointPath: string) => {
     const base = serverUrl?.value ? serverUrl.value.trim().replace(/\/+$/, '') : '';
@@ -130,7 +131,10 @@ export function useGameRoom(options: UseGameRoomOptions) {
     }
   };
   const sendAction = (event: string, payload: Record<string, unknown>) => {
-    if (!room.value || pendingAction.value || isPresenting.value) return;
+    if (!room.value || pendingAction.value) return;
+    if (isPresenting.value) {
+      clearPresentation();
+    }
     if (!socket.value?.connected) {
       feedback.value = '连接已断开，重连后再记球';
       return;
@@ -436,7 +440,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
       {
         userId: userId.value,
         name: finalName,
-        avatar: '🎱',
+        avatar: selectedAvatar?.value || '🎱',
         ballConfigKey: selectedBallConfigKey.value,
       },
       (res: SocketCallbackResponse) => {
@@ -468,7 +472,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
         discoverySource,
         userId: userId.value,
         name: finalName,
-        avatar: '🎱',
+        avatar: selectedAvatar?.value || '🎱',
       },
       (error: Error | null, res?: SocketCallbackResponse) => {
         joiningRoom.value = false;
@@ -538,7 +542,10 @@ export function useGameRoom(options: UseGameRoomOptions) {
     if (isCardDimmed(card)) {
       return;
     }
-    if (pendingAction.value || isPresenting.value) return;
+    if (pendingAction.value) return;
+    if (isPresenting.value) {
+      clearPresentation();
+    }
     selectRecordingPlayer(userId.value);
     sendAction(CLIENT_TO_SERVER_EVENTS.pocketBall, { cardId: card.id });
   };
@@ -562,8 +569,6 @@ export function useGameRoom(options: UseGameRoomOptions) {
       return;
     }
 
-    if (pendingAction.value || isPresenting.value) return;
-
     const confirmText = `确认已经打进 ${card.ballNumber} 号球，消去卡片 [${card.suit}${card.rank}] 吗？`;
     if (await showConfirm(confirmText, '确认出牌')) {
       if (room.value?.status !== 'playing') return;
@@ -576,7 +581,10 @@ export function useGameRoom(options: UseGameRoomOptions) {
   let retractConfirmOpen = false;
   const handleRetract = async () => {
     if (!room.value?.lastActionText || room.value.status !== 'playing') return;
-    if (pendingAction.value || isPresenting.value || retractConfirmOpen) return;
+    if (pendingAction.value || retractConfirmOpen) return;
+    if (isPresenting.value) {
+      clearPresentation();
+    }
     const { code, revision, lastActionText } = room.value;
     retractConfirmOpen = true;
     try {

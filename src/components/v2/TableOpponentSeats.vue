@@ -15,7 +15,7 @@ const opponents = computed(() => props.players.filter((p) => p.userId !== props.
   <nav v-if="opponents.length" class="opponent-seats" aria-label="玩家席位，选择记球对象">
     <button v-for="p in opponents" :key="p.userId" class="seat" :class="{ selected: currentShooterUserId === p.userId }"
       :aria-pressed="currentShooterUserId === p.userId" :aria-label="`为 ${p.name} 记球`" @click="emit('select-player', p)">
-      <span class="seat-name">{{ p.name }}</span>
+      <span class="seat-name"><span v-if="p.avatar" class="mr-1">{{ p.avatar }}</span>{{ p.name }}</span>
       <span class="seat-count">手牌 <b>{{ p.cardCount }}</b><span v-if="!p.online"> · 暂离</span></span>
       <span v-if="p.pocketedCards.length" class="seat-played-cards">已出：{{ p.pocketedCards.map(card => `${card.rank}${card.suit}`).join(' ') }}</span>
     </button>

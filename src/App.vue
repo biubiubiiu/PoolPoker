@@ -17,7 +17,7 @@ import { useUiPreferences } from '@/composables/useUiPreferences';
 import { preloadTableModel } from '@/utils/tableModelLoader';
 
 const { useNewUi } = useUiPreferences();
-const { userId, playerName, selectedBallConfigKey, getFinalPlayerName } = usePlayerProfile();
+const { userId, playerName, avatars, selectedAvatar, selectedBallConfigKey, getFinalPlayerName } = usePlayerProfile();
 const { socket, serverUrl, savedServerUrls, updateServerUrl, addServerUrl, removeServerUrl } = useSocket();
 
 const {
@@ -73,6 +73,7 @@ const {
   socket,
   userId,
   playerName,
+  selectedAvatar,
   selectedBallConfigKey,
   getFinalPlayerName,
   serverUrl,
@@ -137,6 +138,8 @@ onMounted(() => {
                :savedServerUrls="savedServerUrls"
                v-model:useNewUi="useNewUi"
                v-model:playerName="playerName"
+               v-model:selectedAvatar="selectedAvatar"
+               :avatars="avatars"
                v-model:selectedBallConfigKey="selectedBallConfigKey"
                :ballConfigOptions="ballConfigOptions"
                @update:serverUrl="updateServerUrl"

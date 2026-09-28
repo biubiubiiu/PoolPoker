@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 const props = defineProps<{
-  players: { userId: string; name: string }[];
+  players: { userId: string; name: string; avatar?: string }[];
   userId: string;
   selectedUserId: string;
 }>();
@@ -11,8 +11,8 @@ const root = ref<HTMLElement>();
 const trigger = ref<HTMLButtonElement>();
 const open = ref(false);
 const selected = computed(() => props.players.find((player) => player.userId === props.selectedUserId));
-const label = (player: { userId: string; name: string }) =>
-  `为 ${player.name}${player.userId === props.userId ? '（我）' : ''} 记球`;
+const label = (player: { userId: string; name: string; avatar?: string }) =>
+  `为 ${player.avatar ? `${player.avatar} ` : ''}${player.name}${player.userId === props.userId ? '（我）' : ''} 记球`;
 
 function close(restoreFocus = false) {
   open.value = false;

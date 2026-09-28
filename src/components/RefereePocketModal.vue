@@ -119,6 +119,7 @@ const onConfirm = () => {
                            selectedUserId === p.userId && !isBreakPocket
                              ? 'bg-emerald-500/30 border-emerald-400 text-amber-300 shadow-md ring-1 ring-emerald-400/50'
                              : 'bg-black/40 border-white/10 text-gray-300 hover:border-white/30']">
+            <span v-if="p.avatar">{{ p.avatar }}</span>
             <span>{{ p.name }}</span>
           </button>
           <button @click="selectBreakPocket"

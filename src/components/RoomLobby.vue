@@ -16,6 +16,8 @@ const props = defineProps<{
   userId: string;
   isHost: boolean;
   playerName: string;
+  selectedAvatar?: string;
+  avatars?: string[];
   selectedBallConfigKey: string;
   ballConfigOptions: Array<{ key: string; name: string }>;
   ballConfigsStatus?: string;
@@ -26,6 +28,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:playerName', name: string): void;
+  (e: 'update:selectedAvatar', avatar: string): void;
   (e: 'update:selectedBallConfigKey', key: string): void;
   (e: 'update:serverUrl', url: string): void;
   (e: 'update:useNewUi', value: boolean): void;
@@ -251,6 +254,19 @@ const onJoin = async () => {
                class="w-full bg-black/40 border border-emerald-600/40 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-400">
       </div>
 
+      <div v-if="avatars && avatars.length">
+        <label class="block text-xs text-gray-300 mb-1.5 font-semibold">选择球桌代号头像</label>
+        <div class="flex justify-between gap-2">
+          <button v-for="av in avatars" :key="av" 
+                  type="button"
+                  @click="emit('update:selectedAvatar', av)"
+                  :class="['w-10 h-10 rounded-xl text-xl flex items-center justify-center transition-all', 
+                           selectedAvatar === av ? 'bg-amber-400 scale-110 shadow-lg text-black' : 'bg-black/40 border border-white/10 hover:bg-white/10']">
+            {{ av }}
+          </button>
+        </div>
+      </div>
+
       <div>
         <label class="block text-xs text-gray-300 mb-1.5 font-semibold">球桌球色配置</label>
         <select
@@ -343,6 +359,7 @@ const onJoin = async () => {
         <div v-for="p in room.players" :key="p.userId" 
              class="flex items-center justify-between bg-black/40 border border-white/5 px-3 py-2.5 rounded-xl">
           <div class="flex items-center space-x-3">
+            <span v-if="p.avatar" class="text-2xl">{{ p.avatar }}</span>
             <div>
               <div class="flex items-center space-x-1.5">
                 <span class="font-bold text-sm text-gray-100">{{ p.name }}</span>

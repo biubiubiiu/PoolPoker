@@ -11,6 +11,8 @@ export function usePlayerProfile() {
 
   // 玩家个人设置
   const playerName = ref<string>(localStorage.getItem('billiards_player_name') || '');
+  const avatars = ['🎱', '🎯', '🔥', '⚡️', '🏆', '💎'];
+  const selectedAvatar = ref<string>(localStorage.getItem('billiards_player_avatar') || '🎱');
   const rawBallConfigKey = localStorage.getItem('billiards_ball_config_key');
   const initialBallConfigKey = rawBallConfigKey && rawBallConfigKey !== 'default' ? rawBallConfigKey : 'xingpai';
   localStorage.setItem('billiards_ball_config_key', initialBallConfigKey);
@@ -23,6 +25,10 @@ export function usePlayerProfile() {
     } else {
       localStorage.removeItem('billiards_player_name');
     }
+  });
+
+  watch(selectedAvatar, (val) => {
+    localStorage.setItem('billiards_player_avatar', val);
   });
 
   watch(selectedBallConfigKey, (val) => {
@@ -41,6 +47,8 @@ export function usePlayerProfile() {
   return {
     userId,
     playerName,
+    avatars,
+    selectedAvatar,
     selectedBallConfigKey,
     getFinalPlayerName,
   };
