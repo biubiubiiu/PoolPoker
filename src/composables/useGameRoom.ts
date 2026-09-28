@@ -2,6 +2,7 @@ import type { DiscoverySource } from '@shared/types/discovery';
 import type { Card, Player, Room } from '@shared/types/game';
 import { CLIENT_TO_SERVER_EVENTS, SERVER_TO_CLIENT_EVENTS } from '@shared/types/protocol';
 import type { SocketCallbackResponse } from '@shared/types/socket';
+import confetti from 'canvas-confetti';
 import type { Socket } from 'socket.io-client';
 import { computed, onMounted, onUnmounted, type Ref, ref, watch } from 'vue';
 import { showAlert, showConfirm } from '@/utils/dialog';
@@ -42,6 +43,14 @@ export function useGameRoom(options: UseGameRoomOptions) {
   const refereeTargetUserId = ref<string>('');
   const refereeSelectedBallNum = ref<number | null>(null);
   const ballConfigs = ref<Record<string, BallConfigItem>>({});
+
+  const triggerConfetti = () => {
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 },
+    });
+  };
 
   // 3D 动画与卡牌交互状态
   const elevatedCardIds = ref<string[]>([]);
@@ -92,6 +101,13 @@ export function useGameRoom(options: UseGameRoomOptions) {
     room.value = next;
     if (!next.players.some((p) => p.userId === recordingUserId.value)) recordingUserId.value = userId.value;
     if (!previous || previous.code !== next.code || previous.roundCount !== next.roundCount) breakMode.value = false;
+    if (next.winners && next.winners.length > 0) {
+      if (animate && next.sceneEvent) {
+        sceneAnimationId.value = next.sceneEvent.id;
+      }
+      clearPresentation();
+      return;
+    }
     if (!animate || !next.sceneEvent || !previous) return;
     sceneAnimationId.value = next.sceneEvent.id;
     const oldHand = previous.players.find((p) => p.userId === userId.value)?.cards ?? [];
@@ -194,7 +210,11 @@ export function useGameRoom(options: UseGameRoomOptions) {
           return;
         if (data.success && data.room?.players.some((p: Player) => p.userId === userId.value)) {
           console.log('[HTTP] 极速同步房间状态成功');
+          const prevWinnersCount = room.value?.winners?.length ?? 0;
           acceptRoom(data.room);
+          if (prevWinnersCount === 0 && data.room.winners && data.room.winners.length > 0) {
+            triggerConfetti();
+          }
         }
       } else if (res.status === 404) {
         console.warn('[HTTP Sync] 房间不存在或已解散');
@@ -300,6 +320,15 @@ export function useGameRoom(options: UseGameRoomOptions) {
       showRestartConfirm.value = false;
       if (updatedRoom?.code) {
         localStorage.setItem('billiards_room_code', updatedRoom.code);
+      }
+
+      if (updatedRoom?.status === 'waiting') {
+        showRefereePocketModal.value = false;
+        showRefereeFoulModal.value = false;
+      }
+
+      if (updatedRoom?.winners && updatedRoom.winners.length > 0) {
+        triggerConfetti();
       }
     });
 
@@ -667,5 +696,6 @@ export function useGameRoom(options: UseGameRoomOptions) {
     handleRefereeFoulConfirm,
     handleConfirmRestart,
     handleLeaveRoom,
+    triggerConfetti,
   };
 }

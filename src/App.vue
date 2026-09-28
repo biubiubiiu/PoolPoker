@@ -218,7 +218,7 @@ onMounted(() => {
                       @close="showRefereeFoulModal = false"
                       @confirm="handleRefereeFoulConfirm" />
 
-    <VictoryModal :winners="isPresenting ? [] : room?.winners || []"
+    <VictoryModal :winners="room?.winners || []"
                   :isHost="isHost"
                   :players="room?.players || []"
                   :pocketedBallNumbers="room?.pocketedBallNumbers || []"
