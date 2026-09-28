@@ -10,6 +10,7 @@ const props = defineProps<{
   nearbyRooms: NearbyRoom[];
   nearbyStatus: string;
   nearbyEnabled: boolean;
+  nearbyRetrying?: boolean;
   joiningRoom: boolean;
   room: Room | null;
   userId: string;
@@ -274,7 +275,7 @@ const onJoin = async () => {
       </div>
 
       <NearbyRooms
-        :rooms="nearbyRooms" :status="nearbyStatus" :enabled="nearbyEnabled" :joining="joiningRoom"
+        :rooms="nearbyRooms" :status="nearbyStatus" :enabled="nearbyEnabled" :joining="joiningRoom" :retrying="props.nearbyRetrying"
         @update:enabled="emit('update:nearbyEnabled', $event)" @retry="emit('retry-nearby')"
         @join="(room) => emit('join-room', room.roomCode, room.source)" />
 
@@ -303,7 +304,7 @@ const onJoin = async () => {
   <!-- View 2: 房间等待大厅 -->
   <div v-else-if="room && (room.status === 'waiting' || room.status === 'lobby')" class="flex-1 flex flex-col justify-between py-2 space-y-4">
     <NearbyRooms v-if="isHost"
-      :rooms="[]" :status="nearbyStatus" :enabled="nearbyEnabled" :advertising="true" :joining="false"
+      :rooms="[]" :status="nearbyStatus" :enabled="nearbyEnabled" :advertising="true" :joining="false" :retrying="props.nearbyRetrying"
       @update:enabled="emit('update:nearbyEnabled', $event)" @retry="emit('retry-nearby')" />
     <!-- 成员列表 -->
     <div class="glass-panel rounded-2xl p-4 shadow-xl flex-1 flex flex-col">

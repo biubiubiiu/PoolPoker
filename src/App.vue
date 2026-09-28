@@ -126,6 +126,7 @@ onMounted(() => {
                :nearbyRooms="nearby.nearbyRooms.value"
                :nearbyStatus="nearby.status.value"
                :nearbyEnabled="nearby.enabled.value"
+               :nearbyRetrying="nearby.retrying.value"
                :joiningRoom="joiningRoom"
                @update:nearbyEnabled="nearby.setEnabled"
                @retry-nearby="nearby.retry"
