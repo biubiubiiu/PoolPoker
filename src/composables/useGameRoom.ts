@@ -9,28 +9,17 @@ import { showAlert, showConfirm } from '@/utils/dialog';
 import { shouldAnimateRoomChange } from '@/utils/roomPresentation';
 import { useGameAudio } from './useGameAudio';
 
-export interface BallConfigItem {
-  name: string;
-  colors: Record<string, [string, string, string]>;
-}
-
-export interface BallConfigResponse {
-  defaultKey: string;
-  configs: Record<string, BallConfigItem>;
-}
-
 export interface UseGameRoomOptions {
   socket: Ref<Socket | null>;
   userId: Ref<string>;
   playerName: Ref<string>;
   selectedAvatar?: Ref<string>;
-  selectedBallConfigKey: Ref<string>;
   getFinalPlayerName: () => string;
   serverUrl?: Ref<string>;
 }
 
 export function useGameRoom(options: UseGameRoomOptions) {
-  const { socket, userId, playerName, selectedAvatar, selectedBallConfigKey, getFinalPlayerName, serverUrl } = options;
+  const { socket, userId, playerName, selectedAvatar, getFinalPlayerName, serverUrl } = options;
 
   const getApiUrl = (endpointPath: string) => {
     const base = serverUrl?.value ? serverUrl.value.trim().replace(/\/+$/, '') : '';
@@ -43,7 +32,6 @@ export function useGameRoom(options: UseGameRoomOptions) {
   const showRefereeFoulModal = ref<boolean>(false);
   const refereeTargetUserId = ref<string>('');
   const refereeSelectedBallNum = ref<number | null>(null);
-  const ballConfigs = ref<Record<string, BallConfigItem>>({});
 
   const triggerConfetti = () => {
     confetti({
@@ -245,26 +233,8 @@ export function useGameRoom(options: UseGameRoomOptions) {
     }
   };
 
-  const fetchBallConfigs = async () => {
-    const targetUrl = getApiUrl('/api/ball-configs');
-    try {
-      const response = await smartFetch(targetUrl);
-      if (!response.ok) {
-        throw new Error(`获取球色配置失败: ${response.status}`);
-      }
-      const data: BallConfigResponse = await response.json();
-      ballConfigs.value = data.configs;
-      if (!ballConfigs.value[selectedBallConfigKey.value]) {
-        selectedBallConfigKey.value = data.defaultKey;
-      }
-    } catch (err: any) {
-      console.error('[BallConfigs Error Detail]', err);
-    }
-  };
-
   onMounted(async () => {
     fetchLatestRoomState();
-    fetchBallConfigs();
     document.addEventListener('visibilitychange', handleVisibilityChange);
   });
 
@@ -272,7 +242,6 @@ export function useGameRoom(options: UseGameRoomOptions) {
     () => serverUrl?.value,
     (newUrl) => {
       if (newUrl !== undefined) {
-        fetchBallConfigs();
         fetchLatestRoomState();
       }
     }
@@ -394,39 +363,6 @@ export function useGameRoom(options: UseGameRoomOptions) {
       .filter((p): p is Player => !!p);
   });
 
-  const ballConfigOptions = computed(() => {
-    return Object.entries(ballConfigs.value).map(([key, item]) => ({
-      key,
-      name: item.name,
-    }));
-  });
-
-  const activeBallConfigKey = computed(() => {
-    if (room.value?.settings && ballConfigs.value[room.value.settings.ballConfigKey]) {
-      return room.value.settings.ballConfigKey;
-    }
-    if (ballConfigs.value[selectedBallConfigKey.value]) {
-      return selectedBallConfigKey.value;
-    }
-    return 'xingpai';
-  });
-
-  const ballColorStyle = computed<Record<string, string>>(() => {
-    const currentConfig = ballConfigs.value[activeBallConfigKey.value];
-    if (!currentConfig?.colors) return {};
-    const style: Record<string, string> = {};
-    for (let i = 1; i <= 15; i++) {
-      const colorTuple = currentConfig.colors[String(i)];
-      if (colorTuple) {
-        const [hi, mid, lo] = colorTuple;
-        style[`--ball-${i}-hi`] = hi;
-        style[`--ball-${i}-mid`] = mid;
-        style[`--ball-${i}-lo`] = lo;
-      }
-    }
-    return style;
-  });
-
   const isCardDimmed = (card: Card) => {
     if (!room.value?.pocketedBallNumbers || !card) return false;
     return room.value.pocketedBallNumbers.includes(card.ballNumber);
@@ -441,7 +377,6 @@ export function useGameRoom(options: UseGameRoomOptions) {
         userId: userId.value,
         name: finalName,
         avatar: selectedAvatar?.value || '🎱',
-        ballConfigKey: selectedBallConfigKey.value,
       },
       (res: SocketCallbackResponse) => {
         if (res.success && res.roomCode) {
@@ -673,10 +608,6 @@ export function useGameRoom(options: UseGameRoomOptions) {
     showRefereeFoulModal,
     refereeTargetUserId,
     refereeSelectedBallNum,
-    ballConfigs,
-    ballConfigOptions,
-    activeBallConfigKey,
-    ballColorStyle,
     isHost,
     myInfo,
     sortedMyCards,

@@ -27,7 +27,7 @@ function room(code = '1234'): ServerRoom {
         sessionToken: 'secret',
       },
     ],
-    settings: { maxPlayers: 8, cardsPerPlayer: 5, includeBlackEight: true, ballConfigKey: 'xingpai' },
+    settings: { maxPlayers: 8, cardsPerPlayer: 5, includeBlackEight: true },
     deck: [],
     accidentalBalls: [],
     breakBalls: [],

@@ -228,19 +228,6 @@ room:
   disconnect_timeout_ms: 3600000 # 玩家掉线超时清理时间 (毫秒)
 ```
 
-### `ball_configs.json`
-定义台球色彩主题与渐变样式（星牌 `xingpai` 配色）：
-```json
-{
-  "xingpai": {
-    "name": "Xingpai 星牌",
-    "colors": {
-      "1": ["#fad961", "#f5c01a", "#b88c00"],
-      "8": ["#3a3a3a", "#111111", "#000000"]
-    }
-  }
-}
-```
 
 ### `android/gradle.properties.local`
 用于配置 Android / Wear OS 原生端运行环境（默认已被 `.gitignore` 忽略）：

@@ -9,7 +9,6 @@ import type {
   SocketCallbackResponse,
   UpdateSettingsPayload,
 } from '../shared/types/socket';
-import { DEFAULT_BALL_CONFIG_KEY, isValidBallConfigKey } from './config';
 import { addLog } from './gameEngine';
 import {
   checkAndManageRoomCleanup,
@@ -53,7 +52,6 @@ export interface RoomLifecycleResult {
 export interface RoomLifecycleDependencies {
   createRoomCode: () => string;
   createSessionToken: () => string;
-  validateBallConfigKey: (key: string | undefined) => boolean;
 }
 
 const NO_CHANGE: RoomLifecycleResult = { changed: false };
@@ -61,7 +59,6 @@ const NO_CHANGE: RoomLifecycleResult = { changed: false };
 const defaultDeps: RoomLifecycleDependencies = {
   createRoomCode: generateRoomCode,
   createSessionToken: () => crypto.randomUUID(),
-  validateBallConfigKey: (key) => (key ? isValidBallConfigKey(key) : false),
 };
 
 export function applyRoomLifecycleCommand(
@@ -76,7 +73,7 @@ export function applyRoomLifecycleCommand(
     case 'rejoin_room':
       return rejoinRoom(command.socketId, command.payload);
     case 'update_settings':
-      return updateSettings(command.socketId, command.payload, deps);
+      return updateSettings(command.socketId, command.payload);
     case 'leave_room':
       return leaveRoom(command.socketId, command.payload);
     case 'kick_player':
@@ -91,7 +88,7 @@ function createRoom(
   payload: CreateRoomPayload,
   deps: RoomLifecycleDependencies
 ): RoomLifecycleResult {
-  const { userId, name, avatar, ballConfigKey } = payload;
+  const { userId, name, avatar } = payload;
   if (!userId || !name) {
     return {
       response: { success: false, message: '用户信息不完整' },
@@ -109,7 +106,6 @@ function createRoom(
     avatar,
     isHost: true,
   });
-  const validatedConfigKey = deps.validateBallConfigKey(ballConfigKey) ? ballConfigKey : DEFAULT_BALL_CONFIG_KEY;
 
   const newRoom: ServerRoom = {
     code: roomCode,
@@ -123,7 +119,7 @@ function createRoom(
     winners: [],
     turnOrder: [],
     roundCount: 0,
-    settings: createDefaultRoomSettings(validatedConfigKey),
+    settings: createDefaultRoomSettings(),
     logs: [],
     lastRoundScores: [],
     gameHistory: [],
@@ -260,11 +256,7 @@ function rejoinRoom(socketId: string, payload: RejoinRoomPayload): RoomLifecycle
   };
 }
 
-function updateSettings(
-  socketId: string,
-  payload: UpdateSettingsPayload,
-  deps: RoomLifecycleDependencies
-): RoomLifecycleResult {
+function updateSettings(socketId: string, payload: UpdateSettingsPayload): RoomLifecycleResult {
   const { roomCode } = payload;
   const room = getRoom(roomCode);
   if (!room) return NO_CHANGE;
@@ -273,9 +265,6 @@ function updateSettings(
   if (!session || session.userId !== room.hostUserId) return NO_CHANGE;
 
   const settings: Partial<RoomSettings> = { ...payload.settings };
-  if (settings.ballConfigKey && !deps.validateBallConfigKey(settings.ballConfigKey)) {
-    delete settings.ballConfigKey;
-  }
 
   room.settings = { ...room.settings, ...settings };
   addLog(room, '⚙️ 房主更新了游戏房间设置');
@@ -373,12 +362,11 @@ function disconnectSocket(socketId: string): RoomLifecycleResult {
   };
 }
 
-function createDefaultRoomSettings(ballConfigKey: string): RoomSettings {
+function createDefaultRoomSettings(): RoomSettings {
   return {
     cardsPerPlayer: 5,
     maxPlayers: 8,
     includeBlackEight: true,
-    ballConfigKey,
   };
 }
 

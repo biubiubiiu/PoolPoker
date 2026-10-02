@@ -95,7 +95,6 @@ export interface SceneEvent {
 }
 
 export interface RoomSettings {
-  ballConfigKey: string;
   cardsPerPlayer: number;
   includeBlackEight: boolean;
   maxPlayers: number;

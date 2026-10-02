@@ -44,7 +44,6 @@ function createDummyRoom(): ServerRoom {
       cardsPerPlayer: 5,
       maxPlayers: 8,
       includeBlackEight: true,
-      ballConfigKey: 'xingpai',
     },
     players: [
       {

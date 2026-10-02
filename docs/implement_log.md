@@ -505,8 +505,23 @@
 - 星牌单字字号 1.28 → 1.40，双字字号 1.12 → 1.23；文字轮廓外扩 0.022 加粗笔画，保留原有字体、位置和正面朝向。
 - 轮廓外扩按主题读取，星爵明确回退到 0，避免共用文字对象带入星牌字重。同步重新生成星牌 1–15 号球的 2D/3D 资源及 Blender 源文件。
 
+### 2026-09-27 Wear OS 面对面加入
+
+- 在手表直连页面新增面对面加入列表，显示房主、房间号和人数，保留手动键盘；支持侧滑/硬件返回和中英繁体文案。
+- 使用 Android 原生 LocationManager 获取前台位置，30 秒定位上限、300 米精度门槛、原始样本 60 秒有效期；后台、退出及选房后立即清理定位和发现连接。
+- 复用现有生成的 DiscoveryPosition/NearbyRoom 和服务端协议，在游戏 Socket 上先登记位置再加入，保留 sessionToken 安全恢复；失败和取消不降级为手动加入。
+- 验证：`:wear-app:assembleDebug` 和 `:wear-app:lintDebug` 通过（保留既有警告）；附近发现/协议测试 27 项通过，`git diff --check` 通过。生成 Debug APK；未进行手表真机定位与双端入房验收。Lint 同时修复连接页资源读取方式和既有踢出提示的中文翻译缺失。
+
 ### 2026-09-27 球外观上下文
 
 - 新增 `useBallAppearance`，通过带类型的 provide/inject 共享既有主题和配色的只读响应式视图，不创建新的可变主题状态。
 - V1/V2、裁判弹窗和 3D 球台移除外观参数透传；BallIcon 保留显式主题覆盖，主题变化会重置图片加载失败状态，3D 球台继续刷新贴图。
 - 验证：vue-tsc 与 Vite 生产构建通过；上下文冒烟检查覆盖响应式主题/配色、只读保护及无 provider 默认值；Biome 和 diff 空白检查通过。未进行浏览器视觉验收。
+
+### 2026-10-03 移除 ball_configs.json 与相关代码
+
+- **移除 ball_configs.json 与渐变色配置**：删除根目录 `ball_configs.json`；移除服务端加载逻辑、`DEFAULT_BALL_CONFIG_KEY`、`isValidBallConfigKey` 及 `/api/ball-configs` 路由。
+- **协议与数据结构精简**：从 `shared/schemas/room.schema.json` 中移除 `RoomSettings.ballConfigKey` 必填字段；从 `shared/types/socket.ts` 的 `CreateRoomPayload` 中移除 `ballConfigKey`；从 `shared/types/game.ts` 中移除 `BallConfig` 类型；通过 `codegen-models.mjs` 重新生成多端 wire models（TS/Kotlin）。
+- **前端重构**：从 `usePlayerProfile` 与 `RoomLobby` 中移除球色配置选项及下拉选择框；`useGameRoom` 移除 `fetchBallConfigs`、`ballConfigs`、`ballConfigOptions`、`activeBallConfigKey`、`ballColorStyle`；`useBallAppearance` 改为仅管理 `theme`，默认使用星牌美术资产（`xingpai`）；`ThreeBilliardsArena` 贴图加载失败时直接使用标准 8 色回退。
+- **测试与文档同步**：同步更新所有单元测试及 E2E 测试用例，清理 `AGENTS.md`、`README.md`、`docs/overview.md` 中对 `ball_configs.json` 和 `/api/ball-configs` 的描述；全量 Vitest 单元测试（122 项）、vue-tsc 类型检查、Biome lint/format、Vite 生产构建均顺利通过。
+

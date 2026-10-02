@@ -149,7 +149,6 @@ data class SceneEvent (
 
 @Serializable
 data class RoomSettings (
-    val ballConfigKey: String,
     val cardsPerPlayer: Int,
     val includeBlackEight: Boolean,
     val maxPlayers: Int

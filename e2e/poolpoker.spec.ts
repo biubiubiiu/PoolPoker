@@ -22,27 +22,20 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await page.goto('/');
     await page.waitForTimeout(500);
 
-    // 设置玩家姓名 (<=10字符)、选择球色配置
+    // 设置玩家姓名 (<=10字符)
     const nameInput = page.locator('input[placeholder*="请输入你的大名/外号"]');
     await nameInput.fill('Alice');
 
-    // 切换选择星牌球桌配置
-    const themeSelect = page.locator('select');
-    await themeSelect.selectOption('xingpai');
-
     // 验证 LocalStorage 持久化
     const savedName = await page.evaluate(() => localStorage.getItem('billiards_player_name'));
-    const savedTheme = await page.evaluate(() => localStorage.getItem('billiards_ball_config_key'));
     const savedUserId = await page.evaluate(() => localStorage.getItem('billiards_user_id'));
     expect(savedName).toBe('Alice');
-    expect(savedTheme).toBe('xingpai');
     expect(savedUserId).toBeTruthy();
 
     // 刷新页面，验证配置保存生效
     await page.reload();
     await page.waitForTimeout(500);
     await expect(nameInput).toHaveValue('Alice');
-    await expect(themeSelect).toHaveValue('xingpai');
   });
 
   test('1.1 Backend Server Settings Navigation, Multi-Address Saving & Switching', async ({ page }) => {

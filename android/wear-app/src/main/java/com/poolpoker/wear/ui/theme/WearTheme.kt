@@ -19,7 +19,7 @@ object PoolPokerColors {
     val NumpadConfirmGreen = Color(0xFF43A047)
     val NumpadBackspaceRed = Color(0xFFE53935)
 
-    // Ball Badges Color Tokens (1-15, aligned with ball_configs.json "xingpai" theme)
+    // Ball Badges Color Tokens (1-15, aligned with Xingpai theme)
     val Ball1Yellow = Color(0xFFF5C01A)
     val Ball2Blue = Color(0xFF1A4B9C)
     val Ball3Red = Color(0xFFD92525)

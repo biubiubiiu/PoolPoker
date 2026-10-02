@@ -82,7 +82,6 @@ function createRoom(overrides: Partial<ServerRoom> = {}): ServerRoom {
       cardsPerPlayer: 2,
       maxPlayers: 8,
       includeBlackEight: true,
-      ballConfigKey: 'xingpai',
     },
     logs: overrides.logs ?? [],
     lastRoundScores: overrides.lastRoundScores ?? [],

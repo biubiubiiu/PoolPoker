@@ -226,19 +226,6 @@ room:
   disconnect_timeout_ms: 3600000 # Disconnect cleanup timeout (ms)
 ```
 
-### `ball_configs.json`
-Pool ball color theme and gradients (Xingpai `xingpai` theme):
-```json
-{
-  "xingpai": {
-    "name": "Xingpai 星牌",
-    "colors": {
-      "1": ["#fad961", "#f5c01a", "#b88c00"],
-      "8": ["#3a3a3a", "#111111", "#000000"]
-    }
-  }
-}
-```
 
 ### `android/gradle.properties.local`
 Local environment variables for Android / Wear OS (git-ignored):

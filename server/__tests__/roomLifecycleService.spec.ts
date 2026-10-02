@@ -9,7 +9,6 @@ function createDeps(roomCodes: string[] = ['1234'], sessionTokens: string[] = ['
   return {
     createRoomCode: () => roomCodes[roomCodeIndex++] ?? '9999',
     createSessionToken: () => sessionTokens[tokenIndex++] ?? `token-${tokenIndex}`,
-    validateBallConfigKey: (key) => key === 'xingpai',
   };
 }
 
@@ -48,7 +47,6 @@ describe('roomLifecycleService', () => {
           userId: 'user-host',
           name: 'Host',
           avatar: '🎯',
-          ballConfigKey: 'unknown',
         },
       },
       createDeps(['2468'], ['session-host'])
@@ -64,7 +62,7 @@ describe('roomLifecycleService', () => {
 
     const room = getRoom('2468');
     expect(room?.hostUserId).toBe('user-host');
-    expect(room?.settings.ballConfigKey).toBe('xingpai');
+    expect(room?.settings).toEqual({ cardsPerPlayer: 5, maxPlayers: 8, includeBlackEight: true });
     expect(room?.players[0]).toMatchObject({
       id: 'socket-host',
       userId: 'user-host',
@@ -81,7 +79,7 @@ describe('roomLifecycleService', () => {
       {
         type: 'create_room',
         socketId: 'socket-host',
-        payload: { userId: 'user-host', name: 'Host', avatar: '🎱', ballConfigKey: 'xingpai' },
+        payload: { userId: 'user-host', name: 'Host', avatar: '🎱' },
       },
       createDeps(['1357'], ['session-host'])
     );
@@ -116,7 +114,7 @@ describe('roomLifecycleService', () => {
       {
         type: 'create_room',
         socketId: 'socket-host',
-        payload: { userId: 'user-host', name: 'Host', avatar: '🎱', ballConfigKey: 'xingpai' },
+        payload: { userId: 'user-host', name: 'Host', avatar: '🎱' },
       },
       createDeps(['8642'], ['session-host'])
     );
@@ -147,7 +145,7 @@ describe('roomLifecycleService', () => {
       {
         type: 'create_room',
         socketId: 'socket-host',
-        payload: { userId: 'user-host', name: 'Host', avatar: '🎱', ballConfigKey: 'xingpai' },
+        payload: { userId: 'user-host', name: 'Host', avatar: '🎱' },
       },
       createDeps(['1234'], ['session-host'])
     );
@@ -199,7 +197,7 @@ describe('roomLifecycleService', () => {
       {
         type: 'create_room',
         socketId: 'socket-host',
-        payload: { userId: 'user-host', name: 'Host', avatar: '🎱', ballConfigKey: 'xingpai' },
+        payload: { userId: 'user-host', name: 'Host', avatar: '🎱' },
       },
       createDeps(['4321'], ['session-host'])
     );
@@ -233,7 +231,7 @@ describe('roomLifecycleService', () => {
       {
         type: 'create_room',
         socketId: 'socket-host',
-        payload: { userId: 'user-host', name: 'Host', avatar: '🎱', ballConfigKey: 'xingpai' },
+        payload: { userId: 'user-host', name: 'Host', avatar: '🎱' },
       },
       createDeps(['5555'], ['session-host'])
     );
@@ -269,7 +267,7 @@ describe('roomLifecycleService', () => {
       {
         type: 'create_room',
         socketId: 'socket-host',
-        payload: { userId: 'user-host', name: 'Host', avatar: '🎱', ballConfigKey: 'xingpai' },
+        payload: { userId: 'user-host', name: 'Host', avatar: '🎱' },
       },
       createDeps(['1111'], ['session-host'])
     );
@@ -295,7 +293,7 @@ describe('roomLifecycleService', () => {
       {
         type: 'create_room',
         socketId: 'socket-a',
-        payload: { userId: 'user-host', name: 'Host', avatar: '🎱', ballConfigKey: 'xingpai' },
+        payload: { userId: 'user-host', name: 'Host', avatar: '🎱' },
       },
       createDeps(['6789'], ['session-host'])
     );
@@ -328,7 +326,6 @@ describe('host-only player removal', () => {
           userId: 'user-host',
           name: 'Host',
           avatar: '🎱',
-          ballConfigKey: 'xingpai',
         },
       },
       createDeps(['1234'], ['host-token'])
@@ -431,7 +428,6 @@ describe('host-only player removal', () => {
           userId: 'user-host',
           name: 'Other',
           avatar: '🎱',
-          ballConfigKey: 'xingpai',
         },
       },
       createDeps(['5678'])

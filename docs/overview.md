@@ -36,9 +36,11 @@ Android/iOS Debug 与 Release 由 pnpm 任务图编排，构建入口、前置�
   - 身份校验：每个玩家持有 `sessionToken`（`crypto.randomUUID`），`rejoin_room` 重连必须校验 token，防止会话劫持。
   - 随机性统一用 `node:crypto` CSPRNG（洗牌 `crypto.randomInt`、房间码 `crypto.randomInt`、token `crypto.randomUUID`），不使用 `Math.random`。
 
-### 面对面加入（Web 定位发现）
+### 面对面加入（Web / Wear OS 定位发现）
 
 大厅通过 `useNearbyRooms` 和可替换的 `RoomDiscoveryProvider` 自动发现附近等待中的房间，默认范围 300 米、2 秒推送列表变化。仅首页无有效位置时先快速获取粗略位置并持续改善，精度达到 50 米或 10 秒无明显改善后停止监听；原始样本 60 秒过期后首页才重启。进房/开局停止定位，房主仅沿用首页位置剩余有效期发布，过期后退出附近列表。房主位置与浏览者位置只保存在服务端短期 Socket presence 中，最长 60 秒；不加入 `Room` 或公开 HTTP 快照。附近入口复用 `join_room`，加入前再次检查可见性；手动房间码行为保留。跨端发现模型由 `shared/schemas/discovery.schema.json` 生成 TS/Kotlin，原生 BLE 预留适配接口和来源类型。部署、权限、隐私、生命周期和扩展说明见 [nearby_room_discovery.md](nearby_room_discovery.md)。
+
+Wear OS 直连首页提供「面对面加入」，通过 `WearNearbyDiscovery` 获取有时限的前台位置、订阅附近列表，再由 `WearDirectSocketManager` 在实际入房连接上登记位置并通过服务端校验后加入。退出发现页、后台和选房后停止定位；手动房间号与会话恢复流程保留。
 
 ### 目录结构
 
@@ -47,7 +49,7 @@ Android/iOS Debug 与 Release 由 pnpm 任务图编排，构建入口、前置�
 ├── src-tauri/               # Tauri v2 配置文件与 Rust 核心桥接层
 ├── server/                  # 后端 (TypeScript)
 │   ├── index.ts             # Express + Socket.IO 启动、静态托管、/api 路由
-│   ├── config.ts            # config.yaml 与 ball_configs.json 加载
+│   ├── config.ts            # config.yaml 加载
 │   ├── logger.ts            # socket 连接/断开日志（时间戳 + 用户名）
 │   ├── pokerDeck.ts         # 54 张牌库 + CSPRNG 洗牌
 │   ├── gameEngine.ts        # 胜负判定 / 积分结算 / 击球顺序
@@ -56,7 +58,7 @@ Android/iOS Debug 与 Release 由 pnpm 任务图编排，构建入口、前置�
 │   ├── roomManager.ts       # 房间注册表、Socket 会话索引、状态裁剪、广播
 │   ├── wecomWebhook.ts      # 每局结算推送到企业微信机器人
 │   ├── robotConfig.ts       # 机器人 Webhook 链接运行时配置（内存）
-│   └── socketHandlers.ts    # 15 个 Socket 事件处理器
+│   ├── socketHandlers.ts    # 15 个 Socket 事件处理器
 ├── scripts/                 # 构建与代码生成脚本
 │   └── codegen-models.mjs   # JSON Schema 自动生成 TS 与 Kotlin 模型脚本
 ├── shared/                  # 多端共享 Schema 与类型
@@ -74,7 +76,6 @@ Android/iOS Debug 与 Release 由 pnpm 任务图编排，构建入口、前置�
 │   └── styles/main.css      # iOS Safe Area 留白避让 & 物理实体球牌防反色保护
 ├── public/enter_robot.html  # 机器人 Webhook 链接设置页面（独立于 SPA）
 ├── e2e/poolpoker.spec.ts    # Playwright 端到端测试
-├── ball_configs.json        # 球色主题配置（default / xingpai）
 ├── config.yaml              # 端口与房间默认设置
 ├── run.sh / webhook-deploy.sh  # 一键构建运行 / Webhook 自动部署
 └── vite.config.ts / tsconfig.json / biome.json / commitlint.config.js
@@ -150,21 +151,21 @@ Android/iOS Debug 与 Release 由 pnpm 任务图编排，构建入口、前置�
 
 ### 服务启动与配置（`server/index.ts` / `server/config.ts` / `server/logger.ts`）
 
-- `config.ts`：读取 `config.yaml`（端口），缺失/异常回退默认 3000；加载 `ball_configs.json`（缺 `default` 或非法直接 `process.exit(1)`），导出 `isValidBallConfigKey` 校验。
-- `index.ts`：Express 提供 `/api/ball-configs`（球色配置）、`/api/rooms/:code`（HTTP 快照查询房间状态，供移动端快速同步）、`/api/robot-url`（GET/POST 读取/设置机器人 Webhook 链接）、`/enter_robot`（机器人链接设置页面，独立于 SPA 的静态路由）等接口；托管 `dist` 静态资源并 SPA 回退；Socket.IO 配置 `pingTimeout 10000` / `pingInterval 5000`。
+- `config.ts`：读取 `config.yaml`（端口），缺失/异常回退默认 3000。
+- `index.ts`：Express 提供 `/api/rooms/:code`（HTTP 快照查询房间状态，供移动端快速同步）、`/api/robot-url`（GET/POST 读取/设置机器人 Webhook 链接）、`/enter_robot`（机器人链接设置页面，独立于 SPA 的静态路由）等接口；托管 `dist` 静态资源并 SPA 回退；Socket.IO 配置 `pingTimeout 10000` / `pingInterval 5000`。
 - `logger.ts`：`formatTimestamp` 统一时间戳格式；`getSocketUsername` 从 `socket.data` → `handshake.auth/query` → 房间成员逐级取用户名；`logSocketConnect`/`logSocketDisconnect` 打印带时间戳、用户、断开原因的日志。
 
 ### 前端 Composables（`src/composables/`）
 
-- `usePlayerProfile`：玩家身份持久化——`userId`（首次生成 `u_随机串`）、`playerName`、`selectedAvatar`（6 个头像）、`selectedBallConfigKey` 均存 `localStorage`；`getFinalPlayerName` 空名回退「球友+随机三位数」。
+- `usePlayerProfile`：玩家身份持久化——`userId`（首次生成 `u_随机串`）、`playerName`、`selectedAvatar`（6 个头像）均存 `localStorage`；`getFinalPlayerName` 空名回退「球友+随机三位数」。
 - `useSocket`：Socket.IO 客户端初始化，`auth` 携带已存 name/userId，调优重连参数 `reconnectionAttempts: Infinity` / `reconnectionDelay: 300` / `reconnectionDelayMax: 1000` / `timeout: 5000`；封装 `on`/`off`/`emit`。
-- `useBallAppearance`：由 `App` 通过 provide/inject 提供只读、响应式的球主题和当前配色；复用 `useGameRoom.activeBallConfigKey` 的房间配置 → 个人选择 → 星牌优先级。`BallIcon` 和 `ThreeBilliardsArena` 直接读取，容器、卡牌与弹窗不再透传主题。`BallIcon.ballTheme` 可显式覆盖主题；无 provider 时默认星牌。
-- `useGameRoom`：核心业务状态与操作——`room` 状态、`isHost`/`myInfo`/`turnOrderPlayers` 计算属性、`sortedMyCards`（本人手牌按球号升序排序的计算属性）、球色配置加载与 CSS 变量生成（`--ball-N-hi/mid/lo`）、`isCardDimmed`（球号已打进则置灰免打）；挂载时 `fetchLatestRoomState`（HTTP 快照）+ `visibilitychange` 切前台时快照同步 + Socket 重连；`setupSocketListeners` 监听 `connect`（自动 `rejoin_room`）、`room_updated`（更新 `room` 并胜利时放彩带）、`room_created`、`error_message`；对外暴露建房/加入/调发牌数/开局/销牌/撤回上一步（`handleRetract`，`window.confirm` 确认后发 `retract_ball`）/记录进球/记录犯规/重开/离开等全部 `handle*` 方法。
+- `useBallAppearance`：由 `App` 通过 provide/inject 提供只读、响应式的球主题；`BallIcon` 和 `ThreeBilliardsArena` 直接读取，容器、卡牌与弹窗不再透传主题。`BallIcon.ballTheme` 可显式覆盖主题；默认星牌（xingpai）。
+- `useGameRoom`：核心业务状态与操作——`room` 状态、`isHost`/`myInfo`/`turnOrderPlayers` 计算属性、`sortedMyCards`（本人手牌按球号升序排序的计算属性）、`isCardDimmed`（球号已打进则置灰免打）；挂载时 `fetchLatestRoomState`（HTTP 快照）+ `visibilitychange` 切前台时快照同步 + Socket 重连；`setupSocketListeners` 监听 `connect`（自动 `rejoin_room`）、`room_updated`（更新 `room` 并胜利时放彩带）、`room_created`、`error_message`；对外暴露建房/加入/调发牌数/开局/销牌/撤回上一步（`handleRetract`，`window.confirm` 确认后发 `retract_ball`）/记录进球/记录犯规/重开/离开等全部 `handle*` 方法。
 
 ### 前端组件结构
 
 - **公共组件（`src/components/`）**：
-  - `RoomLobby`：登录（昵称/球色）+ 创建/加入选项卡（4 位房间码数字输入）+ 等待大厅（成员列表/房主发牌数调节/开始发牌/新版 UI 切换开关）。
+  - `RoomLobby`：登录（昵称）+ 创建/加入选项卡（4 位房间码数字输入）+ 等待大厅（成员列表/房主发牌数调节/开始发牌/新版 UI 切换开关）。
   - `GameHeader`：顶部状态栏（在等待大厅中通用，以及 v1 对局中使用）。
   - `VictoryModal`：结算弹窗——胜利者信息、图例、每位玩家三类手牌明细（已消除/免打卡/未消除，未消除牌按同 rank 倍乘标注 `-N分` 罚分）、本局积分变化（`+/-N分`）与累计总积分、房主「再来一局」。
   - `RefereePocketModal` / `RefereeFoulModal`：记录进球/犯规弹窗，默认选中当前玩家自己，进球额外选择未打进球号，并可切换「开球进球」记录不归属任何玩家的入袋球。
@@ -183,9 +184,8 @@ Android/iOS Debug 与 Release 由 pnpm 任务图编排，构建入口、前置�
   - `GameControlDrawer`：侧边/底栏抽屉，收纳规则说明、对局实况日志与房间控制。
 - `App.vue`：组装公共组件与根据 `useNewUi` 切换加载 `GameViewV1` / `GameViewV2`；手牌区含「规则」按钮弹出积分规则说明弹窗。
 
-### 配置文件与主题（`ball_configs.json` / `config.yaml`）
+### 配置文件（`config.yaml`）
 
-- `ball_configs.json`：球色主题（`xingpai`），含 0~15 号球的三段渐变配色（`[hi, mid, lo]`）；星牌 4/12 号粉色、5 号红色真实配色。
 - `config.yaml`：`app_name`、`port`、`room.default_cards_per_player`（默认 5）、`room.max_players`（8）、`room.disconnect_timeout_ms`（默认 1 小时）。
 
 ### 工程化与测试
@@ -199,8 +199,8 @@ Android/iOS Debug 与 Release 由 pnpm 任务图编排，构建入口、前置�
 
 | 文件路径 |
 |----------|
-| `server/index.ts`（Express + Socket.IO 启动、`/api/ball-configs`、`/api/rooms/:code` 快照接口、静态托管） |
-| `server/config.ts`（config.yaml / ball_configs.json 加载、`isValidBallConfigKey`） |
+| `server/index.ts`（Express + Socket.IO 启动、`/api/rooms/:code` 快照接口、静态托管） |
+| `server/config.ts`（config.yaml 加载） |
 | `server/logger.ts`（socket 连接/断开日志，时间戳 + 用户名） |
 | `server/pokerDeck.ts`（54 张牌库、CSPRNG 洗牌） |
 | `server/gameEngine.ts`（胜负判定、积分结算、击球顺序） |
@@ -210,18 +210,17 @@ Android/iOS Debug 与 Release 由 pnpm 任务图编排，构建入口、前置�
 | `server/robotConfig.ts`（机器人 Webhook 链接运行时配置） |
 | `server/roomManager.ts`（房间注册表、Socket 会话索引、房间码生成、状态裁剪防泄露、广播） |
 | `server/socketHandlers.ts`（15 个 Socket 事件处理器、sessionToken 校验） |
-| `shared/types/game.ts`（Card/Player/Room/ServerRoom/GameState/GamePlayerSnapshot/RoundScoreEntry/BallConfig 等） |
+| `shared/types/game.ts`（Card/Player/Room/ServerRoom/GameState/GamePlayerSnapshot/RoundScoreEntry 等） |
 | `shared/types/protocol.ts`（Socket 事件、Wear action、DataLayer path 协议常量） |
 | `shared/types/socket.ts`（事件 payload 与 Client/Server 事件接口） |
-| `src/composables/usePlayerProfile.ts` / `useSocket.ts` / `useGameRoom.ts` / `useUiPreferences.ts` |
+| `src/composables/usePlayerProfile.ts` / `useSocket.ts` / `useGameRoom.ts` / `useUiPreferences.ts` / `useBallAppearance.ts` |
 | `src/App.vue`（页面组装、v1/v2 路由分发、积分规则弹窗） |
 | `src/components/`（公共组件：`RoomLobby.vue` / `GameHeader.vue` / `VictoryModal.vue` / `RefereePocketModal.vue` / `RefereeFoulModal.vue` / `RestartModal.vue`） |
 | `src/components/v1/`（v1 经典版组件：`GameView.vue` / `BilliardsTable.vue` / `PokerCard.vue` / `GameLogs.vue`） |
 | `src/components/v2/`（v2 沉浸式组件：`GameView.vue` / `ThreeBilliardsArena.vue` / `HandDeckFan.vue` / `PokerCardProp.vue` / `GameMinimalHud.vue` / `TableOpponentSeats.vue` / `RecordingPlayerDropdown.vue` / `GameControlDrawer.vue`） |
 | `public/enter_robot.html`（机器人 Webhook 链接设置页面） |
-| `src/styles/main.css`（玻璃拟态、mini-ball 球色、条纹样式） |
+| `src/styles/main.css`（玻璃拟态、mini-ball 回退球色、条纹样式） |
 | `e2e/poolpoker.spec.ts`（Playwright 端到端测试） |
-| `ball_configs.json`（default / xingpai 球色主题） |
 | `config.yaml`（端口、房间默认设置） |
 | `run.sh`（一键构建运行）/ `webhook-deploy.sh`（Webhook 自动部署） |
 | `vite.config.ts` / `tsconfig.json` / `tailwind.config.js` / `postcss.config.mjs` / `biome.json` / `commitlint.config.js` / `.husky/` |

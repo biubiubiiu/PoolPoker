@@ -4,7 +4,7 @@ import path from 'node:path';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '../shared/types/socket';
-import { appConfig, ballConfigs, DEFAULT_BALL_CONFIG_KEY, rootDir } from './config';
+import { appConfig, rootDir } from './config';
 import { startDiscoveryBroadcast } from './discoveryBroadcast';
 import { logSocketConnect } from './logger';
 import { getRobotWebhookUrl, setRobotWebhookUrl } from './robotConfig';
@@ -34,13 +34,6 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, {
   },
   pingTimeout: 10000,
   pingInterval: 5000,
-});
-
-app.get('/api/ball-configs', (_req: Request, res: Response) => {
-  res.json({
-    defaultKey: DEFAULT_BALL_CONFIG_KEY,
-    configs: ballConfigs,
-  });
 });
 
 app.get('/api/rooms/:code', (req: Request, res: Response) => {

@@ -13,10 +13,9 @@
       "properties": {
         "cardsPerPlayer": { "type": "integer" },
         "maxPlayers": { "type": "integer" },
-        "includeBlackEight": { "type": "boolean" },
-        "ballConfigKey": { "type": "string" }
+        "includeBlackEight": { "type": "boolean" }
       },
-      "required": ["cardsPerPlayer", "maxPlayers", "includeBlackEight", "ballConfigKey"],
+      "required": ["cardsPerPlayer", "maxPlayers", "includeBlackEight"],
       "additionalProperties": false
     },
     "RoundScoreEntry": {

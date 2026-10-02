@@ -76,7 +76,7 @@ android/
 - **配置**：在 [`android/app/src/main/AndroidManifest.xml`](../android/app/src/main/AndroidManifest.xml) 的 `<application>` 节点中声明了 `android:usesCleartextTraffic="true"`。
 
 ### 4.2 全局 HTTP CORS 响应头
-- **配置**：在服务端 [`server/index.ts`](../server/index.ts) 中配置了 Express 全局跨域中间件（`Access-Control-Allow-Origin: *`），保障 Android WebView (`http://tauri.localhost`) 能成功发起 `/api/ball-configs` 与 `/api/rooms` 请求。
+- **配置**：在服务端 [`server/index.ts`](../server/index.ts) 中配置了 Express 全局跨域中间件（`Access-Control-Allow-Origin: *`），保障 Android WebView (`http://tauri.localhost`) 能成功发起 `/api/rooms` 请求。
 
 ### 4.3 差异化移动端设置 UI
 - **配置**：在大厅组件 [`RoomLobby.vue`](../src/components/RoomLobby.vue) 中加入了 `isTauriEnv` 环境检测。在 PC 浏览器访问时隐藏服务器配置入口；仅在 Tauri Android App 环境下展示「后端服务器地址配置」入口。

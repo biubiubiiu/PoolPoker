@@ -13,10 +13,6 @@ export function usePlayerProfile() {
   const playerName = ref<string>(localStorage.getItem('billiards_player_name') || '');
   const avatars = ['🎱', '🎯', '🔥', '⚡️', '🏆', '💎'];
   const selectedAvatar = ref<string>(localStorage.getItem('billiards_player_avatar') || '🎱');
-  const rawBallConfigKey = localStorage.getItem('billiards_ball_config_key');
-  const initialBallConfigKey = rawBallConfigKey && rawBallConfigKey !== 'default' ? rawBallConfigKey : 'xingpai';
-  localStorage.setItem('billiards_ball_config_key', initialBallConfigKey);
-  const selectedBallConfigKey = ref<string>(initialBallConfigKey);
 
   watch(playerName, (val) => {
     const trimmed = val.trim();
@@ -29,10 +25,6 @@ export function usePlayerProfile() {
 
   watch(selectedAvatar, (val) => {
     localStorage.setItem('billiards_player_avatar', val);
-  });
-
-  watch(selectedBallConfigKey, (val) => {
-    localStorage.setItem('billiards_ball_config_key', val);
   });
 
   const getFinalPlayerName = (): string => {
@@ -49,7 +41,6 @@ export function usePlayerProfile() {
     playerName,
     avatars,
     selectedAvatar,
-    selectedBallConfigKey,
     getFinalPlayerName,
   };
 }

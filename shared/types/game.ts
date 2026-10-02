@@ -70,8 +70,3 @@ export interface ServerRoom {
   lastRoundScores: RoundScoreEntry[];
   gameHistory: GameState[];
 }
-
-export interface BallConfig {
-  name: string;
-  colors: Record<string, [string, string, string]>;
-}

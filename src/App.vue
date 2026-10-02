@@ -17,7 +17,7 @@ import { useUiPreferences } from '@/composables/useUiPreferences';
 import { preloadTableModel } from '@/utils/tableModelLoader';
 
 const { useNewUi } = useUiPreferences();
-const { userId, playerName, avatars, selectedAvatar, selectedBallConfigKey, getFinalPlayerName } = usePlayerProfile();
+const { userId, playerName, avatars, selectedAvatar, getFinalPlayerName } = usePlayerProfile();
 const { socket, serverUrl, savedServerUrls, updateServerUrl, addServerUrl, removeServerUrl } = useSocket();
 
 const {
@@ -33,15 +33,11 @@ const {
   isPresenting,
   selectRecordingPlayer,
   nextRecordingPlayer,
-  ballConfigs,
-  activeBallConfigKey,
   showRestartConfirm,
   showRefereePocketModal,
   showRefereeFoulModal,
   refereeTargetUserId,
   refereeSelectedBallNum,
-  ballConfigOptions,
-  ballColorStyle,
   isHost,
   myInfo,
   sortedMyCards,
@@ -74,15 +70,11 @@ const {
   userId,
   playerName,
   selectedAvatar,
-  selectedBallConfigKey,
   getFinalPlayerName,
   serverUrl,
 });
 
-provideBallAppearance(
-  activeBallConfigKey,
-  computed(() => ballConfigs.value[activeBallConfigKey.value]?.colors)
-);
+provideBallAppearance();
 
 const nearby = useNearbyRooms(socket, room, isHost);
 
@@ -113,7 +105,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div :class="[useNewUi ? 'app-shell' : 'max-w-md', 'flex-1 flex flex-col mx-auto w-full safe-area-spacing relative min-h-dvh']" :style="ballColorStyle">
+  <div :class="[useNewUi ? 'app-shell' : 'max-w-md', 'flex-1 flex flex-col mx-auto w-full safe-area-spacing relative min-h-dvh']">
     
     <!-- 顶部状态栏 (v1 在所有在房状态下显示，v2 仅在等待大厅时显示) -->
     <GameHeader v-if="room && (!useNewUi || room.status === 'waiting' || room.status === 'lobby')"
@@ -140,8 +132,6 @@ onMounted(() => {
                v-model:playerName="playerName"
                v-model:selectedAvatar="selectedAvatar"
                :avatars="avatars"
-               v-model:selectedBallConfigKey="selectedBallConfigKey"
-               :ballConfigOptions="ballConfigOptions"
                @update:serverUrl="updateServerUrl"
                @add-server-url="addServerUrl"
                @remove-server-url="removeServerUrl"

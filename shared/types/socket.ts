@@ -6,7 +6,6 @@ export interface CreateRoomPayload {
   userId: string;
   name: string;
   avatar: string;
-  ballConfigKey: string;
 }
 
 export interface JoinRoomPayload {

@@ -62,7 +62,7 @@ function ballTexture(n: number) {
     undefined,
     () => {
       // Fallback: procedural canvas if texture fails to load
-      const color = appearance.colors?.[String(n)]?.[1] || fallbackColors[(n - 1) % 8];
+      const color = fallbackColors[(n - 1) % 8];
       const canvas = createBallTextureCanvas(n, color);
       texture.image = canvas as unknown as HTMLImageElement;
       texture.colorSpace = THREE.SRGBColorSpace;
@@ -353,14 +353,17 @@ watch(
   }
 );
 watch(() => props.pendingBallNumbers, draw);
-watch([() => appearance.colors, () => appearance.theme], () => {
-  balls.forEach((b) => {
-    b.mesh.material.map?.dispose();
-    b.mesh.material.map = ballTexture(b.number);
-    b.mesh.material.needsUpdate = true;
-  });
-  draw();
-});
+watch(
+  () => appearance.theme,
+  () => {
+    balls.forEach((b) => {
+      b.mesh.material.map?.dispose();
+      b.mesh.material.map = ballTexture(b.number);
+      b.mesh.material.needsUpdate = true;
+    });
+    draw();
+  }
+);
 function cleanupScene() {
   cancelAnimationFrame(frame);
   observer?.disconnect();

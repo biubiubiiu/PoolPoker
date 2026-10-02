@@ -1,7 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import yaml from 'js-yaml';
-import type { BallConfig } from '../shared/types/game';
 
 export interface AppConfig {
   port: number;
@@ -48,33 +47,4 @@ if (fs.existsSync(configPath)) {
   }
 }
 
-const ballConfigPath = path.join(rootDir, 'ball_configs.json');
-if (!fs.existsSync(ballConfigPath)) {
-  console.error('❌ 缺少 ball_configs.json，服务启动失败。');
-  process.exit(1);
-}
-
-export const DEFAULT_BALL_CONFIG_KEY = 'xingpai';
-
-let ballConfigs: Record<string, BallConfig> = {};
-try {
-  const parsed = JSON.parse(fs.readFileSync(ballConfigPath, 'utf8'));
-  if (!parsed || typeof parsed !== 'object' || Object.keys(parsed).length === 0) {
-    throw new Error('配置内容为空或格式非法');
-  }
-  if (!parsed[DEFAULT_BALL_CONFIG_KEY]) {
-    throw new Error(`缺少 ${DEFAULT_BALL_CONFIG_KEY} 配置`);
-  }
-  ballConfigs = parsed as Record<string, BallConfig>;
-  console.log(`🎨 成功读取 ball_configs.json 配置文件 (配置数: ${Object.keys(ballConfigs).length})`);
-} catch (e) {
-  const err = e as Error;
-  console.error(`❌ 读取 ball_configs.json 失败: ${err.message}`);
-  process.exit(1);
-}
-
-export function isValidBallConfigKey(key: string): boolean {
-  return !!(key && ballConfigs[key]);
-}
-
-export { appConfig, ballConfigs, rootDir };
+export { appConfig, rootDir };

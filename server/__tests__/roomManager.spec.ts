@@ -33,7 +33,7 @@ function createDummyRoom(roomCode: string, players: ServerRoom['players'] = []):
     status: 'waiting',
     hostUserId: players[0]?.userId ?? 'u1',
     hostSocketId: players[0]?.id ?? 's1',
-    settings: { cardsPerPlayer: 5, maxPlayers: 8, includeBlackEight: true, ballConfigKey: 'xingpai' },
+    settings: { cardsPerPlayer: 5, maxPlayers: 8, includeBlackEight: true },
     players,
     deck: [],
     accidentalBalls: [],
@@ -99,7 +99,6 @@ describe('roomManager getClientRoomState', () => {
         cardsPerPlayer: 5,
         maxPlayers: 8,
         includeBlackEight: true,
-        ballConfigKey: 'xingpai',
       },
       players: [
         {
@@ -190,7 +189,7 @@ describe('roomManager getClientRoomState', () => {
       status: 'playing',
       hostUserId: 'u1',
       hostSocketId: 's1',
-      settings: { cardsPerPlayer: 5, maxPlayers: 8, includeBlackEight: true, ballConfigKey: 'xingpai' },
+      settings: { cardsPerPlayer: 5, maxPlayers: 8, includeBlackEight: true },
       players: [
         {
           id: 's1',
@@ -240,7 +239,7 @@ describe('roomManager room cleanup timers', () => {
       status: 'waiting',
       hostUserId: 'u1',
       hostSocketId: 's1',
-      settings: { cardsPerPlayer: 5, maxPlayers: 8, includeBlackEight: true, ballConfigKey: 'xingpai' },
+      settings: { cardsPerPlayer: 5, maxPlayers: 8, includeBlackEight: true },
       players: [
         {
           id: 's1',
@@ -292,7 +291,7 @@ describe('roomManager room cleanup timers', () => {
       status: 'waiting',
       hostUserId: 'u1',
       hostSocketId: 's1',
-      settings: { cardsPerPlayer: 5, maxPlayers: 8, includeBlackEight: true, ballConfigKey: 'xingpai' },
+      settings: { cardsPerPlayer: 5, maxPlayers: 8, includeBlackEight: true },
       players: [
         {
           id: 's1',
@@ -345,7 +344,7 @@ describe('roomManager room cleanup timers', () => {
       status: 'waiting',
       hostUserId: 'u1',
       hostSocketId: 's1',
-      settings: { cardsPerPlayer: 5, maxPlayers: 8, includeBlackEight: true, ballConfigKey: 'xingpai' },
+      settings: { cardsPerPlayer: 5, maxPlayers: 8, includeBlackEight: true },
       players: [],
       deck: [],
       accidentalBalls: [],
