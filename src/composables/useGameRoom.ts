@@ -124,7 +124,8 @@ export function useGameRoom(options: UseGameRoomOptions) {
       clearPresentation();
     }
     if (!socket.value?.connected) {
-      feedback.value = '连接已断开，重连后再记球';
+      feedback.value = '正在恢复连接，请稍候...';
+      socket.value?.connect();
       return;
     }
     unlockAudio();
@@ -137,9 +138,9 @@ export function useGameRoom(options: UseGameRoomOptions) {
     });
     pendingTimer = setTimeout(() => {
       pendingAction.value = false;
-      feedback.value = '未收到确认，请核对最新牌局后再操作';
+      feedback.value = '网络稍有延迟，已为您同步最新牌局';
       void fetchLatestRoomState();
-    }, 4000);
+    }, 2000);
   };
 
   const syncNativeRoomSession = async (code: string | null) => {
@@ -233,9 +234,18 @@ export function useGameRoom(options: UseGameRoomOptions) {
     }
   };
 
+  const handleOnline = () => {
+    console.log('[Network] 网络连接已恢复，立即同步牌局与尝试重连 Socket');
+    fetchLatestRoomState();
+    if (socket.value && !socket.value.connected) {
+      socket.value.connect();
+    }
+  };
+
   onMounted(async () => {
     fetchLatestRoomState();
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('online', handleOnline);
   });
 
   watch(
@@ -249,6 +259,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
 
   onUnmounted(() => {
     document.removeEventListener('visibilitychange', handleVisibilityChange);
+    window.removeEventListener('online', handleOnline);
     clearPresentation();
     clearTimeout(pendingTimer);
   });
@@ -394,7 +405,8 @@ export function useGameRoom(options: UseGameRoomOptions) {
   const handleJoinRoom = (code: string, discoverySource?: DiscoverySource) => {
     if (joiningRoom.value) return;
     if (!socket.value?.connected) {
-      showAlert('尚未连接服务器，请稍后重试');
+      socket.value?.connect();
+      showAlert('尚未连接服务器，正在尝试连接，请稍后重试');
       return;
     }
     joiningRoom.value = true;

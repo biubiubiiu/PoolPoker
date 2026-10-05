@@ -68,11 +68,12 @@ export function useSocket() {
         name: savedName,
         userId: savedUserId,
       },
+      transports: ['websocket'],
       reconnection: true,
       reconnectionAttempts: Infinity,
-      reconnectionDelay: 300,
+      reconnectionDelay: 200,
       reconnectionDelayMax: 1000,
-      timeout: 5000,
+      timeout: 4000,
     };
 
     socket.value = url ? io(url, options) : io(options);
@@ -80,6 +81,14 @@ export function useSocket() {
     socket.value.on('connect', () => {
       socketId.value = socket.value?.id || '';
       console.log('[Socket] Connected to', url || 'same-origin', 'ID:', socketId.value);
+    });
+
+    socket.value.on('disconnect', (reason) => {
+      console.log('[Socket] Disconnected:', reason);
+    });
+
+    socket.value.on('connect_error', (error) => {
+      console.warn('[Socket] Connect error:', error.message);
     });
   };
 
