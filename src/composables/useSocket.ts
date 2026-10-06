@@ -36,7 +36,7 @@ export function useSocket() {
     let url = rawUrl.trim();
     if (!url) return '';
     if (!/^https?:\/\//i.test(url)) {
-      url = `http://${url}`;
+      url = `https://${url}`;
     }
     return url;
   };

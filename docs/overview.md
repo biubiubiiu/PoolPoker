@@ -238,7 +238,7 @@
 
 ## User 体系与 SQLite 更新（2026-09-09）
 
-账号实现以 [user_system_design.md](user_system_design.md) 为准。首页 AccountPanel 提供显式游客、注册与登录；auth service/routes 管理恢复签名、Passkey、设备授权和会话。Web 使用 HttpOnly Cookie，Socket 票据关联服务器身份；客户端 userId 不再是鉴权凭据。HTTP 局域网支持正式账号操作，只有浏览器受限能力按环境隐藏。
+账号实现以 [user_system_design.md](user_system_design.md) 为准。首页 AccountPanel 提供显式游客、注册与登录；auth service/routes 管理恢复签名、Passkey、设备授权和会话。Web 使用 HttpOnly Cookie，Socket 票据关联服务器身份；客户端 userId 不再是鉴权凭据。正式部署使用 HTTPS，账号、快照与 Socket 鉴权拒绝局域网明文连接；仅本机开发保留 HTTP，反向代理通过显式可信地址配置识别 TLS。
 
 RoomController 将内存领域操作和 SQLite 快照/撤回步/命令回执置于同一事务，提交后广播。房间重启恢复、内部 roomId 防复用、Outbox 结算推送取代仅内存生命周期。node:sqlite 随 pnpm 启动；备份入口 `pnpm backup:db -- /path/backup.sqlite`。
 

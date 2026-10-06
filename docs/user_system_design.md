@@ -1,6 +1,6 @@
 # User 体系：实现方案与运行约定
 
-更新：2026-09-09。本文以最终确认的「HTTP 尽可能开放全部能力」为准，替代此前 HTTP 仅游客、原生低权限会话的建议。
+更新：2026-10-06。正式部署现已支持 HTTPS，账号系统以可信 HTTPS 为运行前提，取消此前针对局域网 HTTP 的明文兼容。
 
 ## 产品行为
 
@@ -11,25 +11,23 @@
 - 在牌局内不能切换账号，游客可以就地注册。退出账号入口在牌局内禁用；要切换身份先退出房间。退出房间会移除该身份所有设备的座位关联。
 - 注册后允许稍后备份，但没有恢复短语或 Passkey、也没有其他已登录设备时，清除会话会丢失账号访问能力。UI 展示当前备份状态。
 
-## HTTP 与客户端能力
+## HTTPS 与客户端能力
 
-| 能力 | HTTP 局域网 Web | 可信 HTTPS 域名 Web | Tauri App |
-| --- | --- | --- | --- |
-| 游客、注册、昵称、牌局 | 支持 | 支持 | 支持 |
-| 12 词恢复登录、管理账号 | 支持 | 支持 | 支持 |
-| 展示二维码、手动配对码授权 | 支持 | 支持 | 支持 |
-| 网页调用相机 | 不提供坏入口，使用系统相机/手动码 | 当前同样使用系统相机/手动码 | 系统相机/手动码 |
-| Passkey | 浏览器限制；localhost 例外 | 能力检测后提供 | 系统浏览器登录后通过配对授权回传，无需固定回跳域名 |
+正式账号服务统一使用 HTTPS，HTTP 局域网不再作为支持的登录环境。未填写协议的服务器地址默认补全 `https://`，旧 HTTP 地址需要改为真实可用的 HTTPS 地址；不会在失败后尝试 HTTP，也不跟随认证请求的重定向。
 
-HTTP 使用 Cookie/WS 明文传输，原生安全存储不会让 HTTP 传输变成加密。本次按产品取舍接受该风险，不降低 HTTP 账号权限，不尝试伪装安全上下文。网页恢复推导采用纯 JS，不依赖 SubtleCrypto；随机数仍来自 CSPRNG。所有客户端必须连接同一个服务器实例；相同短语不意味着不同自建服务器自动共享数据库。
+- Web 优先提供 Passkey；仍检查浏览器的安全上下文、WebAuthn 能力与 RP 域名，不能仅因部署了 HTTPS 就绕过这些限制。
+- 游客、注册、恢复短语、配对授权均通过 HTTPS。恢复短语与六位配对码是独立登录方式，继续保留。二维码仍可用系统相机扫描，不再因 HTTP 环境禁用相机；本次没有新增内嵌相机组件。
+- Tauri 的本地 WebView origin 与账号服务器域名不同，因此保留系统浏览器登录和短时配对回传，不把虚拟 origin 当作服务端 RP。
+- 恢复签名沿用现有版本的 BIP-39/HKDF/Ed25519 派生，保证已备份短语兼容。HTTPS 不要求更换密钥算法或引入长期设备私钥存储。
+- 仅本机开发例外：非 production 服务可接受 Host 和 TCP 对端同时为 loopback 的 HTTP 请求；局域网客户端或伪造 localhost Host 不享受此例外。
 
-原生「在系统浏览器登录」为新 App 会话生成短时请求，打开所配置服务器的配对链接。浏览器完成 Passkey/短语登录后，核对六位码并确认授权；App 轮询领取独立会话。无需 Universal Links、App Links 或自定义 scheme 携带 token。
+同一账号跨设备必须连接同一服务器实例。不同自建服务器的数据库不会自动同步。
 
 ## 身份与凭证
 
 `shared/schemas/auth.schema.json` 定义公开 AuthUser、AuthSessionInfo、AuthPairing，通过 codegen 生成 TS/Kotlin。认证存储不进入公开 Room。
 
-- Web：HttpOnly、SameSite=Lax Cookie；HTTPS 时 Secure。localStorage 只保留昵称、球色、服务器地址和非秘密身份/房间提示。
+- Web：HttpOnly、SameSite=Lax Cookie；正式 HTTPS 会话及退出清理均设置 Secure；仅本机 HTTP 开发例外。localStorage 只保留昵称、球色、服务器地址和非秘密身份/房间提示。
 - Android/Wear OS：Android Keystore AES-GCM 加密后的会话存储；iOS/macOS：Keychain。恢复私钥不长期存储，恢复短语只在备份或输入期间存在于客户端内存。
 - 服务端：保存随机 256 位 bearer token 的 SHA-256 摘要。管理会话有效期 30 天；伴随 play 会话 30 分钟，绑定父会话与 roomId。会话撤销会断开对应 Socket；父会话失效也使伴随会话失效。
 - 每次 Socket 连接用 Cookie 换取一次性、30 秒有效的票据；服务端从票据对应会话确定身份，忽略客户端声明的调用者 userId。
@@ -77,6 +75,10 @@ WAL + synchronous=NORMAL 用于游戏事务；凭证更改使用短 FULL 事务�
 独立手表游客入口通过服务器申请游客身份，之后使用同一认证 Socket；不再信任手表自造 userId。短语推导和 Passkey 操作留在手机/浏览器。
 
 ## 配置与验证
+
+TLS 在 Caddy/Nginx 等代理终止时，设置 `POOLPOKER_TRUST_PROXY` 为实际代理 IP/CIDR（同机代理可用 `loopback`），并由代理覆盖 `X-Forwarded-Proto`、保留 Host。不要将全部来源设为可信代理，也不要对外暴露未加密后端端口。只有可信 TCP 对端的转发头才能影响 HTTPS 判定及 Secure Cookie。
+
+生产部署设置 `NODE_ENV=production`，强制取消 loopback HTTP 例外。代理未配置或传输不符合策略时，账号/房间 HTTP 接口返回 426，Socket 鉴权拒绝连接。
 
 反向代理时保留 Host/Origin，Vite 开发代理已设置 changeOrigin=false。跨域 Web 部署显式配置 `POOLPOKER_AUTH_ORIGINS`（逗号分隔），Passkey 域名可配置 `POOLPOKER_RP_ID`。Cookie 跨站限制仍由浏览器执行，推荐前后端同源；不要用任意 Origin 放行来绕过浏览器限制。
 

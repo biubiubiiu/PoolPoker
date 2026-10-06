@@ -1,3 +1,4 @@
+import { normalizeAccountServer } from '@shared/serverUrl';
 import type { AuthUser } from '@shared/types/generated/wire-models';
 import { ref } from 'vue';
 
@@ -11,6 +12,7 @@ let authScope = 0;
 export const apiBase = () => (localStorage.getItem('poolpoker_server_url') ?? '').replace(/\/+$/, '');
 export async function authFetch(path: string, body?: unknown, method = body === undefined ? 'GET' : 'POST') {
   const base = apiBase();
+  normalizeAccountServer(base || window.location.origin);
   const scope = authScope;
   const headers: Record<string, string> = { 'X-PoolPoker-Request': '1' };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
@@ -22,6 +24,7 @@ export async function authFetch(path: string, body?: unknown, method = body === 
     method,
     headers,
     credentials: 'include',
+    redirect: 'error',
     body: body === undefined ? undefined : JSON.stringify(body),
   };
   const response = isNative()

@@ -151,7 +151,10 @@ export function authRouter(auth: AuthService, hooks: Hooks) {
     const s = session(req);
     auth.store.transaction(() => auth.revoke(s.id, s.user_id), true);
     hooks.changed();
-    res.setHeader('Set-Cookie', 'poolpoker_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0');
+    res.setHeader(
+      'Set-Cookie',
+      `poolpoker_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${req.secure ? '; Secure' : ''}`
+    );
     res.json({ success: true });
   });
   run('post', '/logout-all', (req, res) => {

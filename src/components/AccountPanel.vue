@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { createRecoveryPhrase, recoveryPublicKey, signRecovery } from '@shared/recovery';
+import { normalizeAccountServer } from '@shared/serverUrl';
 import type { AuthPairing, AuthSessionInfo } from '@shared/types/generated/wire-models';
 import { startAuthentication, startRegistration } from '@simplewebauthn/browser';
 import QRCode from 'qrcode';
@@ -188,7 +189,7 @@ onUnmounted(() => {
   <template v-if="page==='welcome'">
     <div class="welcome-copy"><span class="eyebrow">球霸扑克 · 朋友的牌桌</span><h1>同一场好球，<br>换个设备继续。</h1><p>无需手机号或邮箱。<br>创建你的账号，或直接以游客开玩。</p></div>
     <div class="actions"><button :disabled="busy||!authReady" @click="page='register'">创建账号</button><button class="outline" :disabled="busy||!authReady" @click="page='login'">登录账号</button><button class="quiet" :disabled="busy||!authReady" @click="action(async()=>{await authFetch('/api/auth/guest',{deviceName:deviceName()});emit('close')})">以游客登录</button></div>
-    <details><summary>服务器设置</summary><label>服务地址<input v-model="server" placeholder="留空使用当前服务器"></label><button class="outline" @click="action(async()=>{const value=server.trim().replace(/\/+$/,'');if(value&&!/^https?:\/\//.test(value))throw new Error('请填写 http:// 或 https:// 地址');localStorage.setItem('poolpoker_server_url',value);await loadAuth();location.reload()})">连接服务器</button><button class="quiet" @click="action(loadAuth)">重试连接</button></details>
+    <details><summary>服务器设置</summary><label>服务地址<input v-model="server" placeholder="留空使用当前服务器"></label><button class="outline" @click="action(async()=>{const value=normalizeAccountServer(server);localStorage.setItem('poolpoker_server_url',value);await loadAuth();location.reload()})">连接服务器</button><button class="quiet" @click="action(loadAuth)">重试连接</button></details>
   </template>
   <template v-else-if="page==='register'">
     <div class="form-copy"><h1>怎么称呼你？</h1><p>昵称可以重复，也可以随时修改。</p><label>游戏昵称<input v-model="nickname" maxlength="24" autocomplete="nickname" placeholder="请输入昵称" @keyup.enter="action(register)"></label></div>

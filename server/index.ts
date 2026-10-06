@@ -6,6 +6,7 @@ import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '../shared/types/socket';
 import { authRouter, requestToken } from './auth/routes';
 import { AuthService } from './auth/service';
+import { accountTransportAllowed } from './auth/transport';
 import { appConfig, ballConfigs, DEFAULT_BALL_CONFIG_KEY, rootDir } from './config';
 import { logSocketConnect } from './logger';
 import { getStore } from './persistence/database';
@@ -20,6 +21,14 @@ import {
 } from './wecomWebhook';
 
 const app = express();
+// Trust only explicitly configured reverse-proxy addresses, never arbitrary forwarding headers.
+const trustedProxies = (process.env.POOLPOKER_TRUST_PROXY ?? '')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean);
+if (trustedProxies.length) app.set('trust proxy', trustedProxies);
+const accountTransport = (req: http.IncomingMessage) =>
+  accountTransportAllowed(req, app.get('trust proxy fn'), process.env.NODE_ENV === 'production');
 const server = http.createServer(app);
 const store = getStore();
 const auth = new AuthService(store);
@@ -49,6 +58,10 @@ app.use((_req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
+app.use(['/api/auth', '/api/rooms'], (req, res, next) => {
+  if (!accountTransport(req)) return res.status(426).json({ message: '请使用 HTTPS 连接服务器' });
+  next();
+});
 app.use(express.json({ limit: '32kb' }));
 
 const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, {
@@ -99,6 +112,7 @@ app.use(
 );
 io.use((socket, next) => {
   try {
+    if (!accountTransport(socket.request)) throw new Error('请使用 HTTPS 连接服务器');
     let token = typeof socket.handshake.auth.token === 'string' ? socket.handshake.auth.token : '';
     if (socket.handshake.auth.ticket) {
       const ticket = store.transaction(() =>
