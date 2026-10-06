@@ -44,3 +44,12 @@ Web 大厅默认开启基于定位的附近发现。首次访问需同意浏览�
 验证通过 Computer-use 操作真实 Safari 和 Chrome：Safari 发布原有房间，Chrome 自动发现并一键加入，两端人数同步为 2 人。自动测试另外模拟 Apple 时间基准的房主与标准时间基准的加入者，避免只用 Chromium 标准定位时间戳的测试遗漏此兼容问题。
 
 定位监听与取消使用标准 [watchPosition / clearWatch](https://developer.mozilla.org/en-US/docs/Web/API/Geolocation/watchPosition)。粗略位置是否更快返回由浏览器决定；稳定判断采用精度收敛，不代表可以证明用户静止。
+
+## Wear OS 面对面加入（2026-09-27）
+
+- 手表直连首页新增「面对面加入」，进入后可授权定位、查看房主名称/房间号/人数并点击加入；房间号键盘继续可用。房主需在同一后端的 Web/手机端开启附近发现。
+- `WearNearbyDiscovery` 使用 Android `LocationManager` 的网络/GPS provider，无新增定位 SDK。仅申请前台粗略/精确位置权限；粗略位置若达不到 300 米精度，会提示等待更准确的位置。定位关闭、权限拒绝、网络失败、定位超时和空列表均有提示。
+- 每轮定位最多 30 秒，收到首个精度不差于 300 米、年龄小于 60 秒的样本即停止监听。保留原始采样时间，样本过期后仅在发现页前台重新定位；失败后可手动重试。退出页面、进入后台或选中球局立即停止定位、撤回浏览 presence 并关闭发现 Socket，不持久化坐标。
+- 发现 Socket 与游戏 Socket 独立。点击房间后，`WearDirectSocketManager` 在实际入房 Socket 上先发送 `discovery_update`，成功后发送带 `discoverySource: geolocation` 的 `join_room`，保证服务端仍能复核可见性。入房成功沿用已有 sessionToken 持久化及 `rejoin_room` 恢复流程。过期/满员/开局等拒绝不降级为房间号加入，返回后可重新发现。
+- 页面使用 Wear Compose `ScalingLazyColumn`、`SwipeToDismissBox` 和 `BackHandler`；侧滑、硬件返回和返回按钮都回到键盘并取消尚未确认的附近入房。
+- 真机验收：先让手机房主开启附近发现，再在手表授权并加入；另检查拒绝权限、关闭定位、超时、满员/开局、后台恢复和侧滑返回。室内 GPS/网络定位的速度与可用性取决于设备，需要实际球房验证。

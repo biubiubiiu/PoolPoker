@@ -86,3 +86,9 @@ WearDataLayerListenerService.roomStateFlow / WearDirectSocketManager
 - 直连模式断线期间的操作会提示重连后重试，不转发至手机、不缓存重放进球或罚牌，避免重复记分。没有直连会话的手机伴侣模式继续使用 DataLayer。
 - 手机通过原生 `room_credentials` 桥同步 `sessionToken`，手表以同一身份恢复房间；蓝牙日志不打印凭证原文。
 - 旧版本未保存的手表会话凭证无法通过房间号补回；原玩家仍在房内时服务器会拒绝普通加入，保持既有身份安全约束。
+
+## 5. 面对面加入
+
+- `WearDirectConnectScreen` 在房间号键盘上方提供面对面加入入口，以覆盖层承载 `WearNearbyRoomsScreen`，统一处理侧滑和硬件返回。
+- `WearNearbyRoomsScreen` 负责权限请求、前台生命周期、发现列表及房间选择；`WearNearbyDiscovery` 负责有时限的原生定位和独立 Socket 浏览。页面暂停或销毁立即释放定位监听和浏览连接。
+- 入房交给 `WearDirectSocketManager`：实际游戏连接先登记浏览位置，再带发现来源加入；成功后沿用原有身份凭证和房间同步。取消/拒绝附近入房释放未确认连接，保留已保存的会话凭证。细节见 `nearby_room_discovery.md`。

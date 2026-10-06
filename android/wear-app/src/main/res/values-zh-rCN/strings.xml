@@ -49,4 +49,18 @@
     <string name="status_reconnecting_retry">房间连接已断开，正在重连，请连接后重试</string>
     <string name="status_room_timeout">房间响应超时，正在重连…</string>
     <string name="status_room_failed">无法恢复房间，请重新连接</string>
+    <string name="nearby_title">面对面加入</string>
+    <string name="nearby_explanation">定位查找附近球局，请允许位置权限。房主也需开启附近发现。</string>
+    <string name="nearby_permission">请在系统设置中允许位置权限，或返回输入房间号</string>
+    <string name="nearby_location_disabled">请开启系统定位，或返回输入房间号</string>
+    <string name="nearby_locating">正在定位…</string>
+    <string name="nearby_searching">正在查找附近球局…</string>
+    <string name="nearby_accuracy">定位精度不足，正在等待更准确的位置…</string>
+    <string name="nearby_timeout">定位超时，请重试或输入房间号</string>
+    <string name="nearby_failed">附近发现失败，请返回重试</string>
+    <string name="nearby_empty">暂无附近球局，请确认房主已开启附近发现</string>
+    <string name="nearby_choose">选择球局加入</string>
+    <string name="nearby_retry">授权 / 重新定位</string>
+    <string name="nearby_room">房间 %1$s · %2$d/%3$d 人</string>
+    <string name="status_room_kicked">你已被房主移出房间</string>
 </resources>

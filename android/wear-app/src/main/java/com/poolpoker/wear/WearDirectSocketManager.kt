@@ -4,6 +4,9 @@ import android.content.Context
 import android.util.Log
 import android.widget.Toast
 import com.poolpoker.shared.SocketEvents
+import com.poolpoker.shared.sharedJson
+import com.poolpoker.shared.generated.DiscoveryPosition
+import kotlinx.serialization.encodeToString
 import com.poolpoker.shared.fromJson
 import com.poolpoker.shared.generated.Room
 import com.poolpoker.shared.generated.WearPlayerSummary
@@ -30,6 +33,7 @@ object WearDirectSocketManager {
     private var appContext: Context? = null
     private var joinTimeout: Job? = null
     private var sessionToken: String? = null
+    private var nearbyJoinPending = false
     var lastStatus: String? = null
         private set
 
@@ -65,11 +69,12 @@ object WearDirectSocketManager {
         url: String = BuildConfig.SERVER_URL,
         customUserId: String? = null,
         customSessionToken: String? = null,
-        onConnected: () -> Unit = {}
+        onConnected: () -> Unit = {},
+        discoveryPosition: DiscoveryPosition? = null
     ) {
         val application = context.applicationContext
         managerScope.launch {
-            connectOnMain(application, roomCode, url, customUserId, customSessionToken, onConnected)
+            connectOnMain(application, roomCode, url, customUserId, customSessionToken, onConnected, discoveryPosition)
         }
     }
 
@@ -79,7 +84,8 @@ object WearDirectSocketManager {
         url: String,
         customUserId: String?,
         customSessionToken: String?,
-        onConnected: () -> Unit
+        onConnected: () -> Unit,
+        discoveryPosition: DiscoveryPosition?
     ) {
         connectionScope?.cancel()
         connectionScope = CoroutineScope(managerScope.coroutineContext + SupervisorJob(managerScope.coroutineContext[Job]))
@@ -89,6 +95,7 @@ object WearDirectSocketManager {
         socket?.disconnect()
         socket = null
         isConnected = false
+        nearbyJoinPending = discoveryPosition != null
         serverUrl = url
         currentRoomCode = roomCode
         userId = customUserId ?: WearUserPrefs.getOrCreateUserId(context)
@@ -113,7 +120,7 @@ object WearDirectSocketManager {
                 if (socket !== activeSocket) return@listen
                 isConnected = false
                 status(context.getString(R.string.status_restoring_room))
-                joinRoom(context.applicationContext, activeSocket, roomCode, onConnected)
+                joinRoom(context.applicationContext, activeSocket, roomCode, onConnected, discoveryPosition)
             }
 
             listen(activeSocket, Socket.EVENT_DISCONNECT) {
@@ -207,7 +214,7 @@ object WearDirectSocketManager {
         })
     }
 
-    private fun joinRoom(context: Context, activeSocket: Socket, code: String, onConnected: () -> Unit) {
+    private fun joinRoom(context: Context, activeSocket: Socket, code: String, onConnected: () -> Unit, discoveryPosition: DiscoveryPosition?) {
         val token = sessionToken
         val payload = JSONObject().apply {
             put("roomCode", code)
@@ -217,6 +224,7 @@ object WearDirectSocketManager {
             } else {
                 put("name", userName)
                 put("avatar", "⌚")
+                if (discoveryPosition != null) put("discoverySource", "geolocation")
             }
         }
         val scope = connectionScope ?: return
@@ -225,37 +233,78 @@ object WearDirectSocketManager {
             delay(15_000L)
             if (socket === activeSocket && !isConnected) {
                 status(context.getString(R.string.status_room_timeout))
+                if (discoveryPosition != null && sessionToken == null) {
+                    cancelNearbyJoin()
+                    status(context.getString(R.string.nearby_failed))
+                    return@launch
+                }
                 // Replace the transport so a late acknowledgement cannot authorize an old socket.
-                connect(context, code, serverUrl, userId, sessionToken, onConnected)
+                connect(context, code, serverUrl, userId, sessionToken, onConnected, discoveryPosition)
             }
         }
         joinTimeout = timeout
-        activeSocket.emit(if (token == null) SocketEvents.JOIN_ROOM else SocketEvents.REJOIN_ROOM, payload, Ack { args ->
-            scope.launch {
-                if (socket !== activeSocket || !activeSocket.connected()) return@launch
-                timeout.cancel()
-                val response = args.firstOrNull() as? JSONObject
-                if (response?.optBoolean("success") != true) {
-                    isConnected = false
-                    val message = response?.optString("message")?.takeIf { it.isNotBlank() }
-                        ?: context.getString(R.string.status_room_failed)
-                    status(message)
-                    // Keep the credential for a deliberate retry; never bypass failed authentication.
-                    WearDataLayerListenerService.clearState()
-                    return@launch
+        fun submitJoin() {
+            activeSocket.emit(if (token == null) SocketEvents.JOIN_ROOM else SocketEvents.REJOIN_ROOM, payload, Ack { args ->
+                scope.launch {
+                    if (socket !== activeSocket || !activeSocket.connected()) return@launch
+                    timeout.cancel()
+                    val response = args.firstOrNull() as? JSONObject
+                    if (response?.optBoolean("success") != true) {
+                        isConnected = false
+                        val message = response?.optString("message")?.takeIf { it.isNotBlank() }
+                            ?: context.getString(R.string.status_room_failed)
+                        if (nearbyJoinPending) cancelNearbyJoin()
+                        status(message)
+                        // Keep the credential for a deliberate retry; never bypass failed authentication.
+                        WearDataLayerListenerService.clearState()
+                        return@launch
+                    }
+                    val receivedToken = response.optString("sessionToken").takeIf { it.isNotBlank() }
+                    if (receivedToken == null) {
+                        if (nearbyJoinPending) cancelNearbyJoin()
+                        status(context.getString(R.string.status_room_failed))
+                        return@launch
+                    }
+                    sessionToken = receivedToken
+                    WearUserPrefs.saveRoomSession(context, WearUserPrefs.RoomSession(serverUrl, code, userId, receivedToken))
+                    isConnected = true
+                    nearbyJoinPending = false
+                    status(context.getString(R.string.status_connected_direct))
+                    activeSocket.emit(SocketEvents.DISCOVERY_STOP)
+                    onConnected()
                 }
-                val receivedToken = response.optString("sessionToken").takeIf { it.isNotBlank() }
-                if (receivedToken == null) {
-                    status(context.getString(R.string.status_room_failed))
-                    return@launch
+            })
+        }
+        if (token == null && discoveryPosition != null) {
+            // The join socket must have its own validated presence; browsing used a separate socket.
+            activeSocket.emit(SocketEvents.DISCOVERY_UPDATE, JSONObject(sharedJson.encodeToString(discoveryPosition)), Ack { args ->
+                scope.launch {
+                    if (socket !== activeSocket || !activeSocket.connected()) return@launch
+                    if ((args.firstOrNull() as? JSONObject)?.optBoolean("success") == true) submitJoin()
+                    else {
+                        timeout.cancel()
+                        val message = (args.firstOrNull() as? JSONObject)?.optString("message")?.takeIf { it.isNotBlank() }
+                            ?: context.getString(R.string.nearby_failed)
+                        cancelNearbyJoin()
+                        status(message)
+                    }
                 }
-                sessionToken = receivedToken
-                WearUserPrefs.saveRoomSession(context, WearUserPrefs.RoomSession(serverUrl, code, userId, receivedToken))
-                isConnected = true
-                status(context.getString(R.string.status_connected_direct))
-                onConnected()
-            }
-        })
+            })
+        } else submitJoin()
+    }
+
+    /** Cancel only an unconfirmed nearby join; preserve any saved room credential. */
+    fun cancelNearbyJoin() {
+        if (!nearbyJoinPending || isConnected) return
+        nearbyJoinPending = false
+        connectionScope?.cancel()
+        connectionScope = null
+        joinTimeout = null
+        socket?.emit(SocketEvents.DISCOVERY_STOP)
+        socket?.off()
+        socket?.disconnect()
+        socket = null
+        currentRoomCode = null
     }
 
     fun pocketBall(roomCode: String, cardId: String) {

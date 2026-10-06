@@ -50,4 +50,17 @@
     <string name="status_room_timeout">Room response timed out. Reconnecting…</string>
     <string name="status_room_failed">Unable to restore room. Please reconnect.</string>
     <string name="status_room_kicked">你已被房主移出房间</string>
+    <string name="nearby_title">Join nearby</string>
+    <string name="nearby_explanation">Allow location to find games. The host must enable nearby discovery.</string>
+    <string name="nearby_permission">Allow location in Settings, or go back to enter a room code.</string>
+    <string name="nearby_location_disabled">Enable device location, or go back to enter a room code.</string>
+    <string name="nearby_locating">Getting location…</string>
+    <string name="nearby_searching">Finding nearby games…</string>
+    <string name="nearby_accuracy">Waiting for a more accurate location…</string>
+    <string name="nearby_timeout">Location timed out. Retry or use a room code.</string>
+    <string name="nearby_failed">Discovery failed. Go back and retry.</string>
+    <string name="nearby_empty">No nearby games. Check that the host enabled discovery.</string>
+    <string name="nearby_choose">Choose a game to join</string>
+    <string name="nearby_retry">Allow location / Retry</string>
+    <string name="nearby_room">Room %1$s · %2$d/%3$d players</string>
 </resources>
