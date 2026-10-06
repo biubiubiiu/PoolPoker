@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -39,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.items
+import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Card
 import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.SwipeToDismissBox
@@ -59,10 +61,19 @@ import com.poolpoker.wear.ui.theme.PoolPokerColors
 
 @Composable
 fun WearGameScreen(roomState: WearSyncRoomPayload?) {
+    val context = LocalContext.current
     var showPocketModal by remember { mutableStateOf(false) }
     var showFoulModal by remember { mutableStateOf(false) }
     var showRetractModal by remember { mutableStateOf(false) }
+    var showLeaveModal by remember { mutableStateOf(false) }
     var selectedTargetUserId by remember { mutableStateOf<String?>(null) }
+
+    val onDismissModals = {
+        showFoulModal = false
+        showPocketModal = false
+        showRetractModal = false
+        showLeaveModal = false
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         when {
@@ -70,20 +81,20 @@ fun WearGameScreen(roomState: WearSyncRoomPayload?) {
                 WearDirectConnectScreen()
             }
             roomState.status == RoomStatus.WAITING -> {
-                WearWaitingScreen(roomState)
+                WearWaitingScreen(
+                    roomState = roomState,
+                    onLeaveRoom = { showLeaveModal = true }
+                )
             }
             roomState.status == RoomStatus.ENDED || roomState.status == RoomStatus.FINISHED -> {
-                WearSettlementScreen(roomState)
+                WearSettlementScreen(
+                    roomState = roomState,
+                    onLeaveRoom = { showLeaveModal = true }
+                )
             }
             else -> {
                 val cards = roomState.myCards.sortedBy { it.ballNumber }
                 val pocketedBalls = roomState.pocketedBallNumbers
-
-                val onDismissModals = {
-                    showFoulModal = false
-                    showPocketModal = false
-                    showRetractModal = false
-                }
 
                 Box(modifier = Modifier.fillMaxSize()) {
                     WearMainGameContent(
@@ -92,7 +103,8 @@ fun WearGameScreen(roomState: WearSyncRoomPayload?) {
                         pocketedBalls = pocketedBalls,
                         onShowPocketModal = { showPocketModal = true },
                         onShowFoulModal = { showFoulModal = true },
-                        onShowRetractModal = { showRetractModal = true }
+                        onShowRetractModal = { showRetractModal = true },
+                        onShowLeaveModal = { showLeaveModal = true }
                     )
 
                     if (showFoulModal || showPocketModal || showRetractModal) {
@@ -130,13 +142,38 @@ fun WearGameScreen(roomState: WearSyncRoomPayload?) {
             }
         }
 
+        if (roomState != null && showLeaveModal) {
+            BackHandler {
+                showLeaveModal = false
+            }
+
+            SwipeToDismissBox(
+                onDismissed = { showLeaveModal = false }
+            ) { isBackground ->
+                if (!isBackground) {
+                    WearLeaveRoomModalScreen(
+                        roomCode = roomState.roomCode,
+                        onConfirmLeave = {
+                            triggerVibration(context)
+                            showLeaveModal = false
+                            WearDirectSocketManager.leaveRoom(context, roomState.roomCode)
+                        },
+                        onDismiss = { showLeaveModal = false }
+                    )
+                }
+            }
+        }
+
         // Overlay Wear OS Curved Time Text at the top edge
         TimeText()
     }
 }
 
 @Composable
-fun WearWaitingScreen(roomState: WearSyncRoomPayload) {
+fun WearWaitingScreen(
+    roomState: WearSyncRoomPayload,
+    onLeaveRoom: () -> Unit
+) {
     ScalingLazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -165,12 +202,33 @@ fun WearWaitingScreen(roomState: WearSyncRoomPayload) {
                 textAlign = TextAlign.Center
             )
         }
+        item {
+            Spacer(modifier = Modifier.height(14.dp))
+            Button(
+                onClick = onLeaveRoom,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(38.dp)
+            ) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = stringResource(R.string.leave_room),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PoolPokerColors.PoolRed
+                    )
+                }
+            }
+        }
     }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun WearSettlementScreen(roomState: WearSyncRoomPayload) {
+fun WearSettlementScreen(
+    roomState: WearSyncRoomPayload,
+    onLeaveRoom: () -> Unit
+) {
     ScalingLazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -384,6 +442,25 @@ fun WearSettlementScreen(roomState: WearSyncRoomPayload) {
                             )
                         }
                     }
+                }
+            }
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(10.dp))
+            Button(
+                onClick = onLeaveRoom,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(38.dp)
+            ) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = stringResource(R.string.leave_room),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PoolPokerColors.PoolRed
+                    )
                 }
             }
         }

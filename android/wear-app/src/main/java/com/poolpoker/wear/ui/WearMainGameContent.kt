@@ -39,7 +39,8 @@ fun WearMainGameContent(
     pocketedBalls: List<Int>,
     onShowPocketModal: () -> Unit,
     onShowFoulModal: () -> Unit,
-    onShowRetractModal: () -> Unit
+    onShowRetractModal: () -> Unit,
+    onShowLeaveModal: () -> Unit
 ) {
     val context = LocalContext.current
 
@@ -71,6 +72,24 @@ fun WearMainGameContent(
                     color = Color.White,
                     textAlign = TextAlign.Center
                 )
+            }
+            item {
+                Spacer(modifier = Modifier.height(14.dp))
+                Button(
+                    onClick = onShowLeaveModal,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(38.dp)
+                ) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = stringResource(R.string.leave_room),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PoolPokerColors.PoolRed
+                        )
+                    }
+                }
             }
         }
         return
@@ -192,6 +211,25 @@ fun WearMainGameContent(
             ) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(text = stringResource(R.string.retract_ball), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        item {
+            Button(
+                onClick = onShowLeaveModal,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(38.dp)
+                    .padding(vertical = 1.dp)
+            ) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = stringResource(R.string.leave_room),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PoolPokerColors.PoolRed
+                    )
                 }
             }
         }

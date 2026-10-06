@@ -37,7 +37,8 @@ WearDataLayerListenerService.roomStateFlow / WearDirectSocketManager
 ### 2.1 顶级路由与手势容器 ([`GameCardScreen.kt`](../android/wear-app/src/main/java/com/poolpoker/wear/ui/GameCardScreen.kt))
 - `WearGameScreen(roomState: WearSyncRoomPayload?)`:
   - 核心状态分发器：处理 `roomState == null` (跳转直连连接页)、`WAITING` (等待开局)、`ENDED/FINISHED` (对局结算) 与 `PLAYING` (进行中)。
-  - 管理 `showPocketModal` 与 `showFoulModal` 状态。
+  - 管理 `showPocketModal`、`showFoulModal`、`showRetractModal` 与 `showLeaveModal` 状态。
+  - 在所有房间状态下（等待界面、游戏界面、胜利界面、结算界面）均提供「🚪 退出房间」主动入口，对齐 Web 端退出房间功能。
   - 挂载 `SwipeToDismissBox` 与 `BackHandler`，捕获 Wear OS 侧滑与 Back 按钮事件。
 - `sendActionToPhone(context, action)`: 统一的操作发送入口（优先使用 Direct Socket，次选 Wearable DataLayer 消息传递）。
 - `triggerVibration(context)`: 触觉震动反馈工具。
@@ -46,11 +47,13 @@ WearDataLayerListenerService.roomStateFlow / WearDirectSocketManager
 - `WearMainGameContent`:
   - 渲染房间号与玩家昵称 Header。
   - 使用 `ScalingLazyColumn` 按球号升序显示玩家当前手牌。
-  - 底部提供垂直堆叠的物理大按钮（「记录进球」、「记录犯规」、「撤回进球」），适配圆形表盘边缘触控。
+  - 底部提供垂直堆叠的物理大按钮（「记录进球」、「记录犯规」、「撤回进球」、「退出房间」），以及获胜清空手牌界面的退出按钮，适配圆形表盘边缘触控。
 
-### 2.3 裁判弹层选择器 ([`WearModalScreens.kt`](../android/wear-app/src/main/java/com/poolpoker/wear/ui/WearModalScreens.kt))
+### 2.3 弹层选择器与确认弹窗 ([`WearModalScreens.kt`](../android/wear-app/src/main/java/com/poolpoker/wear/ui/WearModalScreens.kt))
 - `WearFoulModalScreen`: 裁判选择犯规玩家的选择列表。
 - `WearPocketModalScreen`: 裁判选择进球玩家与 1-15 号球矩阵选择器。
+- `WearRetractModalScreen`: 撤回上一步操作的确认弹层。
+- `WearLeaveRoomModalScreen`: 主动退出房间的二次确认弹层，点击确认后触发 `WearDirectSocketManager.leaveRoom`，发送 `leave_room` 并彻底清理本地持久化凭证与内存状态。
 
 ### 2.4 手牌列表项 ([`WearSingleCardItem.kt`](../android/wear-app/src/main/java/com/poolpoker/wear/ui/WearSingleCardItem.kt))
 - `WearSingleCardItem`: 展示单张扑克牌的花色、点数与「已进球/点击消牌」状态。
@@ -82,7 +85,7 @@ WearDataLayerListenerService.roomStateFlow / WearDirectSocketManager
 
 - `WearUserPrefs` 按服务器地址、房间号和用户身份保存最近一次成功入房的 `sessionToken`；Activity 回到前台时，如果尚无直连 Socket，自动恢复该会话。应用进程被终止后保留凭证，清除应用数据或卸载后的恢复不作保证。
 - 首次入房使用带 ACK 的 `join_room`；已有凭证时，每次 Socket 重连均使用 `rejoin_room`。`isConnected` 表示服务器已确认入房，而不是仅建立传输连接。服务器拒绝原因显示在连接页，拒绝后不绕过鉴权重新创建玩家。
-- 入房 ACK 超时 15 秒会重建 Socket；替换前移除旧监听并关闭旧连接，事件与 ACK 通过 `Dispatchers.Main.immediate` 在主线程处理并校验 Socket 实例，防止旧连接覆盖新连接状态。Socket 管理器持有进程级调度 scope，每个连接持有可取消的子 scope；超时使用 `Job + delay`，ACK 到达时取消超时 Job，替换连接或主动断开时取消整个连接 scope。连接不绑定 Activity 生命周期，以便 Activity 重建后继续恢复房间。离开房间时清除保存的会话。
+- 入房 ACK 超时 15 秒会重建 Socket；替换前移除旧监听并关闭旧连接，事件与 ACK 通过 `Dispatchers.Main.immediate` 在主线程处理并校验 Socket 实例，防止旧连接覆盖新连接状态。Socket 管理器持有进程级调度 scope，每个连接持有可取消的子 scope；超时使用 `Job + delay`，ACK 到达时取消超时 Job，替换连接或主动断开时取消整个连接 scope。连接不绑定 Activity 生命周期，以便 Activity 重建后继续恢复房间。主动离开房间通过 `WearDirectSocketManager.leaveRoom` 向服务端发送 `leave_room` 事件通知服务端将手表玩家移出房间、转让房主或解散空房，同时立即清除 `WearUserPrefs` 中持久化的房间凭证与 `WearDataLayerListenerService` 内存房间状态，安全回到直连输入页，防止手表下次启动自动重新加入已被废弃或空无一人的房间。
 - 直连模式断线期间的操作会提示重连后重试，不转发至手机、不缓存重放进球或罚牌，避免重复记分。没有直连会话的手机伴侣模式继续使用 DataLayer。
 - 手机通过原生 `room_credentials` 桥同步 `sessionToken`，手表以同一身份恢复房间；蓝牙日志不打印凭证原文。
 - 旧版本未保存的手表会话凭证无法通过房间号补回；原玩家仍在房内时服务器会拒绝普通加入，保持既有身份安全约束。

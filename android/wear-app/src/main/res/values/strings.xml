@@ -63,4 +63,8 @@
     <string name="nearby_choose">Choose a game to join</string>
     <string name="nearby_retry">Allow location / Retry</string>
     <string name="nearby_room">Room %1$s · %2$d/%3$d players</string>
+    <string name="leave_room">🚪 Leave Room</string>
+    <string name="leave_room_title">🚪 Leave Room</string>
+    <string name="confirm_leave_room_desc">Are you sure you want to leave room %1$s?</string>
+    <string name="btn_confirm_leave">Leave Room</string>
 </resources>

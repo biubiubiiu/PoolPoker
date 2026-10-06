@@ -525,6 +525,13 @@
 - **前端重构**：从 `usePlayerProfile` 与 `RoomLobby` 中移除球色配置选项及下拉选择框；`useGameRoom` 移除 `fetchBallConfigs`、`ballConfigs`、`ballConfigOptions`、`activeBallConfigKey`、`ballColorStyle`；`useBallAppearance` 改为仅管理 `theme`，默认使用星牌美术资产（`xingpai`）；`ThreeBilliardsArena` 贴图加载失败时直接使用标准 8 色回退。
 - **测试与文档同步**：同步更新所有单元测试及 E2E 测试用例，清理 `AGENTS.md`、`README.md`、`docs/overview.md` 中对 `ball_configs.json` 和 `/api/ball-configs` 的描述；全量 Vitest 单元测试（122 项）、vue-tsc 类型检查、Biome lint/format、Vite 生产构建均顺利通过。
 
+### 2026-10-06 Wear OS 主动退出房间功能
+
+- **主动退房入口全覆盖**：为手表端（`:wear-app`）补齐主动离开房间入口，对齐 Web 端「退出房间」能力；分别在等待开局界面（`WearWaitingScreen`）、牌局进行中操作底栏与手牌清空获胜界面（`WearMainGameContent`）、对局结算界面（`WearSettlementScreen`）均新增「🚪 退出房间」按钮。
+- **二次确认弹窗与手势规范**：实现 `WearLeaveRoomModalScreen` 确认浮层，采用 Root Box Overlay 模式挂载在 `WearGameScreen` 顶层，支持 Wear OS `SwipeToDismissBox` 侧滑手势与物理返回键（`BackHandler`）取消，防误触退出。
+- **服务端退房协议与本地凭证彻底清理**：在 `WearDirectSocketManager` 中实现 `leaveRoom(context, roomCode)`，向服务端发送 `leave_room` 事件通知服务端将手表玩家安全移出房间（若为空房则自动解散），并在断开 Socket 的同时清理 `WearUserPrefs` 中持久化的房间凭证与 `WearDataLayerListenerService` 内存房间状态，彻底解决手表重启或前台切回时自动重新加入无人房间且无法退出的问题。
+- **多语言资源**：在简体中文、繁体中文、英文 `strings.xml` 中补齐「🚪 退出房间」、「确认退出房间 %1$s 吗？」、「确认退出」等文案。
+- **验证**：`:wear-app:compileDebugSources` 编译通过、`:wear-app:testDebugUnitTest` 通过、Vitest 单元测试全量通过（122/122）、`codegen:check` 通过、Biome 代码规范与 `vue-tsc` 检查均通过。
 
 ## 2026-10-14：补齐 Apple Watch 客户端
 

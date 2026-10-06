@@ -376,6 +376,38 @@ object WearDirectSocketManager {
         }
     }
 
+    fun leaveRoom(context: Context, targetRoomCode: String? = null) {
+        val application = context.applicationContext
+        appContext = application
+        managerScope.launch {
+            val code = targetRoomCode ?: currentRoomCode
+            val activeSocket = socket
+            if (code != null && activeSocket?.connected() == true) {
+                try {
+                    val payload = JSONObject().apply {
+                        put("roomCode", code)
+                    }
+                    activeSocket.emit(SocketEvents.LEAVE_ROOM, payload)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error emitting leave_room", e)
+                }
+            }
+            connectionScope?.cancel()
+            connectionScope = null
+            joinTimeout?.cancel()
+            joinTimeout = null
+            activeSocket?.off()
+            activeSocket?.disconnect()
+            socket = null
+            isConnected = false
+            currentRoomCode = null
+            sessionToken = null
+            lastStatus = null
+            WearUserPrefs.clearRoomSession(application)
+            WearDataLayerListenerService.clearState()
+        }
+    }
+
     fun disconnect() {
         managerScope.launch {
             connectionScope?.cancel()
