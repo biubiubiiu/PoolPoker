@@ -153,6 +153,13 @@ fn call_kotlin_broadcast(payload: &str) {
 
 #[tauri::command]
 fn sync_wear_state(payload: String) -> Result<(), String> {
+    #[cfg(target_os = "ios")]
+    unsafe {
+        unsafe extern "C" {
+            fn poolpoker_watch_sync(bytes: *const u8, length: usize);
+        }
+        poolpoker_watch_sync(payload.as_ptr(), payload.len());
+    }
     #[cfg(target_os = "android")]
     {
         println!(

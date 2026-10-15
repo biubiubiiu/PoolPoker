@@ -154,7 +154,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
               roomCode: code,
               userId: userId.value,
               myUserId: userId.value,
-              serverUrl: serverUrl?.value || '',
+              serverUrl: serverUrl?.value || window.location.origin,
             })
           : JSON.stringify({ event: CLIENT_TO_SERVER_EVENTS.leaveRoom });
         await invoke('sync_wear_state', { payload });

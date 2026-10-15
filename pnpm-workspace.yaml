@@ -31,6 +31,19 @@ tasks:
     concurrencyGroup: poolpoker-native
     cache: false
 
+  test:watch:
+    dependsOn: [codegen:check]
+    concurrencyGroup: poolpoker-native
+    cache: false
+  build:watchos:debug:
+    dependsOn: [codegen:check]
+    concurrencyGroup: poolpoker-native
+    cache: false
+  build:watchos:release:
+    dependsOn: [codegen:check, test:unit, test:watch]
+    concurrencyGroup: poolpoker-native
+    cache: false
+
 # Codegen, checks and native builds share generated models; Tauri also rebuilds dist/.
 concurrencyGroups:
   poolpoker-native: 1
@@ -40,3 +53,5 @@ pipelines:
   android-release: [build:android:release]
   ios-debug: [build:ios:debug]
   ios-release: [build:ios:release]
+  watchos-debug: [build:watchos:debug]
+  watchos-release: [build:watchos:release]

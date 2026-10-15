@@ -29,6 +29,7 @@ targets:
     platform: iOS
     sources:
       - path: Sources
+      - path: Shared/RoomCredential.swift
       - path: Assets.xcassets
       - path: Externals
       - path: poolpoker_iOS
@@ -66,6 +67,7 @@ targets:
         RUST_LOG: info
     settings:
       base:
+        CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]: Shared/Simulator.entitlements
         ENABLE_BITCODE: false
         ARCHS: [arm64]
         VALID_ARCHS: arm64 
@@ -75,6 +77,8 @@ targets:
         EXCLUDED_ARCHS[sdk=iphoneos*]: x86_64
       groups: [app]
     dependencies:
+      - target: poolpoker_watchOS
+        embed: true
       - framework: libapp.a
         embed: false
       - sdk: CoreGraphics.framework
@@ -103,3 +107,34 @@ targets:
         outputFiles:
           - $(SRCROOT)/Externals/x86_64/${CONFIGURATION}/libapp.a
           - $(SRCROOT)/Externals/arm64/${CONFIGURATION}/libapp.a
+  poolpoker_watchOS:
+    type: application
+    platform: watchOS
+    deploymentTarget: "10.0"
+    sources:
+      - path: WatchApp
+        excludes: [Info.plist]
+      - path: Shared
+    info:
+      path: WatchApp/Info.plist
+      properties:
+        CFBundleDisplayName: PoolPoker
+        CFBundleShortVersionString: 1.0.0
+        CFBundleVersion: "1.0.0"
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: com.poolpoker.app
+        WKRunsIndependentlyOfCompanionApp: true
+        NSLocationWhenInUseUsageDescription: 查找附近可加入的球霸扑克房间，不保存或公开精确位置。
+        NSLocalNetworkUsageDescription: 连接局域网内的球霸扑克服务器。
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+    settings:
+      base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        PRODUCT_NAME: PoolPokerWatch
+        PRODUCT_BUNDLE_IDENTIFIER: com.poolpoker.app.watchkitapp
+        SWIFT_VERSION: 5.0
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_ENTITLEMENTS[sdk=watchsimulator*]: Shared/Simulator.entitlements
+        SKIP_INSTALL: true
+    scheme: {}

@@ -27,7 +27,8 @@ fun BilliardBallBadge(
 ) {
     val isStriped = ballNumber in 9..15
     val ballColor = PoolPokerColors.getBallColor(ballNumber)
-    val innerCircleSize = size * 0.54f
+    val innerCircleSize = size * 0.52f
+    val stripeHeight = size * 0.62f
 
     Box(
         modifier = modifier
@@ -41,7 +42,7 @@ fun BilliardBallBadge(
             Box(
                 modifier = Modifier
                     .width(size)
-                    .height(size * 0.48f)
+                    .height(stripeHeight)
                     .background(ballColor)
             )
         }
@@ -56,7 +57,7 @@ fun BilliardBallBadge(
         ) {
             Text(
                 text = "$ballNumber",
-                fontSize = if (ballNumber >= 10) (innerCircleSize.value * 0.50f).sp else (innerCircleSize.value * 0.60f).sp,
+                fontSize = if (ballNumber >= 10) (innerCircleSize.value * 0.48f).sp else (innerCircleSize.value * 0.58f).sp,
                 fontWeight = FontWeight.Black,
                 color = Color.Black,
                 textAlign = TextAlign.Center

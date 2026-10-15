@@ -128,6 +128,7 @@
 				9F02D8E01A2775FEDC9AD823 /* src */,
 				D5E138217A337EEB0F4942E4 /* Frameworks */,
 				65CA7E90D63485281DC8E003 /* Products */,
+				20942848E9B9C03949C6710C,
 			);
 			sourceTree = "<group>";
 		};
@@ -135,6 +136,7 @@
 			isa = PBXGroup;
 			children = (
 				D09CF97F97097F4E0D8B4ABB /* PoolPoker.app */,
+				455D7A0213C093D812096E00,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -240,10 +242,12 @@
 				4A811471B1E939258CA84CD1 /* Sources */,
 				AF4166914FB475DD055A7374 /* Resources */,
 				B12473B44219B818EAFC861F /* Frameworks */,
+				D1E38A2010627A0D092364B7,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				5B396A35662A9ECC37C2C2D7,
 			);
 			name = poolpoker_iOS;
 			packageProductDependencies = (
@@ -276,6 +280,7 @@
 			projectRoot = "";
 			targets = (
 				ECA8DF09E2A60979268E7DDC /* poolpoker_iOS */,
+				448A3466D35F3BE0E9CA1771,
 			);
 		};
 /* End PBXProject section */
@@ -324,6 +329,8 @@
 			files = (
 				DD813E33CBBBE082FAE5339D /* LaunchScreenView.swift in Sources */,
 				1B96EAD42A3A1BACA3DB3540 /* main.mm in Sources */,
+				9B873D7A9403164436179997,
+				A98FCFD23838B7302DB45160,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -393,6 +400,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = poolpoker_iOS/poolpoker_iOS.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = Shared/Simulator.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				ENABLE_BITCODE = NO;
 				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
@@ -421,7 +429,7 @@
 					"$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.poolpoker.app;
-				PRODUCT_NAME = PoolPoker;
+				PRODUCT_NAME = "PoolPoker";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALID_ARCHS = arm64;
@@ -498,6 +506,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = poolpoker_iOS/poolpoker_iOS.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = Shared/Simulator.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				ENABLE_BITCODE = NO;
 				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
@@ -526,7 +535,7 @@
 					"$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.poolpoker.app;
-				PRODUCT_NAME = PoolPoker;
+				PRODUCT_NAME = "PoolPoker";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALID_ARCHS = arm64;
@@ -555,6 +564,311 @@
 			defaultConfigurationName = debug;
 		};
 /* End XCConfigurationList section */
+/* Apple Watch app and shared session bridge */
+		A3F0B1C2D3E4F5A6B7C8D9E0 = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = WatchApp/Localization.swift;
+			sourceTree = SOURCE_ROOT;
+		};
+		A3F0B1C2D3E4F5A6B7C8D9E1 = {
+			isa = PBXBuildFile;
+			fileRef = A3F0B1C2D3E4F5A6B7C8D9E0;
+		};
+		B3F0B1C2D3E4F5A6B7C8D9E0 = {
+			isa = PBXFileReference;
+			lastKnownFileType = text.json.xcstrings;
+			path = WatchApp/Localizable.xcstrings;
+			sourceTree = SOURCE_ROOT;
+		};
+		B3F0B1C2D3E4F5A6B7C8D9E1 = {
+			isa = PBXBuildFile;
+			fileRef = B3F0B1C2D3E4F5A6B7C8D9E0;
+		};
+		00A2571ED9ABE1F748A9C548 = {
+			isa = PBXBuildFile;
+			fileRef = 03CBFA066652A0CD9DF6BD6F;
+		};
+		03CBFA066652A0CD9DF6BD6F = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = WatchApp/NearbyRoomsStore.swift;
+			sourceTree = SOURCE_ROOT;
+		};
+		05670F3787CC8FFBD51F6F0E = {
+			isa = XCBuildConfiguration;
+			name = release;
+			buildSettings = {
+				PRODUCT_NAME = PoolPokerWatch;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				PRODUCT_BUNDLE_IDENTIFIER = com.poolpoker.app.watchkitapp;
+				SDKROOT = watchos;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+				"CODE_SIGN_ENTITLEMENTS[sdk=watchsimulator*]" = Shared/Simulator.entitlements;
+				TARGETED_DEVICE_FAMILY = 4;
+				SWIFT_VERSION = 5.0;
+				INFOPLIST_FILE = WatchApp/Info.plist;
+				GENERATE_INFOPLIST_FILE = NO;
+				CODE_SIGN_STYLE = Automatic;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SKIP_INSTALL = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				CURRENT_PROJECT_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.0;
+			};
+		};
+		09B4BA8499C154340393FCAB = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = WatchApp/WatchRoomStore.swift;
+			sourceTree = SOURCE_ROOT;
+		};
+		0DC2B34EB857AE5900266D9E = {
+			isa = PBXBuildFile;
+			fileRef = 455D7A0213C093D812096E00;
+			settings = {
+				ATTRIBUTES = (
+					RemoveHeadersOnCopy,
+				);
+			};
+		};
+		1A539253B540F23021D83685 = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = WatchApp/Assets.xcassets; sourceTree = SOURCE_ROOT; };
+		20942848E9B9C03949C6710C = {
+			isa = PBXGroup;
+			name = "Apple Watch";
+			children = (
+				AB29EAF2F1F9BB3FFCDBF585,
+				F3F1F1BB102F3DB07350E141,
+				03CBFA066652A0CD9DF6BD6F,
+				E4FA30639344E8BCB43DAAEA,
+				8C7446AB3810F3DBB1E034E9,
+				EA2E3AAD062F8DF76CA529AD,
+				4BBAACD11A03F77195B500F9,
+				A2ED2CAE51DEF187F784BECF,
+				321C47996D2155E85574EF38,
+				09B4BA8499C154340393FCAB,
+				CC77784D657FBDB6CC2B7715,
+				A3F0B1C2D3E4F5A6B7C8D9E0,
+				B3F0B1C2D3E4F5A6B7C8D9E0,
+			);
+			sourceTree = "<group>";
+		};
+		2CF66BAE4F1B1166DB0CFE4C = {
+			isa = PBXBuildFile;
+			fileRef = E4FA30639344E8BCB43DAAEA;
+		};
+		2E460A5DCF01B4BD950F0994 = {
+			isa = XCBuildConfiguration;
+			name = debug;
+			buildSettings = {
+				PRODUCT_NAME = PoolPokerWatch;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				PRODUCT_BUNDLE_IDENTIFIER = com.poolpoker.app.watchkitapp;
+				SDKROOT = watchos;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+				"CODE_SIGN_ENTITLEMENTS[sdk=watchsimulator*]" = Shared/Simulator.entitlements;
+				TARGETED_DEVICE_FAMILY = 4;
+				SWIFT_VERSION = 5.0;
+				INFOPLIST_FILE = WatchApp/Info.plist;
+				GENERATE_INFOPLIST_FILE = NO;
+				CODE_SIGN_STYLE = Automatic;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SKIP_INSTALL = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				CURRENT_PROJECT_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.0;
+			};
+		};
+		321C47996D2155E85574EF38 = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = WatchApp/WatchGameView.swift;
+			sourceTree = SOURCE_ROOT;
+		};
+		325BF5E4D173CC050B12A269 = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2E460A5DCF01B4BD950F0994,
+				05670F3787CC8FFBD51F6F0E,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = debug;
+		};
+		34E8A52E896E2423FD1B4813 = {
+			isa = PBXBuildFile;
+			fileRef = A2ED2CAE51DEF187F784BECF;
+		};
+		3CC39ABEA96AC1E41CBC4C90 = {
+			isa = PBXBuildFile;
+			fileRef = 09B4BA8499C154340393FCAB;
+		};
+		448A3466D35F3BE0E9CA1771 = {
+			isa = PBXNativeTarget;
+			name = poolpoker_watchOS;
+			productName = PoolPokerWatch;
+			productType = "com.apple.product-type.application";
+			productReference = 455D7A0213C093D812096E00;
+			buildConfigurationList = 325BF5E4D173CC050B12A269;
+			buildPhases = (
+				74A5C3D796A5FEDFD4518C55,
+				A5B61CDE03D2B7CED91AF45F,
+				7E5FA55B98B78F6F96307EBD,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+		};
+		455D7A0213C093D812096E00 = {
+			isa = PBXFileReference;
+			explicitFileType = wrapper.application;
+			includeInIndex = 0;
+			path = PoolPokerWatch.app;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		49522228664C11BBBDB2C907 = {
+			isa = PBXBuildFile;
+			fileRef = EA2E3AAD062F8DF76CA529AD;
+		};
+		4B20A598C158916540B0B0DF = {
+			isa = PBXBuildFile;
+			fileRef = 4BBAACD11A03F77195B500F9;
+		};
+		4BBAACD11A03F77195B500F9 = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = WatchApp/WatchConnectView.swift;
+			sourceTree = SOURCE_ROOT;
+		};
+		5B396A35662A9ECC37C2C2D7 = {
+			isa = PBXTargetDependency;
+			target = 448A3466D35F3BE0E9CA1771;
+			targetProxy = 7614F929AECB4A27C580445D;
+		};
+		5B893F135CAD6FF49B2F8F0C = {
+			isa = PBXBuildFile;
+			fileRef = AB29EAF2F1F9BB3FFCDBF585;
+		};
+		74A5C3D796A5FEDFD4518C55 = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5B893F135CAD6FF49B2F8F0C,
+				A98FCFD23838B7302DB45160,
+				00A2571ED9ABE1F748A9C548,
+				2CF66BAE4F1B1166DB0CFE4C,
+				CF61428F37120DA572D25B60,
+				49522228664C11BBBDB2C907,
+				4B20A598C158916540B0B0DF,
+				34E8A52E896E2423FD1B4813,
+				82AD48A89272553BFE34726F,
+				3CC39ABEA96AC1E41CBC4C90,
+				A3F0B1C2D3E4F5A6B7C8D9E1,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7614F929AECB4A27C580445D = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E2D1319648EC0563DB8BE051;
+			proxyType = 1;
+			remoteGlobalIDString = 448A3466D35F3BE0E9CA1771;
+			remoteInfo = poolpoker_watchOS;
+		};
+		7E5FA55B98B78F6F96307EBD = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		82AD48A89272553BFE34726F = {
+			isa = PBXBuildFile;
+			fileRef = 321C47996D2155E85574EF38;
+		};
+		8A08E0DB7159B2C1B695D1C6 = {isa = PBXBuildFile; fileRef = 1A539253B540F23021D83685; };
+		8C7446AB3810F3DBB1E034E9 = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = WatchApp/SettlementView.swift;
+			sourceTree = SOURCE_ROOT;
+		};
+		9B873D7A9403164436179997 = {
+			isa = PBXBuildFile;
+			fileRef = CC77784D657FBDB6CC2B7715;
+		};
+		A2ED2CAE51DEF187F784BECF = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = WatchApp/WatchConnectivityReceiver.swift;
+			sourceTree = SOURCE_ROOT;
+		};
+		A5B61CDE03D2B7CED91AF45F = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8A08E0DB7159B2C1B695D1C6,
+				B3F0B1C2D3E4F5A6B7C8D9E1,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A98FCFD23838B7302DB45160 = {
+			isa = PBXBuildFile;
+			fileRef = F3F1F1BB102F3DB07350E141;
+		};
+		AB29EAF2F1F9BB3FFCDBF585 = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = Shared/Generated/WireModels.swift;
+			sourceTree = SOURCE_ROOT;
+		};
+		CC77784D657FBDB6CC2B7715 = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = Sources/poolpoker/WatchSessionBridge.swift;
+			sourceTree = SOURCE_ROOT;
+		};
+		CF61428F37120DA572D25B60 = {
+			isa = PBXBuildFile;
+			fileRef = 8C7446AB3810F3DBB1E034E9;
+		};
+		D1E38A2010627A0D092364B7 = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				0DC2B34EB857AE5900266D9E,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E4FA30639344E8BCB43DAAEA = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = WatchApp/PoolPokerWatchApp.swift;
+			sourceTree = SOURCE_ROOT;
+		};
+		EA2E3AAD062F8DF76CA529AD = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = WatchApp/SocketTransport.swift;
+			sourceTree = SOURCE_ROOT;
+		};
+		F3F1F1BB102F3DB07350E141 = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = Shared/RoomCredential.swift;
+			sourceTree = SOURCE_ROOT;
+		};
+
 	};
 	rootObject = E2D1319648EC0563DB8BE051 /* Project object */;
 }

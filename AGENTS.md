@@ -40,17 +40,17 @@ pnpm pipeline ios-release --full     # iOS Release build with model generation +
 
 ## Architecture
 
-Multi-client architecture supporting Web browsers, Android Phone Companion, iOS App, and native Wear OS watches:
+Multi-client architecture supporting Web browsers, Android Phone Companion, iOS App, native Wear OS watches, and native Apple Watch:
 
 ```
-Browser (Vue 3 components) / Wear OS (:wear-app) / Android App (:app) / iOS App (apple/)
-  → Socket.IO emit / Data Layer API (contract in shared/types/socket.ts & :shared-models)
+Browser (Vue 3 components) / Wear OS (:wear-app) / Android App (:app) / iOS App & Watch App (apple/)
+  → Socket.IO emit / Data Layer API / WatchConnectivity (contract in shared/types/socket.ts & :shared-models)
 server/socketHandlers.ts  →  gameEngine.ts / pokerDeck.ts / roomManager.ts
   → broadcastRoomState → room_updated (multi-socket per userId) → Reactive UI re-render
 ```
 
 - **Web Frontend & Tauri** (`src/`, `src-tauri/`): Vue 3 + TypeScript + Vite + Tailwind CSS. Business logic lives in composables (`useGameRoom`, `useSocket`, `usePlayerProfile`, `useWearSync`); components handle presentation + events. `ThreeBilliardsArena` loads `public/models/billiards_table.glb` and keeps the fixed ball layout, projected DOM hit targets, and pocket animation in sync with the model. Tauri v2 packages the Web frontend into Android APK/AAB (`android/app`), iOS App (`apple/`, symlinked via `src-tauri/gen/apple -> ../../apple`), and desktop applications.
-- **iOS App** (`apple/`): Native iOS application bundle created by Tauri v2. Xcode workspace/project configured in `apple/poolpoker.xcodeproj` (managed via `apple/project.yml`). Supports iOS simulator dev (`pnpm exec tauri ios dev`) and release builds (`pnpm pipeline ios-release --full`).
+- **iOS App & Apple Watch** (`apple/`): Native iOS application bundle created by Tauri v2 and native Apple Watch companion (`apple/WatchApp`, `poolpoker_watchOS` target). Multi-language strings managed via Apple String Catalog (`Localizable.xcstrings`). Supports WCSession credentials bridge and direct Socket.IO HTTP long polling connection. Xcode workspace/project configured in `apple/poolpoker.xcodeproj` (managed via `apple/project.yml`). Supports iOS simulator dev (`pnpm exec tauri ios dev`) and release builds (`pnpm pipeline ios-release --full`).
 - **Android & Wear OS** (`android/`):
   - `:app`: Tauri Android App module extending `TauriActivity` with `TauriWearSyncPlugin` and `WearableDataLayerService`.
   - `:shared-models`: Kotlin data models (`WearSyncRoomPayload`, `WearActionPayload`) and DataLayer contracts.
@@ -91,6 +91,7 @@ These are non-obvious and must be preserved when editing:
 ## Docs
 
 - `docs/overview.md` is the authoritative deep-dive: full data-flow diagram, per-file responsibilities, and implementation history.
+- `docs/apple_watch_architecture.md` covers the native Apple Watch architecture, Engine.IO long polling, WatchConnectivity session bridge, String Catalog localization, and simulator/hardware validation.
 - `docs/wear_app_architecture.md` covers the native Wear OS app architecture, `com.poolpoker.wear.ui` module breakdown, and swipe-to-dismiss gesture navigation rules.
 - `docs/android_tauri_architecture.md` covers the Android Gradle multi-module architecture, Tauri v2 Android APK packaging, and native Wear OS DataLayer sync.
 - `docs/implement_log.md` records round-by-round implementation decisions. Consult these before making architectural changes; keep them in sync for substantive work.

@@ -525,3 +525,29 @@
 - **前端重构**：从 `usePlayerProfile` 与 `RoomLobby` 中移除球色配置选项及下拉选择框；`useGameRoom` 移除 `fetchBallConfigs`、`ballConfigs`、`ballConfigOptions`、`activeBallConfigKey`、`ballColorStyle`；`useBallAppearance` 改为仅管理 `theme`，默认使用星牌美术资产（`xingpai`）；`ThreeBilliardsArena` 贴图加载失败时直接使用标准 8 色回退。
 - **测试与文档同步**：同步更新所有单元测试及 E2E 测试用例，清理 `AGENTS.md`、`README.md`、`docs/overview.md` 中对 `ball_configs.json` 和 `/api/ball-configs` 的描述；全量 Vitest 单元测试（122 项）、vue-tsc 类型检查、Biome lint/format、Vite 生产构建均顺利通过。
 
+
+## 2026-10-14：补齐 Apple Watch 客户端
+
+- 新增 watchOS 10+ SwiftUI 目标，嵌入现有 iOS app 并允许独立运行，覆盖 Wear OS 的房间加入、附近发现、手牌、裁判记球/罚牌、开球、撤回及结算。
+- wire models 从同一 JSON Schema 生成 Swift Codable，并纳入 codegen 一致性检查。
+- 使用 URLSession 的 Engine.IO HTTP 长轮询适配 watchOS 网络限制；入房 ACK、Keychain 会话、凭证重连、断线拒绝操作及撤回 revision 保护沿用服务器规则。
+- iPhone 通过现有 Tauri 命令和 WatchConnectivity 同步同一用户身份；新增独立 watchOS 构建 pipeline、真实后端 Swift 协议测试和真机验收说明。
+- 详见 [Apple Watch 架构与验收](apple_watch_architecture.md)。
+
+### Apple Watch 模拟器验收补充
+
+安装 watchOS 26.5 runtime 后完成 42mm 对局界面验收和完整 Debug pipeline；修复模拟器 Keychain 签名缺失导致会话无法保存，以及进球归属 wheel picker 高度被压缩的问题。已复测重启恢复、消牌、撤回、犯规、开球和结算。验收范围及硬件边界见 Apple Watch 架构文档。
+
+### 2026-10-15：40mm 附近加入验收
+
+40mm SE 3 使用合成坐标完成发现、点击加入、重启恢复和主动离房；定位拒绝提示通过。修复 discovery_update ACK 覆盖已有附近列表提示的时序问题，并在界面复测。模型一致性和 4 项 Swift 协议测试再次通过。
+
+iPhone 实际 Tauri 模拟器包在原有 Build Rust Code 阶段失败；关闭该目标构建脚本沙箱的方案被自动审批拒绝，用户选择保留沙箱并记录限制，未修改该安全设置。手机配对会话同步仍未验收。
+
+### 2026-10-15：Apple Watch 本地化规范重构与对局界面优化
+
+- **String Catalog 本地化迁移**：将原 `apple/WatchApp/Localization.swift` 中的单文件硬编码字典重构迁移至 Apple 官方标准 String Catalog（`apple/WatchApp/Localizable.xcstrings`），完整提取 85 条文案，规范格式化占位符，支持 `en`、`zh-Hans`、`zh-Hant`。
+- **强类型访问层精简**：重写 `Localization.swift`，代码行数从 703 行精简至约 140 行。`WatchStrings` 保持原有调用 API 100% 向后兼容，底层基于 `bundle.localizedString(forKey:value:table:)`，享有系统级本地化回退优先级和自动语言匹配。
+- **构建与测试资源接入**：在 `Package.swift`（SwiftPM 测试目标）和 `apple/poolpoker.xcodeproj/project.pbxproj`（`poolpoker_watchOS` 资源的 `PBXResourcesBuildPhase`）中注册 `Localizable.xcstrings`，构建产物中自动编译生成 `zh-Hans.lproj`、`zh-Hant.lproj`、`en.lproj` 的 `Localizable.strings`。
+- **对局界面 UI 优化**：在 `PoolPokerWatchApp.swift` 中调整当前玩家名展示逻辑，对局中（`case .playing`）不再在击球顺序上方重复渲染玩家昵称，直接突出击球顺序条；玩家昵称仅保留在入房等待大厅。
+- **验证**：`xcodebuild` watchOS Target 编译通过，`swift test --package-path apple` 单元测试通过，全量 Vitest 单元测试（122 项）通过，Husky / Biome 检查通过。

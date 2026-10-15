@@ -10,7 +10,7 @@
 | iOS Debug | `pnpm pipeline ios-debug --full` | 生成 wire models → 一致性检查 |
 | iOS Release | `pnpm pipeline ios-release --full` | 生成 wire models → 一致性检查、单元测试 |
 
-四条流程都会先执行 `codegen:models`，再执行 `codegen:check`；Release 的单元测试也等待检查完成。生成结果会更新工作区中的 TS/Kotlin 文件。独立 `pnpm run codegen:check` 仍只检查，不生成代码，可用于 CI 检测未提交的生成结果。
+上述四条流程都会先执行 `codegen:models`，再执行 `codegen:check`；Release 的单元测试也等待检查完成。生成结果会更新工作区中的 TS/Kotlin/Swift 文件。独立 `pnpm run codegen:check` 仍只检查，不生成代码，可用于 CI 检测未提交的生成结果。
 
 首次执行前准备好对应平台的 SDK、Rust targets 和签名环境。iOS 默认目标为
 真机 `aarch64`，需要 macOS/Xcode；Release 沿用现有签名和导出配置，编排不负责上传商店。
@@ -32,7 +32,7 @@ pnpm exec tauri ios dev
 使根目录脚本参与任务图。前置检查失败时，依赖它的构建不会执行。
 
 生成、检查、测试和移动端打包任务共用 `poolpoker-native` 并发组，限额为 1，因为 Android/iOS
-共享生成的 TS/Kotlin 文件，且都会通过 Tauri 的 `beforeBuildCommand` 重建同一个 `dist/`。并发组对使用同一
+共享生成的 TS/Kotlin/Swift 文件，且都会通过 Tauri 的 `beforeBuildCommand` 重建同一个 `dist/`。并发组对使用同一
 pnpm stateDir 的进程生效；直接运行 Tauri、Gradle 或 Xcode 不受 pnpm 调度保护。
 不要同时手动启动这些构建。
 
@@ -46,3 +46,5 @@ pnpm 结果缓存，保留 Gradle/Cargo 自身的增量构建，避免本地 SDK
 
 参考：[pnpm pipeline](https://pnpm.io/cli/pipeline)、
 [任务依赖与并发组](https://pnpm.io/workspace-task-orchestration)。
+
+Apple Watch 新增 `pnpm pipeline watchos-debug --full`（通用模拟器构建）和 `pnpm pipeline watchos-release --full`（真机 Release，需签名）。Release 额外执行 `test:watch`，使用临时本机后端运行 Swift 协议测试。独立 watchOS 构建不触发前端/Tauri，但仍共享原生并发组；iOS 构建会自动包含嵌入的 watchOS 目标。详见 [Apple Watch 架构](apple_watch_architecture.md)。

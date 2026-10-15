@@ -44,7 +44,7 @@ Wear OS 直连首页提供「面对面加入」，通过 `WearNearbyDiscovery` �
 
 ### 目录结构
 
-├── apple/                   # iOS 原生工程 (Tauri v2 iOS 打包与 Xcode 配置)
+├── apple/                   # iOS 与 Apple Watch 原生工程 (Tauri v2 iOS 打包与 watchOS Companion)
 ├── android/                 # Android 多模块工程 (:app / :wear-app / :shared-models)
 ├── src-tauri/               # Tauri v2 配置文件与 Rust 核心桥接层
 ├── server/                  # 后端 (TypeScript)
@@ -254,3 +254,7 @@ Wear OS 直连首页提供「面对面加入」，通过 `WearNearbyDiscovery` �
 - 当前为 Three.js WebGL 原型，尚未接入 WebGPU 专用材质，也未完成 iOS/Android 真机性能与触觉验证。既有 `e2e/poolpoker.spec.ts` 仍使用 v1 选择器，不作为本轮 v2 浏览器验收依据。
 
 - 袋口几何（2026-09-08）：桌布与木质底座使用同心的六个开孔，袋内壁和底面下沉；六段倒角库边在袋口处斜向收口，细金属袋沿贴近桌面。球体静止高度与袋口动画高度保持一致。
+
+## Apple Watch
+
+`apple/WatchApp` 提供 watchOS 10+ 原生客户端，与 Wear OS 对齐房间加入、附近发现、手牌操作和结算。iOS 工程嵌入 `poolpoker_watchOS`，协议模型由 JSON Schema 同时生成 Swift / TS / Kotlin。连接与手机同步、安全恢复、构建及真机验收见 [Apple Watch 架构](apple_watch_architecture.md)。
