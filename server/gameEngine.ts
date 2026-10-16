@@ -1,7 +1,13 @@
-import crypto from 'node:crypto';
 import type { Card, Player, RoundScoreEntry, ServerRoom } from '../shared/types/game';
+import { getRandomHex } from '../shared/utils/crypto';
 import { shuffle } from './pokerDeck';
-import { sendRoundResultToWecom } from './wecomWebhook';
+
+export type RoundFinishedNotifier = (room: ServerRoom) => void;
+let roundFinishedNotifier: RoundFinishedNotifier | null = null;
+
+export function setRoundFinishedNotifier(notifier: RoundFinishedNotifier | null): void {
+  roundFinishedNotifier = notifier;
+}
 
 export function addLog(room: ServerRoom, text: string): void {
   const time = new Date().toLocaleTimeString('zh-CN', {
@@ -16,7 +22,7 @@ export function addLog(room: ServerRoom, text: string): void {
   }
 
   room.logs.push({
-    id: `${Date.now()}_${crypto.randomBytes(3).toString('hex')}`,
+    id: `${Date.now()}_${getRandomHex(3)}`,
     time,
     text,
   });
@@ -161,8 +167,10 @@ export function handleGameFinished(room: ServerRoom, winners: Player[], actionPl
     .join('，');
   addLog(room, `📊 本局积分结算：${scoreLines}`);
 
-  // 每局胜利结算完成后，推送本局结果到企业微信机器人（不阻塞结算流程）
-  sendRoundResultToWecom(room);
+  // 每局胜利结算完成后，触发通知回调（如企业微信机器人）
+  if (roundFinishedNotifier) {
+    roundFinishedNotifier(room);
+  }
 }
 
 // 计算每局击球顺序

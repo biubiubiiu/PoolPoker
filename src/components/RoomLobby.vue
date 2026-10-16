@@ -21,6 +21,7 @@ const props = defineProps<{
   serverUrl?: string;
   savedServerUrls?: ServerUrlConfig[];
   useNewUi?: boolean;
+  isBleOfflineMode?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -28,6 +29,7 @@ const emit = defineEmits<{
   (e: 'update:selectedAvatar', avatar: string): void;
   (e: 'update:serverUrl', url: string): void;
   (e: 'update:useNewUi', value: boolean): void;
+  (e: 'toggle-ble-mode', enabled: boolean): void;
   (e: 'add-server-url', payload: { url: string; name?: string }): void;
   (e: 'remove-server-url', id: string): void;
   (e: 'join-room', code: string, source?: DiscoverySource): void;
@@ -72,6 +74,11 @@ const onRemoveServer = async (item: ServerUrlConfig) => {
 };
 
 const onJoin = async () => {
+  if (props.isBleOfflineMode) {
+    await showAlert('离线本地对战目前由本机房主创建房间开局，暂不支持跨设备直接加入外部房间。', '离线模式提示');
+    tab.value = 'create';
+    return;
+  }
   if (!joinCode.value.trim()) {
     await showAlert('请输入4位房间码', '提示');
     return;
@@ -206,6 +213,15 @@ const onJoin = async () => {
   <div v-else-if="!room" class="flex-1 flex flex-col justify-center my-auto py-2 relative">
     <!-- 右上角工具栏 (新界面 switch 开关 & 设置服务地址) -->
     <div class="flex items-center justify-end gap-2 mb-2">
+      <!-- 离线蓝牙对战模式切换 (Tauri 环境) -->
+      <button v-if="isTauriEnv"
+              @click="emit('toggle-ble-mode', !props.isBleOfflineMode)"
+              class="px-2.5 py-1.5 border rounded-xl text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-lg"
+              :class="props.isBleOfflineMode ? 'bg-amber-500/25 border-amber-400 text-amber-300' : 'bg-black/40 border-white/10 text-gray-400 hover:text-white'">
+        <i class="fa-brands fa-bluetooth-b" :class="props.isBleOfflineMode ? 'text-amber-400 animate-pulse' : ''"></i>
+        <span>{{ props.isBleOfflineMode ? '离线蓝牙' : '网络模式' }}</span>
+      </button>
+
       <!-- 切换至新界面的switch开关 -->
       <label class="inline-flex items-center gap-2 cursor-pointer select-none px-2.5 py-1.5 bg-black/40 hover:bg-black/60 border border-white/10 hover:border-emerald-500/40 rounded-xl text-xs text-gray-300 hover:text-emerald-300 font-semibold shadow-lg transition active:scale-95">
         <span class="text-[11px]">新版界面</span>
@@ -228,6 +244,14 @@ const onJoin = async () => {
         <i class="fa-solid fa-gear text-amber-400"></i>
         <span>设置服务地址</span>
       </button>
+    </div>
+
+    <!-- 离线蓝牙状态提示横幅 -->
+    <div v-if="props.isBleOfflineMode" class="mb-3 px-3 py-2 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs flex items-center justify-between shadow-lg">
+      <div class="flex items-center gap-2">
+        <i class="fa-brands fa-bluetooth-b text-amber-400 text-sm animate-pulse"></i>
+        <span><strong>已开启离线蓝牙对战</strong>：无需联网，由本机 QuickJS 状态机作为局域房主</span>
+      </div>
     </div>
 
     <div class="text-center mb-6">
@@ -282,6 +306,10 @@ const onJoin = async () => {
 
       <!-- TAB A: 输入 4 位数字房间码加入 -->
       <div v-if="tab === 'join'" class="space-y-4">
+        <div v-if="props.isBleOfflineMode" class="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-200 text-xs flex items-center gap-2">
+          <i class="fa-solid fa-circle-info text-amber-400 shrink-0"></i>
+          <span>当前已开启离线本地模式，请由房主在「创建新房间」中开局。跨设备蓝牙扫描加入功能正在适配中。</span>
+        </div>
         <div>
           <input v-model="joinCode" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="输入 4 位数字房间码 (如 6824)" maxlength="4"
                  class="w-full bg-black/50 border-2 border-emerald-500/50 text-center font-mono text-2xl font-black tracking-widest py-3 rounded-xl text-amber-300 placeholder:font-sans placeholder:text-sm placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-500 focus:outline-none focus:border-amber-400">

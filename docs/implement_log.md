@@ -558,3 +558,73 @@ iPhone 实际 Tauri 模拟器包在原有 Build Rust Code 阶段失败；关闭�
 - **构建与测试资源接入**：在 `Package.swift`（SwiftPM 测试目标）和 `apple/poolpoker.xcodeproj/project.pbxproj`（`poolpoker_watchOS` 资源的 `PBXResourcesBuildPhase`）中注册 `Localizable.xcstrings`，构建产物中自动编译生成 `zh-Hans.lproj`、`zh-Hant.lproj`、`en.lproj` 的 `Localizable.strings`。
 - **对局界面 UI 优化**：在 `PoolPokerWatchApp.swift` 中调整当前玩家名展示逻辑，对局中（`case .playing`）不再在击球顺序上方重复渲染玩家昵称，直接突出击球顺序条；玩家昵称仅保留在入房等待大厅。
 - **验证**：`xcodebuild` watchOS Target 编译通过，`swift test --package-path apple` 单元测试通过，全量 Vitest 单元测试（122 项）通过，Husky / Biome 检查通过。
+
+## 2026-10-15：离线蓝牙（BLE）本地版架构与 QuickJS 状态机落地
+
+- **BLE 紧凑二进制协议设计**：在 `shared/types/bleProtocol.ts` 定义低功耗蓝牙专有二进制报文规范。4 字节定长帧头预留协议主版本号（`0x01`）与扩展标志位；54 张扑克牌按 6-bit 映射为单字节索引，1~15 号落袋球压缩为 16-bit 位图；下行状态帧从原 2.5KB+ JSON 压缩至 26~45 字节，单次 BLE Notify 瞬间到达，杜绝分包与延迟。
+- **核心状态机同构化脱耦**：提取无依赖的跨平台 CSPRNG 随机数工具 `shared/utils/crypto.ts`；解除 `gameEngine.ts` 对企微推送模块的静态耦合，改用事件侦听钩子；创建 `shared/engine/isomorphicEngine.ts` 并通过 `esbuild` 编译出自包含单文件产物 `src-tauri/engine.bundle.js`（体积仅 14KB）。
+- **Rust 内嵌 QuickJS 状态机**：在 `src-tauri/Cargo.toml` 引入纯 C 编译轻量 JS 引擎 `rquickjs = "0.9"`；实现 `LocalGameEngine`（`src-tauri/src/engine_bridge.rs`），支持在 Rust 后台调度 QuickJS 状态机完成建房、发牌、打牌、消除、撤回及紧凑二进制切片导出（执行耗时 0.01s，内存消耗 < 3MB）。
+- **Tauri 原生命令与前端虚拟 Socket**：在 `src-tauri/src/lib.rs` 引入 `BleAppState` 及 `ble_start_host` / `ble_connect_host` / `ble_send_action` 命令；前端编写 `src/services/bleTransport.ts` 模拟 Socket.IO 协议契约；在 `useSocket` 与 `RoomLobby.vue` 中集成「离线蓝牙对战模式」开关与状态展示，实现上层 Vue 组件对底层连接通道的无感切换。
+- **全量测试与验证**：新增 `bleProtocol.spec.ts`、`isomorphicEngine.spec.ts`、`bleTransport.spec.ts`；Vitest 单元测试增至 131 项全绿通过；Rust `engine_bridge` 单元测试通过；Biome lint / format 零报错；`vue-tsc` 类型检查与 Vite 生产打包通过。
+
+## 2026-10-16：离线蓝牙本地版 CodeReview 7 项缺陷修复与系统级加固
+
+针对自动化 CodeReview 提出的 7 个问题（6 个 P1、1 个 P2），逐项复现、根因排查并完成闭环修复与系统级验证：
+
+1. **[P1] 建房后无法识别自己和房主**：
+   - *根因*：BLE 紧凑状态序列化时为压缩体积将 `userId` 替换为了单字节哈希 `userIdHash`，客户端无法还原真实 `userId`，导致前端 `myInfo`/`isHost` 判断和手牌过滤失败。
+   - *修复*：在 `BleRoomState` 增加 `selfSeatIndex` 与 `hostSeatIndex` 字段；`isomorphicEngine.ts` 在导出下行状态帧时计算精准席位索引；`bleStateToClientRoom` 在反序列化时将接收者本人准确还原为真实的 `selfUserId`、将房主席位还原为真实 `hostUserId` 并设 `isHost: true`。同时保留单字节传输效率。
+2. **[P1] Socket 接口不完整**：
+   - *根因*：`BleTransport` 缺少 `connect()`、`disconnect()`、`timeout()` 链式调用方法；`emit()` 未执行传入的操作回调（如 `create_room`、`pocket_ball` 等），导致上层 `useGameRoom.ts` 的 `pendingAction` 阻塞卡死。
+   - *修复*：`BleTransport` 完整补齐 `connect()`、`disconnect()`、`timeout(ms)` 方法，并规范触发 `callback({ success: true, ... })`，在建房、加房、出牌等全部动作后平稳释放前端锁状态。
+3. **[P1] 出牌无法生效**：
+   - *根因*：前端 `useGameRoom` 出牌传的是 `{ cardId: card.id }`，而底层 BLE 协议只定义了 `ballNumber`，Rust 桥接层固定传递空 `cardId`，引擎判定找不到卡牌拒绝操作；且缺少点球、裁判罚牌、修改设置、踢人等完整事件分发。
+   - *修复*：`server/gameRoomService.ts` 扩展 `pocketBall`，支持通过 `cardId`、`cardIndex`、`ballNumber` 三重定位手牌；`BleTransport` 在出牌时智能从手牌中解析出 `ballNumber` 与 `cardIndex` 并透传 `cardId`；`src-tauri/src/lib.rs` 补齐 `card_id`、`target_user_id` 等完整参数映射，支持 11 类完整指令。
+4. **[P1] 蓝牙联机尚未实现**：
+   - *根因*：`ble_connect_host` 原实现仅返回成功标志，没有将客端加入引擎房间玩家列表，导致主客无法联机同步。
+   - *修复*：在 `LocalGameEngine` 增加 `add_player(&self, user_id, name)` 方法；`ble_connect_host` 成功时自动将新玩家注册入局，并通过 `ble://state_updated` 及时向前端推送最新对局状态。
+5. **[P1] 全新检出无法构建原生应用**：
+   - *根因*：`engine.bundle.js` 被放入 `.gitignore`，干净仓库全新 `git clone` 检出后没有编译好的 bundle，导致 `cargo build` 找不到内嵌文件而失败。
+   - *修复*：从 `.gitignore` 移除 `src-tauri/engine.bundle.js` 纳入版本追踪；`package.json` 的 `build` 脚本前置追加 `pnpm run build:engine`；`src-tauri/build.rs` 增加 fallback stub 保底生成机制，双重确保首次构建零配置通过。
+6. **[P1] QuickJS 洗牌退化成非安全随机数**：
+   - *根因*：QuickJS 默认没有系统级 Web Crypto API，代码在没有 `globalThis.crypto` 时会退化走 `Math.random()`，违反项目关于洗牌/随机数强制使用 CSPRNG 的核心铁律。
+   - *修复*：在 `src-tauri/Cargo.toml` 引入 `getrandom = "0.2"`；在 `engine_bridge.rs` 初始化 QuickJS 上下文时，向全局注入原生的 `globalThis.__nativeGetRandom` 及符合 Web Crypto 标准的 `globalThis.crypto.getRandomValues`，底层直接调用 OS 系统级安全随机源，彻底杜绝随机退化风险。
+7. **[P2] 撤回与结算状态不完整**：
+   - *根因*：`BleRoomState` 缺少 `lastActionText`、`pocketedCards` 以及单局得分变化 `roundScoreDelta`，导致前端撤回按钮不可用、结算弹窗得分丢失。
+   - *修复*：在紧凑协议中增加落袋牌列表（单字节长度 + 6-bit 索引）、结算分差及变长 `lastActionText` 字段；`isomorphicEngine.ts` 和 `bleStateToClientRoom` 完整打通序列化/反序列化链路，精确还原落袋卡牌、当局结算分及操作日志。
+
+- **验证结果**：
+  - `cargo test --manifest-path src-tauri/Cargo.toml`：QuickJS 状态机测试通过；
+  - `pnpm run test:unit`：17 个测试文件、133 个单元测试全量通过；
+  - `pnpm run lint`：Biome 代码规范检查 0 错误；
+  - `pnpm run build`：`vue-tsc` 类型检查与 Vite 生产构建顺利通过。
+
+## 2026-10-16：离线本地版 CodeReview 复审 8 项缺陷闭环加固
+
+针对复审提出的 8 项问题（4 项 P1、4 项 P2），完成全量根因排查、代码修复与单测覆盖：
+
+1. **[P1] QuickJS 缺少 UTF-8 编码支持**：
+   - *修复*：在 `shared/types/bleProtocol.ts` 实现纯 JS 无依赖的 `utf8Encode` 与 `utf8Decode`，并向 QuickJS 全局运行时注入 `TextEncoder`/`TextDecoder` polyfills；在 `engine_bridge.rs` 中增加单测验证出牌与罚牌后 `get_ble_binary_state` 正常序列化带 Emoji 及中文的 `lastActionText`。
+2. **[P1] 随机数组填充方式导致洗牌有偏**：
+   - *修复*：修正 `src-tauri/src/engine_bridge.rs` 中的 `crypto.getRandomValues`，由 `arr.length` 改为 `arr.byteLength` 获取系统级随机字节，并通过 `new Uint8Array(arr.buffer, arr.byteOffset || 0, byteLength)` 映射写入底座缓冲区；在 Rust 单测中验证 `Uint32Array(50)` 填充均布且无 8-bit 截断。
+3. **[P1] 加入房间未连接远端房主**：
+   - *修复*：在 `src-tauri/src/lib.rs` 中，`ble_connect_host` 发现本机没有运行 Host 时明确返回明确的中文错误信息（避免“假成功”）；在 `RoomLobby.vue` 中对离线蓝牙模式提供引导，明确提示当前离线对局由本机创建开局，跨设备蓝牙扫描从机功能适配中。
+4. **[P1] 未知用户查询泄露房主手牌**：
+   - *修复*：`shared/engine/isomorphicEngine.ts` 中 `getLocalBleState` 对查找不到的 `userId` 标记席位为 `0xff`，手牌固定返回 `[]`，严格杜绝 `Math.max(0, -1)` 回退到席位 0 泄露房主手牌。
+5. **[P2] 点击指定卡牌误消同球号其他卡牌**：
+   - *修复*：`server/gameRoomService.ts` 中的 `pocketBall` 调整匹配优先级：优先根据 `cardId` 或 `cmdCardIndex` 精确匹配卡牌；仅在缺少精确标识时才以 `ballNumber` 回退。新增单测验证手牌同时有 ♠A 与 ♥A 时精确消除 ♥A。
+6. **[P2] 发牌设置上下行字段未打通**：
+   - *修复*：`BleTransport.ts` 中读取 `payload?.settings?.cardsPerPlayer ?? payload?.cardsPerPlayer`；并在 `BleRoomState` 头部字节 3 编码 `cardsPerPlayer`，在 `bleStateToClientRoom` 中动态还原 `settings.cardsPerPlayer`。
+7. **[P2] `rejoin_room` 未实现却返回成功**：
+   - *修复*：在 Tauri 原生端新增 `ble_rejoin_room` 命令，当存在对应本地房间时返回最新状态；`BleTransport` 实现 `rejoin_room` 处理，成功时反序列化状态并分发 `room_updated`，失败时明确回调错误并清理缓存。
+8. **[P2] 缺少引擎产物时生成假实现**：
+   - *修复*：彻底移除 `src-tauri/build.rs` 的假桩生成逻辑；当缺失 `engine.bundle.js` 时尝试自动运行 `pnpm run build:engine`，若依然失败则直接 `panic!` 终止编译并给出清晰的操作指引，杜绝生成可安装但无法对局的残废包。
+
+- **复审验收**：
+  - `cargo test --manifest-path src-tauri/Cargo.toml`：2/2 项测试全部通过（包含 32-bit CSPRNG 及 UTF-8 导出测试）；
+  - `pnpm run test:unit`：17 个测试文件、138 项测试全量通过；
+  - `pnpm run lint`：Biome 零报错；
+  - `pnpm run build`：真实引擎 bundle 构建、`vue-tsc` 类型检查、Vite 生产构建全绿通过。
+
+
+

@@ -64,6 +64,9 @@ __pycache__/
 data/
 _tmp_medallions/
 
-# Swift package local state
-/apple/.build/
-/apple/.swiftpm/
+# Swift / Xcode build output
+.build/
+apple/.build/
+apple/.swiftpm/
+apple/build/
+apple/DerivedData/

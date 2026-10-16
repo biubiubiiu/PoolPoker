@@ -18,7 +18,16 @@ import { preloadTableModel } from '@/utils/tableModelLoader';
 
 const { useNewUi } = useUiPreferences();
 const { userId, playerName, avatars, selectedAvatar, getFinalPlayerName } = usePlayerProfile();
-const { socket, serverUrl, savedServerUrls, updateServerUrl, addServerUrl, removeServerUrl } = useSocket();
+const {
+  socket,
+  serverUrl,
+  savedServerUrls,
+  isBleOfflineMode,
+  toggleBleOfflineMode,
+  updateServerUrl,
+  addServerUrl,
+  removeServerUrl,
+} = useSocket();
 
 const {
   room,
@@ -128,6 +137,8 @@ onMounted(() => {
                :isHost="isHost"
                :serverUrl="serverUrl"
                :savedServerUrls="savedServerUrls"
+               :isBleOfflineMode="isBleOfflineMode"
+               @toggle-ble-mode="(enabled: boolean) => toggleBleOfflineMode(enabled, userId)"
                v-model:useNewUi="useNewUi"
                v-model:playerName="playerName"
                v-model:selectedAvatar="selectedAvatar"
