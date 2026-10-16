@@ -2,6 +2,107 @@
 
 import Foundation
 
+// MARK: - BleWireClientAction
+struct BleWireClientAction: Codable {
+    var actionType: BleWireActionType
+    var ballNumber: Int?
+    var cardId: String?
+    var cardIndex: Int?
+    var cardsPerPlayer: Int?
+    var revision: Int
+    var targetSeatIndex: Int?
+    var targetUserId: String?
+    var version: Int
+
+    enum CodingKeys: String, CodingKey {
+        case actionType = "actionType"
+        case ballNumber = "ballNumber"
+        case cardId = "cardId"
+        case cardIndex = "cardIndex"
+        case cardsPerPlayer = "cardsPerPlayer"
+        case revision = "revision"
+        case targetSeatIndex = "targetSeatIndex"
+        case targetUserId = "targetUserId"
+        case version = "version"
+    }
+}
+
+/// BLE 客户端上行动作类型
+enum BleWireActionType: String, Codable {
+    case accidentalPocket = "ACCIDENTAL_POCKET"
+    case breakPocket = "BREAK_POCKET"
+    case drawPenalty = "DRAW_PENALTY"
+    case kickPlayer = "KICK_PLAYER"
+    case pocketBall = "POCKET_BALL"
+    case refereePenalty = "REFEREE_PENALTY"
+    case refereePocket = "REFEREE_POCKET"
+    case restartGame = "RESTART_GAME"
+    case retractBall = "RETRACT_BALL"
+    case startGame = "START_GAME"
+    case updateSettings = "UPDATE_SETTINGS"
+}
+
+// MARK: - BleWireRoomState
+struct BleWireRoomState: Codable {
+    var cardsPerPlayer: Int
+    var deckRemaining: Int
+    var hostSeatIndex: Int
+    var lastActionText: String?
+    var players: [BleWirePlayerSummary]
+    var pocketedBallsMask: Int
+    var revision: Int
+    var roundCount: Int
+    var selfSeatIndex: Int
+    var status: BleWireGameStatus
+    var version: Int
+
+    enum CodingKeys: String, CodingKey {
+        case cardsPerPlayer = "cardsPerPlayer"
+        case deckRemaining = "deckRemaining"
+        case hostSeatIndex = "hostSeatIndex"
+        case lastActionText = "lastActionText"
+        case players = "players"
+        case pocketedBallsMask = "pocketedBallsMask"
+        case revision = "revision"
+        case roundCount = "roundCount"
+        case selfSeatIndex = "selfSeatIndex"
+        case status = "status"
+        case version = "version"
+    }
+}
+
+// MARK: - BleWirePlayerSummary
+struct BleWirePlayerSummary: Codable {
+    var cardCount: Int
+    var isHost: Bool
+    var isWinner: Bool
+    var name: String
+    var online: Bool
+    var roundScoreDelta: Int?
+    var totalScore: Int
+    var userId: String
+    var userIdHash: Int
+
+    enum CodingKeys: String, CodingKey {
+        case cardCount = "cardCount"
+        case isHost = "isHost"
+        case isWinner = "isWinner"
+        case name = "name"
+        case online = "online"
+        case roundScoreDelta = "roundScoreDelta"
+        case totalScore = "totalScore"
+        case userId = "userId"
+        case userIdHash = "userIdHash"
+    }
+}
+
+/// BLE 房间对局状态
+enum BleWireGameStatus: String, Codable {
+    case finished = "FINISHED"
+    case playing = "PLAYING"
+    case waiting = "WAITING"
+}
+
 // MARK: - DiscoveryPosition
 struct DiscoveryPosition: Codable {
     var accuracy: Double

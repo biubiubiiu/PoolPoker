@@ -20,11 +20,25 @@
 	<string>1.0.0</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>UILaunchScreen</key>
+	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>UIColorName</key>
-		<string>LaunchBackgroundColor</string>
+		<key>NSAllowsArbitraryLoadsInWebContent</key>
+		<true/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
 	</dict>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>PoolPoker 需要使用蓝牙进行面对面离线卡牌对局与桌台扫描联机。</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>PoolPoker 需要使用蓝牙作为房主外设发起离线面对面对决。</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_http._tcp.</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>PoolPoker 需要访问局域网以连接开发服务器与游戏房间。</string>
+	<key>UILaunchScreen</key>
+	<dict/>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
 		<string>arm64</string>
@@ -42,19 +56,6 @@
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
-		<key>NSAllowsArbitraryLoadsInWebContent</key>
-		<true/>
-	</dict>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>PoolPoker 需要访问局域网以连接开发服务器与游戏房间。</string>
-	<key>NSBonjourServices</key>
-	<array>
-		<string>_http._tcp.</string>
 	</array>
 </dict>
 </plist>

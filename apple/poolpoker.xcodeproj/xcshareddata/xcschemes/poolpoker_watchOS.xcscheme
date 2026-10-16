@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "2700"
+   LastUpgradeVersion = "1430"
    version = "1.7">
    <BuildAction
       parallelizeBuildables = "YES"
-      buildImplicitDependencies = "YES">
+      buildImplicitDependencies = "YES"
+      runPostActionsOnFailure = "NO">
       <BuildActionEntries>
          <BuildActionEntry
             buildForTesting = "YES"
@@ -14,8 +15,8 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "448A3466D35F3BE0E9CA1771"
-               BuildableName = "PoolPokerWatch.app"
+               BlueprintIdentifier = "DB2F95D2D4FFF271AAAF82FF"
+               BuildableName = "poolpoker_watchOS.app"
                BlueprintName = "poolpoker_watchOS"
                ReferencedContainer = "container:poolpoker.xcodeproj">
             </BuildableReference>
@@ -23,11 +24,24 @@
       </BuildActionEntries>
    </BuildAction>
    <TestAction
-      buildConfiguration = "Debug"
+      buildConfiguration = "debug"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES"
-      shouldAutocreateTestPlan = "YES">
+      onlyGenerateCoverageForSpecifiedTargets = "NO">
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "DB2F95D2D4FFF271AAAF82FF"
+            BuildableName = "poolpoker_watchOS.app"
+            BlueprintName = "poolpoker_watchOS"
+            ReferencedContainer = "container:poolpoker.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
+      <Testables>
+      </Testables>
+      <CommandLineArguments>
+      </CommandLineArguments>
    </TestAction>
    <LaunchAction
       buildConfiguration = "debug"
@@ -43,12 +57,14 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "448A3466D35F3BE0E9CA1771"
-            BuildableName = "PoolPokerWatch.app"
+            BlueprintIdentifier = "DB2F95D2D4FFF271AAAF82FF"
+            BuildableName = "poolpoker_watchOS.app"
             BlueprintName = "poolpoker_watchOS"
             ReferencedContainer = "container:poolpoker.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <CommandLineArguments>
+      </CommandLineArguments>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "release"
@@ -56,6 +72,18 @@
       savedToolIdentifier = ""
       useCustomWorkingDirectory = "NO"
       debugDocumentVersioning = "YES">
+      <BuildableProductRunnable
+         runnableDebuggingMode = "0">
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "DB2F95D2D4FFF271AAAF82FF"
+            BuildableName = "poolpoker_watchOS.app"
+            BlueprintName = "poolpoker_watchOS"
+            ReferencedContainer = "container:poolpoker.xcodeproj">
+         </BuildableReference>
+      </BuildableProductRunnable>
+      <CommandLineArguments>
+      </CommandLineArguments>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "debug">

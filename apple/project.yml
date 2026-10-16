@@ -57,6 +57,8 @@ targets:
           NSAllowsLocalNetworking: true
           NSAllowsArbitraryLoadsInWebContent: true
         NSLocalNetworkUsageDescription: PoolPoker 需要访问局域网以连接开发服务器与游戏房间。
+        NSBluetoothAlwaysUsageDescription: PoolPoker 需要使用蓝牙进行面对面离线卡牌对局与桌台扫描联机。
+        NSBluetoothPeripheralUsageDescription: PoolPoker 需要使用蓝牙作为房主外设发起离线面对面对决。
         NSBonjourServices:
           - _http._tcp.
     entitlements:

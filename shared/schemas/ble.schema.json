@@ -1,0 +1,93 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://poolpoker.app/schemas/ble.schema.json",
+  "title": "BleSchemaGroup",
+  "definitions": {
+    "BleWireActionType": {
+      "type": "string",
+      "enum": [
+        "START_GAME",
+        "POCKET_BALL",
+        "DRAW_PENALTY",
+        "ACCIDENTAL_POCKET",
+        "BREAK_POCKET",
+        "RETRACT_BALL",
+        "RESTART_GAME",
+        "REFEREE_POCKET",
+        "REFEREE_PENALTY",
+        "UPDATE_SETTINGS",
+        "KICK_PLAYER"
+      ],
+      "description": "BLE 客户端上行动作类型"
+    },
+    "BleWireGameStatus": {
+      "type": "string",
+      "enum": ["WAITING", "PLAYING", "FINISHED"],
+      "description": "BLE 房间对局状态"
+    },
+    "BleWireClientAction": {
+      "type": "object",
+      "properties": {
+        "version": { "type": "integer" },
+        "revision": { "type": "integer" },
+        "actionType": { "$ref": "BleWireActionType" },
+        "ballNumber": { "type": ["integer", "null"] },
+        "cardIndex": { "type": ["integer", "null"] },
+        "cardId": { "type": ["string", "null"] },
+        "targetUserId": { "type": ["string", "null"] },
+        "targetSeatIndex": { "type": ["integer", "null"] },
+        "cardsPerPlayer": { "type": ["integer", "null"] }
+      },
+      "required": ["version", "revision", "actionType"],
+      "additionalProperties": false
+    },
+    "BleWirePlayerSummary": {
+      "type": "object",
+      "properties": {
+        "userIdHash": { "type": "integer" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "cardCount": { "type": "integer" },
+        "isHost": { "type": "boolean" },
+        "online": { "type": "boolean" },
+        "isWinner": { "type": "boolean" },
+        "totalScore": { "type": "integer" },
+        "roundScoreDelta": { "type": ["integer", "null"] }
+      },
+      "required": ["userIdHash", "userId", "name", "cardCount", "isHost", "online", "isWinner", "totalScore"],
+      "additionalProperties": false
+    },
+    "BleWireRoomState": {
+      "type": "object",
+      "properties": {
+        "version": { "type": "integer" },
+        "revision": { "type": "integer" },
+        "status": { "$ref": "BleWireGameStatus" },
+        "pocketedBallsMask": { "type": "integer" },
+        "roundCount": { "type": "integer" },
+        "deckRemaining": { "type": "integer" },
+        "cardsPerPlayer": { "type": "integer" },
+        "selfSeatIndex": { "type": "integer" },
+        "hostSeatIndex": { "type": "integer" },
+        "players": {
+          "type": "array",
+          "items": { "$ref": "BleWirePlayerSummary" }
+        },
+        "lastActionText": { "type": ["string", "null"] }
+      },
+      "required": [
+        "version",
+        "revision",
+        "status",
+        "pocketedBallsMask",
+        "roundCount",
+        "deckRemaining",
+        "cardsPerPlayer",
+        "selfSeatIndex",
+        "hostSeatIndex",
+        "players"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

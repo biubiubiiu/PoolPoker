@@ -32,7 +32,8 @@ class MainActivity : TauriActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val permissions = arrayOf(
                 Manifest.permission.BLUETOOTH_CONNECT,
-                Manifest.permission.BLUETOOTH_SCAN
+                Manifest.permission.BLUETOOTH_SCAN,
+                Manifest.permission.BLUETOOTH_ADVERTISE
             )
             val missing = permissions.filter {
                 checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED
@@ -43,6 +44,7 @@ class MainActivity : TauriActivity() {
         }
 
         BluetoothServerRelay.startListening(this)
+        BleMeshManager.init(this)
     }
 
     override fun onRequestPermissionsResult(

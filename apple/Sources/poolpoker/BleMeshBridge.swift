@@ -1,0 +1,420 @@
+import Foundation
+import CoreBluetooth
+
+// PoolPoker 面对面专用 GATT UUIDs
+public let POOLPOKER_SERVICE_UUID = CBUUID(string: "0000a848-0000-1000-8000-00805f9b34fb")
+public let POOLPOKER_CHAR_COMMAND_UUID = CBUUID(string: "0000a849-0000-1000-8000-00805f9b34fb")
+public let POOLPOKER_CHAR_STATE_UUID = CBUUID(string: "0000a84a-0000-1000-8000-00805f9b34fb")
+
+// Rust C-ABI 接收桥接声明
+@_silgen_name("poolpoker_on_ble_discovered_room")
+func poolpoker_on_ble_discovered_room(_ deviceId: UnsafePointer<CChar>, _ roomCode: UnsafePointer<CChar>, _ name: UnsafePointer<CChar>, _ rssi: Int32)
+
+@_silgen_name("poolpoker_on_ble_command_received")
+func poolpoker_on_ble_command_received(_ peerId: UnsafePointer<CChar>, _ bytes: UnsafePointer<UInt8>, _ len: Int)
+
+@_silgen_name("poolpoker_on_ble_state_received")
+func poolpoker_on_ble_state_received(_ bytes: UnsafePointer<UInt8>, _ len: Int)
+
+@_silgen_name("poolpoker_on_ble_peripheral_connected")
+func poolpoker_on_ble_peripheral_connected(_ deviceId: UnsafePointer<CChar>)
+
+@_silgen_name("poolpoker_on_ble_peripheral_disconnected")
+func poolpoker_on_ble_peripheral_disconnected(_ deviceId: UnsafePointer<CChar>)
+
+@_silgen_name("poolpoker_on_ble_client_connected")
+func poolpoker_on_ble_client_connected(_ peerId: UnsafePointer<CChar>)
+
+@_silgen_name("poolpoker_on_ble_client_disconnected")
+func poolpoker_on_ble_client_disconnected(_ peerId: UnsafePointer<CChar>)
+
+@MainActor
+final class BleMeshController: NSObject, CBPeripheralManagerDelegate, CBCentralManagerDelegate, CBPeripheralDelegate {
+    static let shared = BleMeshController()
+
+    // 房主外设模式
+    private var peripheralManager: CBPeripheralManager?
+    private var stateCharacteristic: CBMutableCharacteristic?
+    private var subscribedCentrals: [UUID: CBCentral] = [:]
+    private var currentRoomCode = "8848"
+    private var isAdvertising = false
+
+    // 客端中心模式
+    private var centralManager: CBCentralManager?
+    private var isScanning = false
+    private var discoveredPeripherals: [UUID: CBPeripheral] = [:]
+    private var connectedPeripheral: CBPeripheral?
+    private var commandCharacteristic: CBCharacteristic?
+    private var pendingConnectIdentifier: String?
+
+    override init() {
+        super.init()
+    }
+
+    func setupManagers() {
+        if peripheralManager == nil {
+            peripheralManager = CBPeripheralManager(delegate: self, queue: nil)
+        }
+        if centralManager == nil {
+            centralManager = CBCentralManager(delegate: self, queue: nil)
+        }
+    }
+
+    // -------------------------------------------------------------
+    // 房主 (Peripheral) 操作
+    // -------------------------------------------------------------
+
+    func startAdvertising(roomCode: String, hostName: String) {
+        setupManagers()
+        currentRoomCode = roomCode
+        isAdvertising = true
+        guard let pm = peripheralManager, pm.state == .poweredOn else { return }
+
+        // 配置 GATT 服务与特征值
+        let commandChar = CBMutableCharacteristic(
+            type: POOLPOKER_CHAR_COMMAND_UUID,
+            properties: [.write, .writeWithoutResponse],
+            value: nil,
+            permissions: [.writeable]
+        )
+        let stateChar = CBMutableCharacteristic(
+            type: POOLPOKER_CHAR_STATE_UUID,
+            properties: [.notify, .read],
+            value: nil,
+            permissions: [.readable]
+        )
+        self.stateCharacteristic = stateChar
+
+        let service = CBMutableService(type: POOLPOKER_SERVICE_UUID, primary: true)
+        service.characteristics = [commandChar, stateChar]
+        pm.removeAllServices()
+        pm.add(service)
+
+        let advertisementData: [String: Any] = [
+            CBAdvertisementDataServiceUUIDsKey: [POOLPOKER_SERVICE_UUID],
+            CBAdvertisementDataLocalNameKey: "PoolPoker_\(roomCode)"
+        ]
+        pm.startAdvertising(advertisementData)
+        NSLog("[BleMeshController] iOS Started Advertising for room: %@", roomCode)
+    }
+
+    func stopAdvertising() {
+        isAdvertising = false
+        peripheralManager?.stopAdvertising()
+        peripheralManager?.removeAllServices()
+        subscribedCentrals.removeAll()
+        stateCharacteristic = nil
+        NSLog("[BleMeshController] iOS Stopped Advertising.")
+    }
+
+    func notifyClients(data: Data, targetPeerId: String? = nil) {
+        guard let pm = peripheralManager, let char = stateCharacteristic else { return }
+        if let targetId = targetPeerId {
+            if let targetUuid = UUID(uuidString: targetId), let central = subscribedCentrals[targetUuid] {
+                pm.updateValue(data, for: char, onSubscribedCentrals: [central])
+            }
+            // 指定目标不存在（例如客机刚刚断开或注销）时立即返回，严禁回退全员广播泄露手牌
+            return
+        }
+
+        let centrals = Array(subscribedCentrals.values)
+        if !centrals.isEmpty {
+            pm.updateValue(data, for: char, onSubscribedCentrals: centrals)
+        }
+    }
+
+    // CBPeripheralManagerDelegate
+    nonisolated func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
+        Task { @MainActor in
+            if peripheral.state == .poweredOn && self.isAdvertising {
+                self.startAdvertising(roomCode: self.currentRoomCode, hostName: "房主")
+            }
+        }
+    }
+
+    nonisolated func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didSubscribeTo characteristic: CBCharacteristic) {
+        let peerId = central.identifier.uuidString
+        Task { @MainActor in
+            self.subscribedCentrals[central.identifier] = central
+            peerId.withCString { cPeerId in
+                poolpoker_on_ble_client_connected(cPeerId)
+            }
+        }
+    }
+
+    nonisolated func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didUnsubscribeFrom characteristic: CBCharacteristic) {
+        let peerId = central.identifier.uuidString
+        Task { @MainActor in
+            self.subscribedCentrals.removeValue(forKey: central.identifier)
+            peerId.withCString { cPeerId in
+                poolpoker_on_ble_client_disconnected(cPeerId)
+            }
+        }
+    }
+
+    nonisolated func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]) {
+        for request in requests {
+            if request.characteristic.uuid == POOLPOKER_CHAR_COMMAND_UUID, let data = request.value {
+                let peerId = request.central.identifier.uuidString
+                data.withUnsafeBytes { rawBuffer in
+                    if let ptr = rawBuffer.baseAddress?.assumingMemoryBound(to: UInt8.self) {
+                        peerId.withCString { cPeerId in
+                            poolpoker_on_ble_command_received(cPeerId, ptr, data.count)
+                        }
+                    }
+                }
+                peripheral.respond(to: request, withResult: .success)
+            }
+        }
+    }
+
+    // -------------------------------------------------------------
+    // 客端 (Central) 操作
+    // -------------------------------------------------------------
+
+    func startScanning() {
+        setupManagers()
+        isScanning = true
+        guard let cm = centralManager, cm.state == .poweredOn else { return }
+        discoveredPeripherals.removeAll()
+        cm.scanForPeripherals(withServices: [POOLPOKER_SERVICE_UUID], options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
+        NSLog("[BleMeshController] iOS Started Scanning for rooms...")
+    }
+
+    func stopScanning() {
+        isScanning = false
+        centralManager?.stopScan()
+        NSLog("[BleMeshController] iOS Stopped Scanning.")
+    }
+
+    func connectPeripheral(identifier: String) {
+        setupManagers()
+        pendingConnectIdentifier = identifier
+        guard let cm = centralManager else { return }
+        if cm.state != .poweredOn {
+            NSLog("[BleMeshController] centralManager not powered on yet (%ld). Pending connect: %@", cm.state.rawValue, identifier)
+            return
+        }
+        performConnect(identifier: identifier)
+    }
+
+    private func performConnect(identifier: String) {
+        guard let uuid = UUID(uuidString: identifier), let cm = centralManager else { return }
+
+        // 如果已经连接或正在连接该外设，避免重复发起
+        if let p = connectedPeripheral, p.identifier == uuid && (p.state == .connected || p.state == .connecting) {
+            NSLog("[BleMeshController] Already connected or connecting to peripheral: %@", identifier)
+            pendingConnectIdentifier = nil
+            return
+        }
+
+        // 1. 优先从内存缓存查找
+        if let peripheral = discoveredPeripherals[uuid] {
+            pendingConnectIdentifier = nil
+            connectedPeripheral = peripheral
+            peripheral.delegate = self
+            cm.connect(peripheral, options: nil)
+            NSLog("[BleMeshController] Connecting to memory-cached peripheral: %@", identifier)
+            return
+        }
+
+        // 2. 尝试从 iOS 系统已知外设恢复（冷启动重连关键路径）
+        let retrieved = cm.retrievePeripherals(withIdentifiers: [uuid])
+        if let peripheral = retrieved.first {
+            pendingConnectIdentifier = nil
+            discoveredPeripherals[uuid] = peripheral
+            connectedPeripheral = peripheral
+            peripheral.delegate = self
+            cm.connect(peripheral, options: nil)
+            NSLog("[BleMeshController] Connecting to retrieved system peripheral: %@", identifier)
+            return
+        }
+
+        // 3. 既未在内存也未在系统已知列表，启动扫描寻找指定目标并自动连接
+        NSLog("[BleMeshController] Peripheral not found in cache/system, starting scan to reconnect: %@", identifier)
+        startScanning()
+    }
+
+    func disconnectPeripheral() {
+        pendingConnectIdentifier = nil
+        if let p = connectedPeripheral {
+            centralManager?.cancelPeripheralConnection(p)
+            connectedPeripheral = nil
+        }
+    }
+
+    func sendCommand(data: Data) {
+        guard let p = connectedPeripheral, let char = commandCharacteristic else { return }
+        p.writeValue(data, for: char, type: .withoutResponse)
+    }
+
+    // CBCentralManagerDelegate
+    nonisolated func centralManagerDidUpdateState(_ central: CBCentralManager) {
+        Task { @MainActor in
+            if central.state == .poweredOn {
+                NSLog("[BleMeshController] CBCentralManager powered on.")
+                if let pendingId = self.pendingConnectIdentifier {
+                    self.performConnect(identifier: pendingId)
+                } else if self.isScanning {
+                    self.startScanning()
+                }
+            }
+        }
+    }
+
+    nonisolated func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String: Any], rssi RSSI: NSNumber) {
+        Task { @MainActor in
+            self.discoveredPeripherals[peripheral.identifier] = peripheral
+
+            // 如果存在待重连的外设，匹配即连
+            if let pendingId = self.pendingConnectIdentifier,
+               peripheral.identifier.uuidString.caseInsensitiveCompare(pendingId) == .orderedSame {
+                NSLog("[BleMeshController] Found pending reconnect peripheral during scan: %@", pendingId)
+                self.pendingConnectIdentifier = nil
+                self.stopScanning()
+                self.connectedPeripheral = peripheral
+                peripheral.delegate = self
+                central.connect(peripheral, options: nil)
+                return
+            }
+
+            let localName = (advertisementData[CBAdvertisementDataLocalNameKey] as? String) ?? peripheral.name ?? "台球桌台"
+            var roomCode = "8848"
+            if localName.hasPrefix("PoolPoker_") {
+                roomCode = String(localName.dropFirst("PoolPoker_".count))
+            }
+
+            let idStr = peripheral.identifier.uuidString
+            idStr.withCString { cId in
+                roomCode.withCString { cCode in
+                    localName.withCString { cName in
+                        poolpoker_on_ble_discovered_room(cId, cCode, cName, RSSI.int32Value)
+                    }
+                }
+            }
+        }
+    }
+
+    nonisolated func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
+        Task { @MainActor in
+            NSLog("[BleMeshController] Peripheral connected: %@", peripheral.identifier.uuidString)
+            self.pendingConnectIdentifier = nil
+            let idStr = peripheral.identifier.uuidString
+            idStr.withCString { cId in
+                poolpoker_on_ble_peripheral_connected(cId)
+            }
+            peripheral.discoverServices([POOLPOKER_SERVICE_UUID])
+        }
+    }
+
+    nonisolated func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
+        Task { @MainActor in
+            NSLog("[BleMeshController] Peripheral disconnected.")
+            let idStr = peripheral.identifier.uuidString
+            idStr.withCString { cId in
+                poolpoker_on_ble_peripheral_disconnected(cId)
+            }
+            if self.connectedPeripheral == peripheral {
+                self.connectedPeripheral = nil
+            }
+        }
+    }
+
+    // CBPeripheralDelegate
+    nonisolated func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
+        guard let services = peripheral.services else { return }
+        for service in services where service.uuid == POOLPOKER_SERVICE_UUID {
+            peripheral.discoverCharacteristics([POOLPOKER_CHAR_COMMAND_UUID, POOLPOKER_CHAR_STATE_UUID], for: service)
+        }
+    }
+
+    nonisolated func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
+        guard let characteristics = service.characteristics else { return }
+        Task { @MainActor in
+            for char in characteristics {
+                if char.uuid == POOLPOKER_CHAR_COMMAND_UUID {
+                    self.commandCharacteristic = char
+                } else if char.uuid == POOLPOKER_CHAR_STATE_UUID {
+                    peripheral.setNotifyValue(true, for: char)
+                    NSLog("[BleMeshController] Subscribed to State updates from Host.")
+                }
+            }
+        }
+    }
+
+    nonisolated func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
+        if characteristic.uuid == POOLPOKER_CHAR_STATE_UUID, let data = characteristic.value {
+            data.withUnsafeBytes { rawBuffer in
+                if let ptr = rawBuffer.baseAddress?.assumingMemoryBound(to: UInt8.self) {
+                    poolpoker_on_ble_state_received(ptr, data.count)
+                }
+            }
+        }
+    }
+}
+
+// -------------------------------------------------------------
+// C-ABI 导出供 Rust 调用
+// -------------------------------------------------------------
+
+@_cdecl("poolpoker_ble_start_advertising")
+public func poolpoker_ble_start_advertising(_ codePtr: UnsafePointer<CChar>, _ namePtr: UnsafePointer<CChar>) {
+    let roomCode = String(cString: codePtr)
+    let hostName = String(cString: namePtr)
+    Task { @MainActor in
+        BleMeshController.shared.startAdvertising(roomCode: roomCode, hostName: hostName)
+    }
+}
+
+@_cdecl("poolpoker_ble_stop_advertising")
+public func poolpoker_ble_stop_advertising() {
+    Task { @MainActor in
+        BleMeshController.shared.stopAdvertising()
+    }
+}
+
+@_cdecl("poolpoker_ble_start_scanning")
+public func poolpoker_ble_start_scanning() {
+    Task { @MainActor in
+        BleMeshController.shared.startScanning()
+    }
+}
+
+@_cdecl("poolpoker_ble_stop_scanning")
+public func poolpoker_ble_stop_scanning() {
+    Task { @MainActor in
+        BleMeshController.shared.stopScanning()
+    }
+}
+
+@_cdecl("poolpoker_ble_connect")
+public func poolpoker_ble_connect(_ deviceIdPtr: UnsafePointer<CChar>) {
+    let deviceId = String(cString: deviceIdPtr)
+    Task { @MainActor in
+        BleMeshController.shared.connectPeripheral(identifier: deviceId)
+    }
+}
+
+@_cdecl("poolpoker_ble_disconnect")
+public func poolpoker_ble_disconnect() {
+    Task { @MainActor in
+        BleMeshController.shared.disconnectPeripheral()
+    }
+}
+
+@_cdecl("poolpoker_ble_send_command")
+public func poolpoker_ble_send_command(_ bytesPtr: UnsafePointer<UInt8>, _ length: Int) {
+    let data = Data(bytes: bytesPtr, count: length)
+    Task { @MainActor in
+        BleMeshController.shared.sendCommand(data: data)
+    }
+}
+
+@_cdecl("poolpoker_ble_notify_clients")
+public func poolpoker_ble_notify_clients(_ bytesPtr: UnsafePointer<UInt8>, _ length: Int, _ targetPeerIdPtr: UnsafePointer<CChar>?) {
+    let data = Data(bytes: bytesPtr, count: length)
+    let targetPeerId = targetPeerIdPtr.map { String(cString: $0) }
+    Task { @MainActor in
+        BleMeshController.shared.notifyClients(data: data, targetPeerId: targetPeerId)
+    }
+}

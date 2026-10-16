@@ -626,5 +626,164 @@ iPhone 实际 Tauri 模拟器包在原有 Build Rust Code 阶段失败；关闭�
   - `pnpm run lint`：Biome 零报错；
   - `pnpm run build`：真实引擎 bundle 构建、`vue-tsc` 类型检查、Vite 生产构建全绿通过。
 
+## 2026-10-17：离线蓝牙面对面联机重构【阶段一】— 剥离 QuickJS，状态机前端化与 SSOT 契约规范
+
+面向“无需网络，多部手机通过蓝牙面对面联机”目标，对单机版实施阶段一核心架构重构与瘦身：
+
+1. **架构瘦身与隐患清除（剥离 QuickJS）**：
+   - 从 `src-tauri/Cargo.toml` 彻底移除 `rquickjs` 与 `getrandom` 依赖；
+   - 彻底删除 `src-tauri/src/engine_bridge.rs`（彻底消除 `unsafe impl Send` 跨线程 UB 崩溃风险）；
+   - 删除 `src-tauri/engine.bundle.js`，恢复 `src-tauri/build.rs` 为标准简洁构建，包体积减少 3MB，Rust 编译耗时由 1 分钟降至 4 秒。
+2. **纯前端权威状态机（LocalHostEngine）**：
+   - 新增 `src/services/localHostEngine.ts`，直接在前端 Webview（原生 V8/JSC 宿主）运行同构状态机，零 IPC 开销，原生支持 Web Crypto 与标准字符串处理；
+   - 重构 `src/services/bleTransport.ts`，房主模式下直接绑定本地状态机，完整支持开局、出牌、罚牌、撤回、裁判操作与断线重连；
+   - 新增 `src/__tests__/localHostEngine.spec.ts` 专用单元测试，全生命周期端到端覆盖。
+3. **SSOT 契约规范化**：
+   - 新增 `shared/schemas/ble.schema.json`，将 BLE Wire Models 纳入单一事实来源；
+   - 执行 `codegen:models` 自动同步生成 TypeScript、Kotlin、Swift 三端线上传输数据模型，为 iOS/Android 手机及穿戴设备蓝牙直连预留统一规范。
+4. **全量构建与测试验证**：
+   - `cargo test --manifest-path src-tauri/Cargo.toml`：编译通过，0 错误；
+   - `pnpm run test:unit`：18 个测试文件、139 项单元测试全量通过；
+   - `pnpm run codegen:check`：三端 wire models 一致性检查全绿；
+   - `pnpm run lint`：Biome 零错误零警告；
+   - `pnpm run build`：`vue-tsc` 类型检查与 Vite 生产构建顺利通过。
+
+## 2026-10-17：离线蓝牙面对面联机重构【阶段二】— 移动端双平台（Android/iOS）物理 BLE 驱动与近场雷达扫房落地
+
+在阶段一架构瘦身与状态机前端化的坚实基础上，全量落地面向多部手机面对面射频联机的跨平台原生 BLE 驱动：
+
+1. **Android 原生 BLE 驱动栈（`BleMeshManager.kt`）**：
+   - **外设模式（房主）**：使用 `BluetoothLeAdvertiser` + `BluetoothGattServer`，广播 Service UUID（`0000a848-...`）并在广播包 ServiceData 编码 4 位房间码；建立 Command 特征值（支持客户端无响应快速写入）与 State 特征值（支持 CCCD 订阅与 Notify 广播）；
+   - **中心模式（客端）**：使用 `BluetoothLeScanner` 配合硬件过滤扫描附近 PoolPoker 桌台；连接后自动协商 256 字节 MTU 并订阅状态更新；
+   - **权限完备**：在 `AndroidManifest.xml` 与 `MainActivity.kt` 补齐 Android 12+ `BLUETOOTH_ADVERTISE`、`BLUETOOTH_SCAN`、`BLUETOOTH_CONNECT` 运行时权限。
+2. **iOS 原生 CoreBluetooth 驱动栈（`BleMeshBridge.swift`）**：
+   - **外设模式**：基于 `CBPeripheralManager` 实现前台 GATT 外设广播与客户端指令接收，通过 `updateValue` 推送脱敏对局帧；
+   - **中心模式**：基于 `CBCentralManager` + `CBPeripheralDelegate` 实现桌台近场探测与特征值订阅，通过 C-ABI 与 Rust 桥接；
+   - **权限声明**：在 `apple/project.yml` 与 `apple/poolpoker_iOS/Info.plist` 注入 `NSBluetoothAlwaysUsageDescription` 与 `NSBluetoothPeripheralUsageDescription`。
+3. **Rust 跨平台字节管道（`src-tauri/src/lib.rs`）**：
+   - 暴露 8 项统一切面 Tauri 命令（`ble_start_advertising`, `ble_stop_advertising`, `ble_start_scanning`, `ble_stop_scanning`, `ble_connect_peripheral`, `ble_disconnect_peripheral`, `ble_send_command_to_host`, `ble_notify_state_to_clients`）；
+   - 双向中继 JNI（Android）与 C-ABI（iOS）事件到前端 `ble://*` 通道，提供非移动端/测试环境的安全回退。
+4. **近场蓝牙雷达与 UI 交互升级（`BleScanner.ts` & `RoomLobby.vue`）**：
+   - 封装近场蓝牙扫描服务 `BleScanner`，实时探测周围桌台、解析房间码、按信号强度（RSSI）倒序排列；
+   - 在 `RoomLobby.vue` 加入炫酷的近场雷达动效与桌台列表卡片，支持免输 IP/无需配对“一键加入”；
+   - 编写 `src/__tests__/bleScanner.spec.ts` 单元测试，全生命周期端到端覆盖。
+## 2026-10-17：离线面对面联机自动化 CodeReview 专项修复（6 项 P1 级缺陷彻底闭环）
+
+针对自动化审查指出的 6 项阻塞多机面对面蓝牙对局的关键缺陷，实施全面闭环修复与多平台端到端交叉验证：
+
+1. **[P1-1] 修复雷达扫描列表“一键加入”无法触发蓝牙连接**：
+   - `src/services/bleTransport.ts` 中 `join_room` 兼容提取 `payload?.deviceId || payload?.discoverySource?.deviceId`，与 `RoomLobby.vue` / `useGameRoom.ts` 的入参结构完全统一；新增覆盖该链路的自动化单元测试。
+2. **[P1-2] 消除私有手牌广播与席位错乱（实现定向 Unicast）**：
+   - 房主 `BleTransport` 建立 `peerId <-> userId` 映射表，在 `setStateUpdateCallback` 中严格隔离：房主本人状态仅更新本地视图，严禁下发给蓝牙从机；对于客机玩家，定向解析其蓝牙 `targetPeerId` 并单发。
+   - Rust 跨平台中继 `ble_notify_state_to_clients` 支持可选 `target_peer_id: Option<String>` 参数；
+   - Android 原生 `BleMeshManager.kt` 与 iOS `BleMeshBridge.swift` 增加 `targetAddress` / `targetPeerId` 硬件级连接过滤，实现真正的点对点状态推送，彻底杜绝手牌串牌与错乱。
+3. **[P1-3] 解决客人加入/离线后房主界面不刷新人数**：
+   - `src/services/localHostEngine.ts` 中的 `addPlayer` 与 `setPlayerOffline` 改为调用 `this.broadcastAll()`，使得房主及全体玩家的脱敏视图与席位状态在花名册变动时实时响应并同步更新；新增单元测试验证双端通知。
+4. **[P1-4] 补齐 iOS 房主客机订阅与连接/断开事件中继**：
+   - `BleMeshBridge.swift` 补充 `CBPeripheralManagerDelegate` 的 `didSubscribeTo` 与 `didUnsubscribeFrom` 特征值订阅回调，记录 `subscribedCentrals: [UUID: CBCentral]`；
+   - 对接新增的 C-ABI `poolpoker_on_ble_client_connected` 与 `poolpoker_on_ble_client_disconnected`，将客机入席事件派发至 Rust 并发射 `ble://client_connected` 与 `ble://client_disconnected` 事件，打通客人进入 iOS 房主房间的生命周期。
+5. **[P1-5] 修复 JNI 0.21 API 签名与 Android 跨平台编译阻断**：
+   - `src-tauri/src/lib.rs` 中 Android JNI 回调修正为 `payload: jni::objects::JByteArray` 及 `&payload` 借用，并按需显式指定 `mut env: jni::JNIEnv`；
+   - 修复 iOS 字符串传参所有权 move 告警；
+   - 启用本地 Android NDK (`aarch64-linux-android`) 及 iOS SDK (`aarch64-apple-ios`) 执行真实 Rust 跨平台目标交叉编译验证，确保零编译错误。
+6. **[P1-6] 修复 iOS 首次进入雷达扫描时请求丢失**：
+   - `BleMeshBridge.swift` 增加 `isScanning` 意图标记；
+   - 在 `centralManagerDidUpdateState` 检测到 CoreBluetooth 状态从未就绪就绪为 `.poweredOn` 时，自动恢复并执行扫描任务，彻底解决首屏雷达无响应问题。
+
+## 2026-10-17：离线面对面联机自动化 CodeReview 第二轮深化修复（5 项隐患闭环）
+
+针对自动化审查第二轮指出的 5 项关于真实多手机交互边界的隐患，全量落实针对性修复与自动化验证：
+
+1. **[P1-1] Android 客机首次入席初始状态防丢（绑定 CCCD 描述符完成时机）**：
+   - 之前在 `BluetoothProfile.STATE_CONNECTED` 时立即调用 `notifyNativeClientConnected`，而此时 Central 尚未发现服务和写入 CCCD 开启通知，导致下发的初始状态帧被物理层丢弃，客机可能长期停留在空桌台状态；
+   - 现调整为在 `onDescriptorWriteRequest` 中，当客户端成功写入 CCCD (`ENABLE_NOTIFICATION_VALUE`) 时再触发 `notifyNativeClientConnected`，确保 Central 准备就绪后第一时间收到个性化手牌与桌台状态。
+2. **[P1-2] iOS 客机断开时防止私有手牌误广播泄露**：
+   - `BleMeshBridge.swift` 的 `notifyClients(data, targetPeerId)` 在传入目标 Central 但该 Central 已断开/找不到时，之前会退回全员广播分支，导致其他在线客机误收到该离线玩家的手牌；
+   - 修复为：只要显式传入了 `targetPeerId`，若找不到目标设备则立即丢弃并返回，绝不降级为全员广播。
+3. **[P2-3] 客机为他人代记进球／罚牌准确解析目标玩家**：
+   - 在 SSOT `ble.schema.json`、`bleProtocol.ts` 的 `CLIENT_ACTION` 二进制报文（第 7 字节）编码 `targetSeatIndex`；
+   - 客机前端根据 `cachedRoom.players` 精准计算并编码目标席位；
+   - 房主 `LocalHostEngine.executeBinaryAction` 优先通过 `action.targetSeatIndex` 还原目标玩家 `userId`，彻底解决客机代记罚牌反向罚自己手牌的问题。
+4. **[P1-4] 彻底打通“离开房间”生命周期清理**：
+   - `BleTransport.ts` 补齐 `leave_room` 事件拦截：房主退出时立即调用 `ble_stop_advertising` 停止外设广播并销毁本地单例引擎 `resetSharedHostEngine()`；客机退出时立即调用 `ble_disconnect_peripheral` 切断蓝牙连接；双端均清除缓存与映射。
+5. **[P2-5] 真实客机 WebView 刷新后通过蓝牙重新恢复房间**：
+   - 客机在 `join_room` 连接成功后将 `deviceId` 持久化；
+   - `rejoin_room` 在非房主节点（无本地状态机）时，自动提取上次连接的 `deviceId` 重新发起物理蓝牙连接并恢复会话，彻底消除“本地房间已解散或不存在”的误报拦截。
+
+**全量验收验证结果**：
+- `pnpm run test:unit`：19 个测试套件，**146 项测试全部通过**（新增代记罚牌席位映射、leave_room 物理清理、客机断线重连等用例）；
+- `cargo check --target aarch64-linux-android --manifest-path src-tauri/Cargo.toml`：Android 交叉编译通过；
+- `cargo check --target aarch64-apple-ios --manifest-path src-tauri/Cargo.toml`：iOS 交叉编译通过；
+- `cargo check --manifest-path src-tauri/Cargo.toml`：桌面端 macOS 编译通过；
+- `pnpm run codegen:check`：跨平台 SSOT 规范校验通过；
+- `pnpm run lint`：Biome 零报错；
+- `pnpm run build`：Vite + `vue-tsc` 生产构建成功通过。
+
+## 2026-10-17：离线面对面联机自动化 CodeReview 第三轮深化修复（5 项缺陷彻底闭环）
+
+针对自动化审查第三轮指出的 5 项缺陷（3 项 P1、2 项 P2），全量落实针对性修复、工程同步与自动化验证：
+
+1. **[P1-1] 新增 Swift 蓝牙桥加入已提交的 Xcode 工程**：
+   - 运行 `xcodegen generate`，更新并同步提交 `apple/poolpoker.xcodeproj/project.pbxproj`；
+   - `BleMeshBridge.swift` 现已正式纳入 `PBXBuildFile`、`PBXFileReference` 及 `Sources` 编译阶段，iOS 原生构建与 Rust C-ABI 链接畅通无阻。
+2. **[P1-2] iOS 冷启动客机重连外设恢复机制**：
+   - 修复 `BleMeshBridge.swift` 仅依赖内存 `discoveredPeripherals` 的问题；
+   - 引入 `pendingConnectIdentifier` 与状态保护，调用 `connectPeripheral` 时即刻确保 `setupManagers()` 唤起中心管理器；
+   - 优先查内存字典；内存无命中时通过 `centralManager.retrievePeripherals(withIdentifiers: [uuid])` 唤醒 iOS 系统记忆外设并连接；若系统未缓存则自动发起针对 `POOLPOKER_SERVICE_UUID` 的扫描，并在 `didDiscover` / `didUpdateState` 检测到目标后自动连接，打通冷启动重连链路。
+3. **[P1-3] 客机处理与房主物理断线事件**：
+   - `BleTransport.ts` 在初始化时新增监听原生 `ble://peripheral_disconnected` 事件；
+   - 非房主客机断开时立即将 `this.connected` 标记为 `false`，并广播 `disconnect`（`transport close`）；
+   - 在游戏指令下发前检查 `this.connected`，断开时直接回调明确的中文断线错误，阻止向已断开通道静默发包及误报成功。
+4. **[P2-4] 房主 Transport 恢复后恢复 isHost、状态广播与指令直通**：
+   - 修复 `BleTransport.ts` 中 `rejoin_room` 房主恢复分支的缺陷：新实例完整恢复 `this.isHost = true`、`this.connected = true`、`this.currentRoomCode = roomCode`；
+   - 重新向 `LocalHostEngine` 注册 `setStateUpdateCallback` 定向推送回调；
+   - 重新触发 `ble_start_advertising` 恢复广播。后续房主交互指令（如罚牌、出牌）直接由本地权威状态机执行并刷新视图（手牌从 5 张准确增加至 6 张）。
+5. **[P2-5] 退出房间后严格丢弃迟到在途状态包**：
+   - 在 `BleTransport.ts` 的 `ble://state_received` 与 `handleIncomingState` 增加双重守卫校验：仅在 `!this.isHost && this.connected && this.currentRoomCode` 时才解析与分发状态；
+   - `leave_room` 时立即将 `this.currentRoomCode` 清空为 `''`、`this.connected = false`、`this.cachedRoom = null`，网络栈或蓝牙队列中残留的迟到包被彻底静默过滤，彻底解决已退房用户被重新拉回空房间的闪烁问题。
+
+**本轮全量验证结果**：
+- `pnpm run test:unit`：19 个测试套件，**149 项测试全部通过**（新增客机物理断线拦截、房主重连状态与回调恢复、退房后丢弃在途包 3 项端到端单测）；
+- `cargo check --target aarch64-linux-android --manifest-path src-tauri/Cargo.toml`：Android 交叉编译零错误；
+- `cargo check --target aarch64-apple-ios --manifest-path src-tauri/Cargo.toml`：iOS 交叉编译零错误；
+- `cargo check --manifest-path src-tauri/Cargo.toml`：macOS 原生 Rust 零错误；
+- `pnpm run codegen:check`：跨平台 SSOT 契约一致性通过；
+- `pnpm run lint`：Biome 零报错；
+- `pnpm run build`：Vite + `vue-tsc` 生产构建成功。
+
+## 2026-10-17：离线面对面联机自动化 CodeReview 第四轮深化修复（2 项阻断缺陷闭环）
+
+针对自动化审查第四轮复现的 2 项阻断缺陷，完成闭环排查与针对性修复：
+
+1. **[P1-1] 退出或断线后 `connect()` 恢复连接通道**：
+   - *根因*：`BleTransport.ts` 的 `connect()` 原先只调用 `init()`；由于 `initialized` 在初次启动后即为 `true`，`init()` 遇到前置保护直接返回，未能将 `connected` 恢复为 `true`；且 `leave_room` 将 `connected` 置为 `false` 后导致大厅界面中的“一键加入”持续触发 `尚未连接服务器` 拦截。
+   - *修复*：
+     - 重构 `connect()` 方法：显式设置 `this.connected = true`，并在从非连接状态切回时规范发射 `'connect'` 本地事件；
+     - 明确 `leave_room` 语义：退房仅退出当局游戏并切断与该桌台的蓝牙链路（`connectedDeviceId = null`、`currentRoomCode = ''`），而客户端底座 Transport 保持可用状态（`connected = true`），玩家在大厅中可无阻碍点击重新建房或加入新桌台；
+     - 增加单元测试，验证 `leave_room → connect()` 与 `peripheral_disconnected → connect()` 均可靠保持/恢复 `connected: true`。
+2. **[P1-2] 物理连接成功事件与会话恢复彻底解耦（杜绝重复 GATT 连接与句柄覆盖）**：
+   - *根因*：收到 `ble://peripheral_connected` 原生事件时发射了 `'connect'`，触发 `useGameRoom.ts` 的 `handleConnect` 监听自动调用 `rejoin_room`；而 `rejoin_room` 未检查当前物理连接状态，盲目再次调用 `ble_connect_peripheral`，导致 Android 原生层在已有活跃 GATT 连接的情况下再次调用 `connectGatt` 覆盖句柄。
+   - *修复*：
+     - **TS 虚拟传输层**：`BleTransport.ts` 引入 `connectedDeviceId` 追踪当前物理连接的设备 ID；`ble://peripheral_connected` 仅维护物理链路状态，严禁在此发射 `'connect'` 事件，彻底切断连环触发回路；
+     - **业务会话层**：`join_room` 与 `rejoin_room` 增加物理连接复用校验：当已与目标外设建立物理连接时，直接复用当前 GATT 通道恢复房间状态，不再调用 `ble_connect_peripheral`；
+     - **原生驱动层双重防重**：
+       - Android `BleMeshManager.kt`：在 `connectPeripheral` 中比对 `clientGatt?.device?.address`，若已在连接或已连接则直接复用，防止重复创建 GATT 客户端；
+       - iOS `BleMeshBridge.swift`：在 `performConnect` 中比对 `connectedPeripheral?.state`（`.connected` 或 `.connecting`），跳过重复请求；
+     - 新增单元测试，模拟注入物理连接就绪事件，断言不触发 `'connect'` 且 `rejoin_room` 零额外原生连接调用。
+
+**本轮全量验证结果**：
+- `pnpm run test:unit`：19 个测试套件，**151 项测试全量通过**；
+- `cargo check --target aarch64-linux-android --manifest-path src-tauri/Cargo.toml`：Android 交叉编译零错误；
+- `cargo check --target aarch64-apple-ios --manifest-path src-tauri/Cargo.toml`：iOS 交叉编译零错误；
+- `pnpm run codegen:check`：跨平台 SSOT 契约一致性通过；
+- `pnpm run lint`：Biome 零报错；
+- `pnpm run build`：Vite + `vue-tsc` 生产构建成功。
+
+
+
+
+
+
+
 
 

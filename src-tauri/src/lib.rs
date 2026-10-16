@@ -1,16 +1,41 @@
 use serde::{Deserialize, Serialize};
+use std::sync::Mutex as StdMutex;
+use tauri::{AppHandle, Emitter};
 
-pub mod engine_bridge;
+static APP_HANDLE: StdMutex<Option<AppHandle>> = StdMutex::new(None);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WearSyncPayload {
     pub payload: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BleDiscoveredRoom {
+    pub device_id: String,
+    pub room_code: String,
+    pub name: String,
+    pub rssi: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlePeerEvent {
+    pub peer_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BleCommandEvent {
+    pub peer_id: String,
+    pub payload: Vec<u8>,
+}
+
 #[tauri::command]
 fn is_android() -> bool {
     cfg!(target_os = "android")
 }
+
+// -------------------------------------------------------------
+// Android JNI 环境与 Wear 状态同步
+// -------------------------------------------------------------
 
 #[cfg(target_os = "android")]
 use std::sync::Mutex;
@@ -27,10 +52,7 @@ pub unsafe extern "C" fn Java_com_poolpoker_app_MainActivity_nativeInitJni(
     let jni_env = match jni::JNIEnv::from_raw(env) {
         Ok(e) => e,
         Err(e) => {
-            println!(
-                "[Tauri Rust] nativeInitJni: JNIEnv::from_raw failed: {:?}",
-                e
-            );
+            println!("[Tauri Rust] nativeInitJni: JNIEnv::from_raw failed: {:?}", e);
             return;
         }
     };
@@ -69,36 +91,24 @@ pub unsafe extern "C" fn JNI_OnLoad(
 fn call_kotlin_broadcast(payload: &str) {
     let vm_guard = match JAVA_VM.lock() {
         Ok(g) => g,
-        Err(e) => {
-            println!("[Tauri Rust] JAVA_VM lock error: {:?}", e);
-            return;
-        }
+        Err(_) => return,
     };
 
     let fallback_vm: jni::JavaVM;
     let vm: &jni::JavaVM = match vm_guard.as_ref() {
         Some(v) => v,
         None => {
-            // Fallback: try ndk_context if JNI_OnLoad wasn't called yet
             let ctx = ndk_context::android_context();
             let vm_ptr: *mut std::ffi::c_void = ctx.vm().cast();
             if vm_ptr.is_null() {
-                println!("[Tauri Rust] JAVA_VM and ndk_context vm_ptr are both NULL!");
                 return;
             }
             match unsafe { jni::JavaVM::from_raw(vm_ptr as *mut _) } {
                 Ok(v) => {
-                    println!("[Tauri Rust] Obtained JavaVM from ndk_context fallback!");
                     fallback_vm = v;
                     &fallback_vm
                 }
-                Err(e) => {
-                    println!(
-                        "[Tauri Rust] JavaVM::from_raw failed from ndk_context: {:?}",
-                        e
-                    );
-                    return;
-                }
+                Err(_) => return,
             }
         }
     };
@@ -106,50 +116,26 @@ fn call_kotlin_broadcast(payload: &str) {
     unsafe {
         let mut env_guard = match vm.attach_current_thread() {
             Ok(e) => e,
-            Err(e) => {
-                println!("[Tauri Rust] JNI attach_current_thread failed: {:?}", e);
-                return;
-            }
+            Err(_) => return,
         };
         let env = &mut *env_guard;
 
         let target_cls = match env.find_class("com/poolpoker/app/MainActivity") {
             Ok(c) => c,
-            Err(e) => {
-                println!(
-                    "[Tauri Rust] JNI find_class com/poolpoker/app/MainActivity failed: {:?}",
-                    e
-                );
-                if env.exception_check().unwrap_or(false) {
-                    let _ = env.exception_clear();
-                }
-                return;
-            }
+            Err(_) => return,
         };
 
         let j_str: jni::objects::JString = match env.new_string(payload) {
             Ok(s) => s,
-            Err(e) => {
-                println!("[Tauri Rust] JNI payload string failed: {:?}", e);
-                return;
-            }
+            Err(_) => return,
         };
 
-        let res = env.call_static_method(
+        let _ = env.call_static_method(
             target_cls,
             "onNativeSyncWearState",
             "(Ljava/lang/String;)V",
             &[(&j_str).into()],
         );
-
-        if let Err(e) = res {
-            println!("[Tauri Rust] JNI onNativeSyncWearState error: {:?}", e);
-            if env.exception_check().unwrap_or(false) {
-                let _ = env.exception_clear();
-            }
-        } else {
-            println!("[Tauri Rust] Successfully invoked MainActivity.onNativeSyncWearState!");
-        }
     }
 }
 
@@ -164,184 +150,483 @@ fn sync_wear_state(payload: String) -> Result<(), String> {
     }
     #[cfg(target_os = "android")]
     {
-        println!(
-            "[Tauri Rust] Syncing state to Wear OS: {} bytes",
-            payload.len()
-        );
         call_kotlin_broadcast(&payload);
     }
     let _ = payload;
     Ok(())
 }
 
-use std::sync::Mutex as StdMutex;
-use tauri::{AppHandle, Emitter, State};
-
-pub struct BleAppState {
-    pub engine: StdMutex<Option<engine_bridge::LocalGameEngine>>,
-    pub self_user_id: StdMutex<String>,
-    pub current_room_code: StdMutex<String>,
-}
-
-impl Default for BleAppState {
-    fn default() -> Self {
-        Self {
-            engine: StdMutex::new(None),
-            self_user_id: StdMutex::new(String::new()),
-            current_room_code: StdMutex::new(String::new()),
-        }
-    }
-}
+// -------------------------------------------------------------
+// BLE 统一跨平台 Tauri Commands
+// -------------------------------------------------------------
 
 #[tauri::command]
-fn ble_start_host(
-    app: AppHandle,
-    state: State<'_, BleAppState>,
-    host_user_id: String,
-    host_name: String,
-    room_code: String,
-) -> Result<(), String> {
-    let engine = engine_bridge::LocalGameEngine::new()?;
-    engine.init_room(&host_user_id, &host_name, &room_code)?;
+fn ble_start_advertising(room_code: String, host_name: String) -> Result<(), String> {
+    #[cfg(target_os = "android")]
+    unsafe {
+        let vm_guard = JAVA_VM.lock().unwrap();
+        if let Some(ref vm) = *vm_guard {
+            if let Ok(mut env) = vm.attach_current_thread() {
+                if let Ok(cls) = env.find_class("com/poolpoker/app/BleMeshManager") {
+                    let j_code = env.new_string(&room_code).unwrap();
+                    let j_name = env.new_string(&host_name).unwrap();
+                    let _ = env.call_static_method(
+                        cls,
+                        "startAdvertising",
+                        "(Ljava/lang/String;Ljava/lang/String;)V",
+                        &[(&j_code).into(), (&j_name).into()],
+                    );
+                }
+            }
+        }
+    }
 
-    let bytes = engine.get_ble_binary_state(&host_user_id)?;
-    *state.engine.lock().unwrap() = Some(engine);
-    *state.self_user_id.lock().unwrap() = host_user_id;
-    *state.current_room_code.lock().unwrap() = room_code;
+    #[cfg(target_os = "ios")]
+    unsafe {
+        extern "C" {
+            fn poolpoker_ble_start_advertising(code: *const std::os::raw::c_char, name: *const std::os::raw::c_char);
+        }
+        let c_code = std::ffi::CString::new(room_code.as_str()).unwrap();
+        let c_name = std::ffi::CString::new(host_name.as_str()).unwrap();
+        poolpoker_ble_start_advertising(c_code.as_ptr(), c_name.as_ptr());
+    }
 
-    app.emit("ble://state_updated", bytes)
-        .map_err(|e| format!("Failed to emit ble state: {:?}", e))?;
+    let _ = (room_code, host_name);
     Ok(())
 }
 
 #[tauri::command]
-fn ble_connect_host(
-    app: AppHandle,
-    state: State<'_, BleAppState>,
-    user_id: String,
-    name: String,
-    room_code: String,
-) -> Result<(), String> {
-    let guard = state.engine.lock().unwrap();
-    if let Some(ref engine) = *guard {
-        *state.self_user_id.lock().unwrap() = user_id.clone();
-        *state.current_room_code.lock().unwrap() = room_code;
-        // 如果本机当前运行着 Host，直接将该玩家注册进房间
-        engine.add_player(&user_id, &name)?;
-        let bytes = engine.get_ble_binary_state(&user_id)?;
-        app.emit("ble://state_updated", bytes)
-            .map_err(|e| format!("Failed to emit ble state: {:?}", e))?;
-        Ok(())
-    } else {
-        Err("当前未检测到本机离线房间。离线本地对战模式当前仅支持房主在本机创建开局；跨设备从机蓝牙广播扫描与联机功能正在适配中。".to_string())
-    }
-}
-
-#[tauri::command]
-fn ble_rejoin_room(
-    app: AppHandle,
-    state: State<'_, BleAppState>,
-    room_code: String,
-    user_id: String,
-) -> Result<Vec<u8>, String> {
-    let guard = state.engine.lock().unwrap();
-    if let Some(ref engine) = *guard {
-        let current_code = state.current_room_code.lock().unwrap().clone();
-        if current_code == room_code {
-            *state.self_user_id.lock().unwrap() = user_id.clone();
-            let bytes = engine.get_ble_binary_state(&user_id)?;
-            app.emit("ble://state_updated", bytes.clone())
-                .map_err(|e| format!("Failed to emit ble state: {:?}", e))?;
-            return Ok(bytes);
+fn ble_stop_advertising() -> Result<(), String> {
+    #[cfg(target_os = "android")]
+    unsafe {
+        let vm_guard = JAVA_VM.lock().unwrap();
+        if let Some(ref vm) = *vm_guard {
+            if let Ok(mut env) = vm.attach_current_thread() {
+                if let Ok(cls) = env.find_class("com/poolpoker/app/BleMeshManager") {
+                    let _ = env.call_static_method(cls, "stopAdvertising", "()V", &[]);
+                }
+            }
         }
     }
-    Err("本地房间不存在或已结束".to_string())
+
+    #[cfg(target_os = "ios")]
+    unsafe {
+        extern "C" {
+            fn poolpoker_ble_stop_advertising();
+        }
+        poolpoker_ble_stop_advertising();
+    }
+
+    Ok(())
 }
 
 #[tauri::command]
-fn ble_send_action(
-    app: AppHandle,
-    state: State<'_, BleAppState>,
+fn ble_start_scanning() -> Result<(), String> {
+    #[cfg(target_os = "android")]
+    unsafe {
+        let vm_guard = JAVA_VM.lock().unwrap();
+        if let Some(ref vm) = *vm_guard {
+            if let Ok(mut env) = vm.attach_current_thread() {
+                if let Ok(cls) = env.find_class("com/poolpoker/app/BleMeshManager") {
+                    let _ = env.call_static_method(cls, "startScanning", "()V", &[]);
+                }
+            }
+        }
+    }
+
+    #[cfg(target_os = "ios")]
+    unsafe {
+        extern "C" {
+            fn poolpoker_ble_start_scanning();
+        }
+        poolpoker_ble_start_scanning();
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+fn ble_stop_scanning() -> Result<(), String> {
+    #[cfg(target_os = "android")]
+    unsafe {
+        let vm_guard = JAVA_VM.lock().unwrap();
+        if let Some(ref vm) = *vm_guard {
+            if let Ok(mut env) = vm.attach_current_thread() {
+                if let Ok(cls) = env.find_class("com/poolpoker/app/BleMeshManager") {
+                    let _ = env.call_static_method(cls, "stopScanning", "()V", &[]);
+                }
+            }
+        }
+    }
+
+    #[cfg(target_os = "ios")]
+    unsafe {
+        extern "C" {
+            fn poolpoker_ble_stop_scanning();
+        }
+        poolpoker_ble_stop_scanning();
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+fn ble_connect_peripheral(device_id: String) -> Result<(), String> {
+    #[cfg(target_os = "android")]
+    unsafe {
+        let vm_guard = JAVA_VM.lock().unwrap();
+        if let Some(ref vm) = *vm_guard {
+            if let Ok(mut env) = vm.attach_current_thread() {
+                if let Ok(cls) = env.find_class("com/poolpoker/app/BleMeshManager") {
+                    let j_dev = env.new_string(&device_id).unwrap();
+                    let _ = env.call_static_method(
+                        cls,
+                        "connectPeripheral",
+                        "(Ljava/lang/String;)V",
+                        &[(&j_dev).into()],
+                    );
+                }
+            }
+        }
+    }
+
+    #[cfg(target_os = "ios")]
+    unsafe {
+        extern "C" {
+            fn poolpoker_ble_connect(device_id: *const std::os::raw::c_char);
+        }
+        let c_dev = std::ffi::CString::new(device_id.as_str()).unwrap();
+        poolpoker_ble_connect(c_dev.as_ptr());
+    }
+
+    let _ = device_id;
+    Ok(())
+}
+
+#[tauri::command]
+fn ble_disconnect_peripheral() -> Result<(), String> {
+    #[cfg(target_os = "android")]
+    unsafe {
+        let vm_guard = JAVA_VM.lock().unwrap();
+        if let Some(ref vm) = *vm_guard {
+            if let Ok(mut env) = vm.attach_current_thread() {
+                if let Ok(cls) = env.find_class("com/poolpoker/app/BleMeshManager") {
+                    let _ = env.call_static_method(cls, "disconnectPeripheral", "()V", &[]);
+                }
+            }
+        }
+    }
+
+    #[cfg(target_os = "ios")]
+    unsafe {
+        extern "C" {
+            fn poolpoker_ble_disconnect();
+        }
+        poolpoker_ble_disconnect();
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+fn ble_send_command_to_host(payload: Vec<u8>) -> Result<(), String> {
+    #[cfg(target_os = "android")]
+    unsafe {
+        let vm_guard = JAVA_VM.lock().unwrap();
+        if let Some(ref vm) = *vm_guard {
+            if let Ok(mut env) = vm.attach_current_thread() {
+                if let Ok(cls) = env.find_class("com/poolpoker/app/BleMeshManager") {
+                    let j_arr = env.byte_array_from_slice(&payload).unwrap();
+                    let _ = env.call_static_method(
+                        cls,
+                        "sendCommandToHost",
+                        "([B)V",
+                        &[(&j_arr).into()],
+                    );
+                }
+            }
+        }
+    }
+
+    #[cfg(target_os = "ios")]
+    unsafe {
+        extern "C" {
+            fn poolpoker_ble_send_command(bytes: *const u8, len: usize);
+        }
+        poolpoker_ble_send_command(payload.as_ptr(), payload.len());
+    }
+
+    let _ = payload;
+    Ok(())
+}
+
+#[tauri::command]
+fn ble_notify_state_to_clients(
     payload: Vec<u8>,
-    card_id: Option<String>,
-    target_user_id: Option<String>,
+    target_peer_id: Option<String>,
 ) -> Result<(), String> {
-    let guard = state.engine.lock().unwrap();
-    if let Some(ref engine) = *guard {
-        if payload.len() >= 4 {
-            let action_type = payload[3];
-            let self_user = state.self_user_id.lock().unwrap().clone();
-            let c_id = card_id.unwrap_or_default();
-            let t_user = target_user_id.unwrap_or_else(|| self_user.clone());
-
-            let cmd_json = match action_type {
-                1 => format!(r#"{{"type":"start_game","actorUserId":"{}"}}"#, self_user),
-                2 => {
-                    let ball = payload.get(4).copied().unwrap_or(0);
-                    let card_idx = payload.get(5).copied().unwrap_or(0);
-                    format!(
-                        r#"{{"type":"pocket_ball","actorUserId":"{}","cardId":"{}","ballNumber":{},"cardIndex":{}}}"#,
-                        self_user, c_id, ball, card_idx
-                    )
+    #[cfg(target_os = "android")]
+    {
+        let vm_guard = JAVA_VM.lock().unwrap();
+        if let Some(ref vm) = *vm_guard {
+            if let Ok(mut env) = vm.attach_current_thread() {
+                if let Ok(cls) = env.find_class("com/poolpoker/app/BleMeshManager") {
+                    if let Ok(j_arr) = env.byte_array_from_slice(&payload) {
+                        let j_target = target_peer_id
+                            .as_deref()
+                            .and_then(|t| env.new_string(t).ok());
+                        let target_null = jni::objects::JObject::null();
+                        let target_val = match j_target {
+                            Some(ref s) => s.into(),
+                            None => (&target_null).into(),
+                        };
+                        let _ = env.call_static_method(
+                            cls,
+                            "notifyClients",
+                            "([BLjava/lang/String;)V",
+                            &[(&j_arr).into(), target_val],
+                        );
+                    }
                 }
-                3 => format!(r#"{{"type":"draw_penalty","actorUserId":"{}"}}"#, self_user),
-                4 => {
-                    let ball = payload.get(4).copied().unwrap_or(0);
-                    format!(r#"{{"type":"accidental_pocket","ballNumber":{}}}"#, ball)
-                }
-                5 => {
-                    let ball = payload.get(4).copied().unwrap_or(0);
-                    format!(r#"{{"type":"break_pocket","ballNumber":{}}}"#, ball)
-                }
-                6 => r#"{"type":"retract_ball"}"#.to_string(),
-                7 => format!(r#"{{"type":"restart_game","actorUserId":"{}"}}"#, self_user),
-                8 => {
-                    let ball = payload.get(4).copied().unwrap_or(0);
-                    format!(
-                        r#"{{"type":"referee_pocket_ball","targetUserId":"{}","ballNumber":{}}}"#,
-                        t_user, ball
-                    )
-                }
-                9 => format!(
-                    r#"{{"type":"referee_draw_penalty","targetUserId":"{}"}}"#,
-                    t_user
-                ),
-                10 => {
-                    let count = payload.get(6).copied().unwrap_or(5);
-                    format!(
-                        r#"{{"type":"update_settings","actorUserId":"{}","cardsPerPlayer":{}}}"#,
-                        self_user, count
-                    )
-                }
-                11 => format!(
-                    r#"{{"type":"kick_player","actorUserId":"{}","targetUserId":"{}"}}"#,
-                    self_user, t_user
-                ),
-                _ => return Ok(()),
-            };
-
-            let _ = engine.handle_command(&cmd_json)?;
-            let updated_bytes = engine.get_ble_binary_state(&self_user)?;
-            app.emit("ble://state_updated", updated_bytes)
-                .map_err(|e| format!("Failed to emit ble state: {:?}", e))?;
+            }
         }
     }
+
+    #[cfg(target_os = "ios")]
+    unsafe {
+        extern "C" {
+            fn poolpoker_ble_notify_clients(
+                bytes: *const u8,
+                len: usize,
+                target_peer_id: *const std::os::raw::c_char,
+            );
+        }
+        let c_target = target_peer_id
+            .as_ref()
+            .and_then(|s| std::ffi::CString::new(s.as_str()).ok());
+        let target_ptr = c_target
+            .as_ref()
+            .map(|c| c.as_ptr())
+            .unwrap_or(std::ptr::null());
+        poolpoker_ble_notify_clients(payload.as_ptr(), payload.len(), target_ptr);
+    }
+
+    let _ = payload;
+    let _ = target_peer_id;
     Ok(())
+}
+
+// -------------------------------------------------------------
+// 原生 BLE 事件中继 -> 抛给前端 Webview
+// -------------------------------------------------------------
+
+fn emit_ble_event<S: Serialize + Clone>(event: &str, payload: S) {
+    if let Ok(guard) = APP_HANDLE.lock() {
+        if let Some(ref app) = *guard {
+            let _ = app.emit(event, payload);
+        }
+    }
+}
+
+// Android JNI Callbacks
+#[cfg(target_os = "android")]
+#[no_mangle]
+pub unsafe extern "C" fn Java_com_poolpoker_app_BleMeshManager_nativeOnDiscoveredRoom(
+    mut env: jni::JNIEnv,
+    _class: jni::sys::jclass,
+    device_id: jni::objects::JString,
+    room_code: jni::objects::JString,
+    name: jni::objects::JString,
+    rssi: jni::sys::jint,
+) {
+    let d_id: String = env.get_string(&device_id).map(|s| s.into()).unwrap_or_default();
+    let r_code: String = env.get_string(&room_code).map(|s| s.into()).unwrap_or_default();
+    let n: String = env.get_string(&name).map(|s| s.into()).unwrap_or_default();
+    emit_ble_event("ble://discovered_room", BleDiscoveredRoom {
+        device_id: d_id,
+        room_code: r_code,
+        name: n,
+        rssi,
+    });
+}
+
+#[cfg(target_os = "android")]
+#[no_mangle]
+pub unsafe extern "C" fn Java_com_poolpoker_app_BleMeshManager_nativeOnClientConnected(
+    mut env: jni::JNIEnv,
+    _class: jni::sys::jclass,
+    peer_id: jni::objects::JString,
+) {
+    let p_id: String = env.get_string(&peer_id).map(|s| s.into()).unwrap_or_default();
+    emit_ble_event("ble://client_connected", BlePeerEvent { peer_id: p_id });
+}
+
+#[cfg(target_os = "android")]
+#[no_mangle]
+pub unsafe extern "C" fn Java_com_poolpoker_app_BleMeshManager_nativeOnClientDisconnected(
+    mut env: jni::JNIEnv,
+    _class: jni::sys::jclass,
+    peer_id: jni::objects::JString,
+) {
+    let p_id: String = env.get_string(&peer_id).map(|s| s.into()).unwrap_or_default();
+    emit_ble_event("ble://client_disconnected", BlePeerEvent { peer_id: p_id });
+}
+
+#[cfg(target_os = "android")]
+#[no_mangle]
+pub unsafe extern "C" fn Java_com_poolpoker_app_BleMeshManager_nativeOnCommandReceived(
+    mut env: jni::JNIEnv,
+    _class: jni::sys::jclass,
+    peer_id: jni::objects::JString,
+    payload: jni::objects::JByteArray,
+) {
+    let p_id: String = env.get_string(&peer_id).map(|s| s.into()).unwrap_or_default();
+    let mut bytes = Vec::new();
+    if !payload.as_raw().is_null() {
+        if let Ok(elements) = env.convert_byte_array(&payload) {
+            bytes = elements;
+        }
+    }
+    emit_ble_event("ble://command_received", BleCommandEvent {
+        peer_id: p_id,
+        payload: bytes,
+    });
+}
+
+#[cfg(target_os = "android")]
+#[no_mangle]
+pub unsafe extern "C" fn Java_com_poolpoker_app_BleMeshManager_nativeOnStateReceived(
+    env: jni::JNIEnv,
+    _class: jni::sys::jclass,
+    payload: jni::objects::JByteArray,
+) {
+    let mut bytes = Vec::new();
+    if !payload.as_raw().is_null() {
+        if let Ok(elements) = env.convert_byte_array(&payload) {
+            bytes = elements;
+        }
+    }
+    emit_ble_event("ble://state_received", bytes);
+}
+
+#[cfg(target_os = "android")]
+#[no_mangle]
+pub unsafe extern "C" fn Java_com_poolpoker_app_BleMeshManager_nativeOnPeripheralConnected(
+    mut env: jni::JNIEnv,
+    _class: jni::sys::jclass,
+    device_id: jni::objects::JString,
+) {
+    let d_id: String = env.get_string(&device_id).map(|s| s.into()).unwrap_or_default();
+    emit_ble_event("ble://peripheral_connected", BlePeerEvent { peer_id: d_id });
+}
+
+#[cfg(target_os = "android")]
+#[no_mangle]
+pub unsafe extern "C" fn Java_com_poolpoker_app_BleMeshManager_nativeOnPeripheralDisconnected(
+    mut env: jni::JNIEnv,
+    _class: jni::sys::jclass,
+    device_id: jni::objects::JString,
+) {
+    let d_id: String = env.get_string(&device_id).map(|s| s.into()).unwrap_or_default();
+    emit_ble_event("ble://peripheral_disconnected", BlePeerEvent { peer_id: d_id });
+}
+
+// iOS C-ABI Callbacks
+#[no_mangle]
+pub unsafe extern "C" fn poolpoker_on_ble_discovered_room(
+    device_id: *const std::os::raw::c_char,
+    room_code: *const std::os::raw::c_char,
+    name: *const std::os::raw::c_char,
+    rssi: i32,
+) {
+    let d_id = std::ffi::CStr::from_ptr(device_id).to_string_lossy().to_string();
+    let r_code = std::ffi::CStr::from_ptr(room_code).to_string_lossy().to_string();
+    let n = std::ffi::CStr::from_ptr(name).to_string_lossy().to_string();
+    emit_ble_event("ble://discovered_room", BleDiscoveredRoom {
+        device_id: d_id,
+        room_code: r_code,
+        name: n,
+        rssi,
+    });
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn poolpoker_on_ble_command_received(
+    peer_id: *const std::os::raw::c_char,
+    bytes: *const u8,
+    len: usize,
+) {
+    let p_id = std::ffi::CStr::from_ptr(peer_id).to_string_lossy().to_string();
+    let slice = std::slice::from_raw_parts(bytes, len);
+    emit_ble_event("ble://command_received", BleCommandEvent {
+        peer_id: p_id,
+        payload: slice.to_vec(),
+    });
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn poolpoker_on_ble_state_received(
+    bytes: *const u8,
+    len: usize,
+) {
+    let slice = std::slice::from_raw_parts(bytes, len);
+    emit_ble_event("ble://state_received", slice.to_vec());
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn poolpoker_on_ble_peripheral_connected(
+    device_id: *const std::os::raw::c_char,
+) {
+    let d_id = std::ffi::CStr::from_ptr(device_id).to_string_lossy().to_string();
+    emit_ble_event("ble://peripheral_connected", BlePeerEvent { peer_id: d_id });
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn poolpoker_on_ble_peripheral_disconnected(
+    device_id: *const std::os::raw::c_char,
+) {
+    let d_id = std::ffi::CStr::from_ptr(device_id).to_string_lossy().to_string();
+    emit_ble_event("ble://peripheral_disconnected", BlePeerEvent { peer_id: d_id });
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn poolpoker_on_ble_client_connected(
+    peer_id: *const std::os::raw::c_char,
+) {
+    let p_id = std::ffi::CStr::from_ptr(peer_id).to_string_lossy().to_string();
+    emit_ble_event("ble://client_connected", BlePeerEvent { peer_id: p_id });
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn poolpoker_on_ble_client_disconnected(
+    peer_id: *const std::os::raw::c_char,
+) {
+    let p_id = std::ffi::CStr::from_ptr(peer_id).to_string_lossy().to_string();
+    emit_ble_event("ble://client_disconnected", BlePeerEvent { peer_id: p_id });
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .manage(BleAppState::default())
+        .setup(|app| {
+            if let Ok(mut guard) = APP_HANDLE.lock() {
+                *guard = Some(app.handle().clone());
+            }
+            Ok(())
+        })
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_http::init())
         .invoke_handler(tauri::generate_handler![
             is_android,
             sync_wear_state,
-            ble_start_host,
-            ble_connect_host,
-            ble_rejoin_room,
-            ble_send_action
+            ble_start_advertising,
+            ble_stop_advertising,
+            ble_start_scanning,
+            ble_stop_scanning,
+            ble_connect_peripheral,
+            ble_disconnect_peripheral,
+            ble_send_command_to_host,
+            ble_notify_state_to_clients
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

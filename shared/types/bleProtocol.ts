@@ -149,6 +149,7 @@ export interface BleClientAction {
   cardIndex?: number;
   cardId?: string;
   targetUserId?: string;
+  targetSeatIndex?: number;
   cardsPerPlayer?: number;
 }
 
@@ -428,7 +429,7 @@ export function encodeBleAction(action: BleClientAction): Uint8Array {
   view.setUint8(4, action.ballNumber ?? 0);
   view.setUint8(5, action.cardIndex !== undefined ? action.cardIndex : 0xff);
   view.setUint8(6, action.cardsPerPlayer ?? 0);
-  view.setUint8(7, 0); // reserved
+  view.setUint8(7, action.targetSeatIndex !== undefined ? action.targetSeatIndex : 0xff);
 
   return new Uint8Array(buffer);
 }
@@ -451,6 +452,7 @@ export function decodeBleAction(bytes: Uint8Array): BleClientAction {
   const ballNumberRaw = bytes.length > 4 ? view.getUint8(4) : 0;
   const cardIndexRaw = bytes.length > 5 ? view.getUint8(5) : 0xff;
   const cardsPerPlayerRaw = bytes.length > 6 ? view.getUint8(6) : 0;
+  const targetSeatIndexRaw = bytes.length > 7 ? view.getUint8(7) : 0xff;
 
   return {
     version,
@@ -459,6 +461,7 @@ export function decodeBleAction(bytes: Uint8Array): BleClientAction {
     ballNumber: ballNumberRaw === 0 ? undefined : ballNumberRaw,
     cardIndex: cardIndexRaw === 0xff ? undefined : cardIndexRaw,
     cardsPerPlayer: cardsPerPlayerRaw === 0 ? undefined : cardsPerPlayerRaw,
+    targetSeatIndex: targetSeatIndexRaw === 0xff ? undefined : targetSeatIndexRaw,
   };
 }
 

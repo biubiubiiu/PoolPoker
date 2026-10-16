@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import type { DiscoverySource, NearbyRoom } from '@shared/types/discovery';
 import type { Room } from '@shared/types/game';
-import { computed, ref } from 'vue';
+import { computed, onUnmounted, ref, watch } from 'vue';
 import NearbyRooms from '@/components/NearbyRooms.vue';
 import type { ServerUrlConfig } from '@/composables/useSocket';
+import { BleScanner } from '@/services/bleScanner';
 import { showAlert, showConfirm } from '@/utils/dialog';
 
 const props = defineProps<{
@@ -73,17 +74,34 @@ const onRemoveServer = async (item: ServerUrlConfig) => {
   }
 };
 
-const onJoin = async () => {
-  if (props.isBleOfflineMode) {
-    await showAlert('离线本地对战目前由本机房主创建房间开局，暂不支持跨设备直接加入外部房间。', '离线模式提示');
-    tab.value = 'create';
-    return;
-  }
-  if (!joinCode.value.trim()) {
+const bleScanner = BleScanner.getInstance();
+const discoveredBleRooms = bleScanner.discoveredRooms;
+const isBleScanning = bleScanner.isScanning;
+
+watch(
+  () => [props.isBleOfflineMode, tab.value],
+  ([isBle, currentTab]) => {
+    if (isBle && currentTab === 'join') {
+      bleScanner.start();
+    } else {
+      bleScanner.stop();
+    }
+  },
+  { immediate: true }
+);
+
+onUnmounted(() => {
+  bleScanner.stop();
+});
+
+const onJoin = async (customCode?: string, deviceId?: string) => {
+  const code = (customCode || joinCode.value).trim();
+  if (!code) {
     await showAlert('请输入4位房间码', '提示');
     return;
   }
-  emit('join-room', joinCode.value.trim());
+  const extraSource = deviceId ? ({ type: 'ble', deviceId } as any) : undefined;
+  emit('join-room', code, extraSource);
 };
 </script>
 
@@ -306,15 +324,53 @@ const onJoin = async () => {
 
       <!-- TAB A: 输入 4 位数字房间码加入 -->
       <div v-if="tab === 'join'" class="space-y-4">
-        <div v-if="props.isBleOfflineMode" class="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-200 text-xs flex items-center gap-2">
-          <i class="fa-solid fa-circle-info text-amber-400 shrink-0"></i>
-          <span>当前已开启离线本地模式，请由房主在「创建新房间」中开局。跨设备蓝牙扫描加入功能正在适配中。</span>
+        <!-- 离线蓝牙近场雷达面板 -->
+        <div v-if="props.isBleOfflineMode" class="space-y-3">
+          <div class="p-3 bg-amber-500/15 border border-amber-500/40 rounded-xl text-amber-200 text-xs flex items-center justify-between shadow-lg">
+            <div class="flex items-center gap-2">
+              <i class="fa-brands fa-bluetooth-b text-amber-400 text-sm animate-pulse"></i>
+              <span><strong>近场蓝牙雷达已启动</strong>：扫描附近 10 米内的开局手机</span>
+            </div>
+            <span class="text-[11px] text-amber-300 font-mono">{{ discoveredBleRooms.length }} 桌在线</span>
+          </div>
+
+          <!-- 扫描到的附近桌台列表 -->
+          <div v-if="discoveredBleRooms.length > 0" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+            <div v-for="table in discoveredBleRooms" :key="table.deviceId"
+                 class="p-3 bg-black/50 hover:bg-black/70 border border-emerald-500/40 hover:border-emerald-400 rounded-xl flex items-center justify-between transition shadow-md">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-emerald-950/80 border border-emerald-500/40 flex items-center justify-center text-sm">
+                  🎱
+                </div>
+                <div>
+                  <div class="font-bold text-sm text-amber-300 flex items-center gap-1.5">
+                    <span>{{ table.roomCode }} 桌</span>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-normal">{{ table.name }}</span>
+                  </div>
+                  <div class="text-[11px] text-gray-400 flex items-center gap-1">
+                    <i class="fa-solid fa-signal text-[10px]" :class="table.rssi > -65 ? 'text-emerald-400' : 'text-amber-400'"></i>
+                    <span>{{ table.rssi }} dBm</span>
+                  </div>
+                </div>
+              </div>
+              <button @click="onJoin(table.roomCode, table.deviceId)" :disabled="joiningRoom"
+                      class="px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-black font-extrabold text-xs rounded-xl shadow transition active:scale-95 cursor-pointer disabled:opacity-50">
+                一键加入
+              </button>
+            </div>
+          </div>
+          <div v-else class="p-4 rounded-xl bg-black/30 border border-white/5 text-center text-xs text-gray-400 space-y-1">
+            <i class="fa-solid fa-satellite-dish text-amber-400 animate-pulse text-lg mb-1 block"></i>
+            <div>正在雷达探测附近的蓝牙开局桌台...</div>
+            <div class="text-[11px] text-gray-500">请确保房主手机已在「创建新房间」中开局</div>
+          </div>
         </div>
+
         <div>
           <input v-model="joinCode" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="输入 4 位数字房间码 (如 6824)" maxlength="4"
                  class="w-full bg-black/50 border-2 border-emerald-500/50 text-center font-mono text-2xl font-black tracking-widest py-3 rounded-xl text-amber-300 placeholder:font-sans placeholder:text-sm placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-500 focus:outline-none focus:border-amber-400">
         </div>
-        <button @click="onJoin" :disabled="!joinCode || joiningRoom"
+        <button @click="() => onJoin()" :disabled="!joinCode || joiningRoom"
                 class="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-black font-extrabold rounded-xl shadow-lg transition active:scale-98 disabled:opacity-50 cursor-pointer">
           进入球局 <i class="fa-solid fa-arrow-right ml-1"></i>
         </button>

@@ -8,6 +8,81 @@ import kotlinx.serialization.descriptors.*
 import kotlinx.serialization.encoding.*
 
 @Serializable
+data class BleWireClientAction (
+    val actionType: BleWireActionType,
+    val ballNumber: Int? = null,
+    val cardId: String? = null,
+    val cardIndex: Int? = null,
+    val cardsPerPlayer: Int? = null,
+    val revision: Int,
+    val targetSeatIndex: Int? = null,
+    val targetUserId: String? = null,
+    val version: Int
+) {
+    companion object
+}
+
+/**
+ * BLE 客户端上行动作类型
+ */
+@Serializable
+enum class BleWireActionType(val value: String) {
+    @SerialName("ACCIDENTAL_POCKET") ACCIDENTAL_POCKET("ACCIDENTAL_POCKET"),
+    @SerialName("BREAK_POCKET") BREAK_POCKET("BREAK_POCKET"),
+    @SerialName("DRAW_PENALTY") DRAW_PENALTY("DRAW_PENALTY"),
+    @SerialName("KICK_PLAYER") KICK_PLAYER("KICK_PLAYER"),
+    @SerialName("POCKET_BALL") POCKET_BALL("POCKET_BALL"),
+    @SerialName("REFEREE_PENALTY") REFEREE_PENALTY("REFEREE_PENALTY"),
+    @SerialName("REFEREE_POCKET") REFEREE_POCKET("REFEREE_POCKET"),
+    @SerialName("RESTART_GAME") RESTART_GAME("RESTART_GAME"),
+    @SerialName("RETRACT_BALL") RETRACT_BALL("RETRACT_BALL"),
+    @SerialName("START_GAME") START_GAME("START_GAME"),
+    @SerialName("UPDATE_SETTINGS") UPDATE_SETTINGS("UPDATE_SETTINGS");
+}
+
+@Serializable
+data class BleWireRoomState (
+    val cardsPerPlayer: Int,
+    val deckRemaining: Int,
+    val hostSeatIndex: Int,
+    val lastActionText: String? = null,
+    val players: List<BleWirePlayerSummary>,
+    val pocketedBallsMask: Int,
+    val revision: Int,
+    val roundCount: Int,
+    val selfSeatIndex: Int,
+    val status: BleWireGameStatus,
+    val version: Int
+) {
+    companion object
+}
+
+@Serializable
+data class BleWirePlayerSummary (
+    val cardCount: Int,
+    val isHost: Boolean,
+    val isWinner: Boolean,
+    val name: String,
+    val online: Boolean,
+    val roundScoreDelta: Int? = null,
+    val totalScore: Int,
+    val userId: String,
+    val userIdHash: Int
+) {
+    companion object
+}
+
+/**
+ * BLE 房间对局状态
+ */
+@Serializable
+enum class BleWireGameStatus(val value: String) {
+    @SerialName("FINISHED") FINISHED("FINISHED"),
+    @SerialName("PLAYING") PLAYING("PLAYING"),
+    @SerialName("WAITING") WAITING("WAITING");
+}
+
+@Serializable
 data class DiscoveryPosition (
     val accuracy: Double,
     val latitude: Double,
