@@ -15,12 +15,20 @@ import {
   BLE_PROTOCOL_VERSION,
   BleActionType,
   type BleClientAction,
+  BleHostEventCode,
+  BleMessageType,
   bleStateToClientRoom,
   cardToIndex,
+  decodeBleHostEvent,
+  decodeBleJoin,
   decodeBleRoomState,
   encodeBleAction,
+  encodeBleHostEvent,
+  encodeBleJoin,
 } from '../../shared/types/bleProtocol';
 import type { Room } from '../../shared/types/game';
+import { getRandomInt } from '../../shared/utils/crypto';
+import { BleScanner } from './bleScanner';
 import { LocalHostEngine } from './localHostEngine';
 
 type EventCallback = (...args: any[]) => void;
@@ -34,6 +42,8 @@ async function safeInvoke(cmd: string, args?: any): Promise<any> {
 }
 
 let sharedHostEngine: LocalHostEngine | null = null;
+const sharedPeerIdToUserId = new Map<string, string>();
+const sharedUserIdToPeerId = new Map<string, string>();
 let memoryDeviceIdStorage: string | null = null;
 
 export function getStoredDeviceId(): string | null {
@@ -75,6 +85,8 @@ export function resetSharedHostEngine(): void {
     sharedHostEngine.destroy();
     sharedHostEngine = null;
   }
+  sharedPeerIdToUserId.clear();
+  sharedUserIdToPeerId.clear();
   clearStoredDeviceId();
 }
 
@@ -83,6 +95,7 @@ export class BleTransport {
   private currentRoomCode = '8848';
   private selfUserId = '';
   private playerName = '我';
+  private playerAvatar = '🎱';
   private revision = 0;
   public connected = false;
   private connectedDeviceId: string | null = null;
@@ -90,9 +103,9 @@ export class BleTransport {
   private hostEngine: LocalHostEngine | null = null;
   private cachedRoom: Room | null = null;
 
-  // 物理连接与玩家映射 (Host 维护)
-  private peerIdToUserId = new Map<string, string>();
-  private userIdToPeerId = new Map<string, string>();
+  // 物理连接与玩家映射 (Host 维护，与模块级共享表同步，支持重连恢复)
+  private peerIdToUserId = sharedPeerIdToUserId;
+  private userIdToPeerId = sharedUserIdToPeerId;
 
   // 原生 BLE 监听销毁句柄
   private unlistenCommand: UnlistenFn | null = null;
@@ -103,9 +116,42 @@ export class BleTransport {
   private unlistenPeripheralDisconn: UnlistenFn | null = null;
   private initialized = false;
 
-  constructor(userId: string, playerName = '我') {
+  constructor(userId: string, playerName = '我', playerAvatar = '🎱') {
     this.selfUserId = userId;
     this.playerName = playerName;
+    this.playerAvatar = playerAvatar;
+  }
+
+  private sendJoinHandshake(): void {
+    if (this.isHost || !this.connected || !this.currentRoomCode) return;
+    const joinBytes = encodeBleJoin({
+      version: BLE_PROTOCOL_VERSION,
+      revision: ++this.revision & 0xffff,
+      roomCode: Number(this.currentRoomCode) || 8848,
+      userId: this.selfUserId,
+      name: this.playerName || '球友',
+      avatar: this.playerAvatar || '🎱',
+    });
+    safeInvoke('ble_send_command_to_host', {
+      payload: Array.from(joinBytes),
+    });
+  }
+
+  private bindHostEngineCallback(engine: LocalHostEngine): void {
+    engine.setStateUpdateCallback((targetUserId, stateBytes, clientRoom) => {
+      if (targetUserId === this.selfUserId) {
+        // 房主本人只更新本地视图，严禁下发给客机
+        this.handleIncomingState(clientRoom);
+        return;
+      }
+
+      // 物理客机：定向查找对应的蓝牙 peerId 并精准 Notify，避免混淆手牌
+      const targetPeerId = this.userIdToPeerId.get(targetUserId) || targetUserId;
+      safeInvoke('ble_notify_state_to_clients', {
+        payload: Array.from(stateBytes),
+        targetPeerId,
+      });
+    });
   }
 
   public async init(): Promise<this> {
@@ -113,24 +159,100 @@ export class BleTransport {
     if (this.initialized) return this;
     this.initialized = true;
 
-    // 1. 监听来自物理蓝牙从机发来的指令包 (房主模式接收)
+    // 1. 监听来自物理蓝牙从机发来的指令包或入房握手包 (房主模式接收)
     try {
       this.unlistenCommand = await listen<{ peer_id: string; payload: number[] }>('ble://command_received', (event) => {
         const { peer_id, payload } = event.payload;
-        if (this.isHost && this.hostEngine && payload?.length > 0) {
+        if (this.isHost && this.hostEngine && payload?.length > 1) {
           const rawBytes = new Uint8Array(payload);
-          this.hostEngine.executeBinaryAction(rawBytes, peer_id);
+          const msgType = rawBytes[1];
+
+          if (msgType === BleMessageType.CLIENT_JOIN) {
+            try {
+              const join = decodeBleJoin(rawBytes);
+              const oldUserId = this.peerIdToUserId.get(peer_id);
+              if (oldUserId && oldUserId !== join.userId) {
+                this.userIdToPeerId.delete(oldUserId);
+              }
+              this.peerIdToUserId.set(peer_id, join.userId);
+              this.userIdToPeerId.set(join.userId, peer_id);
+
+              const bindRes = this.hostEngine.bindPeerPlayer(peer_id, join.userId, join.name, join.avatar || '🎱');
+              if (!bindRes.ok) {
+                this.peerIdToUserId.delete(peer_id);
+                this.userIdToPeerId.delete(join.userId);
+                const evtBytes = encodeBleHostEvent({
+                  version: BLE_PROTOCOL_VERSION,
+                  code:
+                    bindRes.reason === 'full'
+                      ? BleHostEventCode.JOIN_REJECTED_FULL
+                      : BleHostEventCode.JOIN_REJECTED_PLAYING,
+                  roomCode: Number(this.currentRoomCode) || 8848,
+                });
+                safeInvoke('ble_notify_state_to_clients', {
+                  payload: Array.from(evtBytes),
+                  targetPeerId: peer_id,
+                });
+              }
+            } catch (err) {
+              console.error('[BleTransport] Failed to decode CLIENT_JOIN:', err);
+            }
+            return;
+          }
+
+          const mappedSender = this.peerIdToUserId.get(peer_id) || peer_id;
+          this.hostEngine.executeBinaryAction(rawBytes, mappedSender);
         }
       });
 
-      // 2. 监听来自房主外设推送的下行状态包 (客端模式接收)
+      // 2. 监听来自房主外设推送的下行状态包或控制帧 (客端模式接收)
       // 必须严格校验处于连接状态且有有效房间码，防止断开或退出后在途包拉回房间
       this.unlistenState = await listen<number[]>('ble://state_received', (event) => {
-        if (!this.isHost && this.connected && this.currentRoomCode && event.payload?.length > 0) {
+        if (!this.isHost && this.connected && this.currentRoomCode && event.payload?.length > 1) {
           try {
             const rawBytes = new Uint8Array(event.payload);
+            const msgType = rawBytes[1];
+
+            if (msgType === BleMessageType.HOST_EVENT_NOTIFY) {
+              const hostEvt = decodeBleHostEvent(rawBytes);
+              const roomCodeStr = this.currentRoomCode || String(hostEvt.roomCode || '8848');
+              clearStoredDeviceId();
+              this.cachedRoom = null;
+              this.currentRoomCode = '';
+              this.connectedDeviceId = null;
+              safeInvoke('ble_disconnect_peripheral');
+
+              if (hostEvt.code === BleHostEventCode.KICKED) {
+                this.emitLocal('room_kicked', { roomCode: roomCodeStr });
+              } else {
+                const msg =
+                  hostEvt.code === BleHostEventCode.JOIN_REJECTED_FULL
+                    ? '该房间人数已满（最多 8 人），无法加入'
+                    : '该房间牌局已开始，无法中途加入';
+                this.emitLocal('error_message', msg);
+                this.emitLocal('room_kicked', { roomCode: roomCodeStr });
+              }
+              return;
+            }
+
             const bleState = decodeBleRoomState(rawBytes);
-            const clientRoom = bleStateToClientRoom(bleState, this.selfUserId, this.currentRoomCode, this.playerName);
+            // 若房主侧当前席位仍为默认占位昵称，主动补发一次 CLIENT_JOIN 同步真实 userId/昵称/头像
+            if (
+              bleState.selfSeatIndex !== undefined &&
+              bleState.selfSeatIndex < bleState.players.length &&
+              bleState.players[bleState.selfSeatIndex]?.name === '蓝牙球友' &&
+              this.playerName !== '蓝牙球友'
+            ) {
+              this.sendJoinHandshake();
+            }
+
+            const clientRoom = bleStateToClientRoom(
+              bleState,
+              this.selfUserId,
+              this.currentRoomCode,
+              this.playerName,
+              this.playerAvatar
+            );
             this.handleIncomingState(clientRoom);
           } catch (err) {
             console.error('[BleTransport] Failed to decode incoming BLE state:', err);
@@ -142,9 +264,29 @@ export class BleTransport {
       this.unlistenClientConn = await listen<{ peer_id: string }>('ble://client_connected', (event) => {
         if (this.isHost && this.hostEngine) {
           const peerId = event.payload.peer_id;
-          this.peerIdToUserId.set(peerId, peerId);
-          this.userIdToPeerId.set(peerId, peerId);
-          this.hostEngine.addPlayer(peerId, '蓝牙球友');
+          const existingUserId = this.peerIdToUserId.get(peerId) || peerId;
+          this.peerIdToUserId.set(peerId, existingUserId);
+          this.userIdToPeerId.set(existingUserId, peerId);
+          const added = this.hostEngine.addPlayer(existingUserId, '蓝牙球友');
+          if (!added) {
+            // 若对局已开始且为未知设备，等待其发送 CLIENT_JOIN 验证是否为掉线重连老玩家
+            const rawRoom = this.hostEngine.getRawRoom();
+            if (
+              rawRoom &&
+              rawRoom.players.length >= (rawRoom.settings?.maxPlayers || 8) &&
+              rawRoom.status === 'waiting'
+            ) {
+              const evtBytes = encodeBleHostEvent({
+                version: BLE_PROTOCOL_VERSION,
+                code: BleHostEventCode.JOIN_REJECTED_FULL,
+                roomCode: Number(this.currentRoomCode) || 8848,
+              });
+              safeInvoke('ble_notify_state_to_clients', {
+                payload: Array.from(evtBytes),
+                targetPeerId: peerId,
+              });
+            }
+          }
         }
       });
 
@@ -163,6 +305,8 @@ export class BleTransport {
         if (!this.isHost) {
           this.connected = true;
           this.connectedDeviceId = event.payload.peer_id;
+          // 物理链路与特征值就绪后，向房主发送 CLIENT_JOIN 握手同步真实 userId 与昵称
+          this.sendJoinHandshake();
           // 注意：物理连接就绪事件只更新底层链路状态，严禁在此发射 'connect' 事件，
           // 否则会触发 useGameRoom 的 handleConnect 重复发起 rejoin_room -> ble_connect_peripheral 循环
         }
@@ -286,31 +430,20 @@ export class BleTransport {
   public async emit(event: string, payload?: any, callback?: EventCallback): Promise<void> {
     try {
       if (event === 'create_room') {
-        const roomCode = payload?.roomCode || '8848';
+        const roomCode = payload?.roomCode || String(getRandomInt(1000, 10000));
         this.currentRoomCode = roomCode;
         if (payload?.name) this.playerName = payload.name;
+        if (payload?.avatar) this.playerAvatar = payload.avatar;
 
         this.isHost = true;
         this.connected = true;
         this.hostEngine = getSharedHostEngine();
 
         // 绑定状态机更新 -> 区分房主与客机定向推送
-        this.hostEngine.setStateUpdateCallback((targetUserId, stateBytes, clientRoom) => {
-          if (targetUserId === this.selfUserId) {
-            // 房主本人只更新本地视图，严禁下发给客机
-            this.handleIncomingState(clientRoom);
-            return;
-          }
+        this.bindHostEngineCallback(this.hostEngine);
 
-          // 物理客机：定向查找对应的蓝牙 peerId 并精准 Notify，避免混淆手牌
-          const targetPeerId = this.userIdToPeerId.get(targetUserId) || targetUserId;
-          safeInvoke('ble_notify_state_to_clients', {
-            payload: Array.from(stateBytes),
-            targetPeerId,
-          });
-        });
-
-        const initialRoom = this.hostEngine.initRoom(this.selfUserId, this.playerName, roomCode);
+        const initialRoom = this.hostEngine.initRoom(this.selfUserId, this.playerName, roomCode, this.playerAvatar);
+        this.emitLocal('room_created', { roomCode });
         this.handleIncomingState(initialRoom);
 
         // 开启物理 BLE 广播与 GATT 服务
@@ -327,19 +460,26 @@ export class BleTransport {
 
       if (event === 'join_room') {
         const roomCode = payload?.roomCode || '8848';
-        const deviceId = payload?.deviceId || payload?.discoverySource?.deviceId;
+        const scannedDevice = BleScanner.getInstance().findByRoomCode(roomCode)?.deviceId;
+        const deviceId = payload?.deviceId || payload?.discoverySource?.deviceId || scannedDevice;
         this.currentRoomCode = roomCode;
         if (payload?.name) this.playerName = payload.name;
+        if (payload?.avatar) this.playerAvatar = payload.avatar;
         this.isHost = false;
 
         // 如果在同机单机沙盒模式下且有 Host 运行，优先直接加入
         if (sharedHostEngine?.getRawRoom()) {
           this.hostEngine = sharedHostEngine;
           this.connected = true;
-          const updatedRoom = this.hostEngine.addPlayer(this.selfUserId, this.playerName);
-          if (updatedRoom) {
-            this.handleIncomingState(updatedRoom);
+          const updatedRoom = this.hostEngine.addPlayer(this.selfUserId, this.playerName, this.playerAvatar);
+          if (!updatedRoom) {
+            const errorMsg = '加入失败：房间对局已开始或人数已满';
+            if (callback) {
+              callback(null, { success: false, message: errorMsg });
+            }
+            return;
           }
+          this.handleIncomingState(updatedRoom);
           if (callback) {
             callback(null, { success: true, roomCode, sessionToken: `ble_token_${this.selfUserId}` });
           }
@@ -351,6 +491,7 @@ export class BleTransport {
           // 如果当前物理链路已连接该外设，直接使用当前连接，避免重复建连
           if (this.connected && this.connectedDeviceId === deviceId) {
             setStoredDeviceId(deviceId);
+            this.sendJoinHandshake();
             if (callback) {
               callback(null, { success: true, roomCode, sessionToken: `ble_token_${this.selfUserId}` });
             }
@@ -393,18 +534,7 @@ export class BleTransport {
           this.currentRoomCode = roomCode;
 
           // 重新绑定本地权威引擎状态回调，确保后续房主操作继续定向推送客机并更新自身
-          this.hostEngine.setStateUpdateCallback((tUserId, stateBytes, clientRoom) => {
-            if (tUserId === this.selfUserId) {
-              this.handleIncomingState(clientRoom);
-              return;
-            }
-
-            const targetPeerId = this.userIdToPeerId.get(tUserId) || tUserId;
-            safeInvoke('ble_notify_state_to_clients', {
-              payload: Array.from(stateBytes),
-              targetPeerId,
-            });
-          });
+          this.bindHostEngineCallback(this.hostEngine);
 
           // 恢复房主广播
           safeInvoke('ble_start_advertising', {
@@ -583,8 +713,27 @@ export class BleTransport {
         const bytes = encodeBleAction(action);
 
         if (this.isHost && this.hostEngine) {
+          const kickedPeerId =
+            actionType === BleActionType.KICK_PLAYER && targetUserId
+              ? this.userIdToPeerId.get(targetUserId) || targetUserId
+              : null;
+
           // 房主直接调用本地权威状态机处理
-          this.hostEngine.executeBinaryAction(bytes, this.selfUserId, cardId, targetUserId);
+          const executed = this.hostEngine.executeBinaryAction(bytes, this.selfUserId, cardId, targetUserId);
+
+          if (executed && kickedPeerId && targetUserId) {
+            this.userIdToPeerId.delete(targetUserId);
+            this.peerIdToUserId.delete(kickedPeerId);
+            const kickEvtBytes = encodeBleHostEvent({
+              version: BLE_PROTOCOL_VERSION,
+              code: BleHostEventCode.KICKED,
+              roomCode: Number(this.currentRoomCode) || 8848,
+            });
+            safeInvoke('ble_notify_state_to_clients', {
+              payload: Array.from(kickEvtBytes),
+              targetPeerId: kickedPeerId,
+            });
+          }
         } else {
           if (!this.connected) {
             if (callback) {

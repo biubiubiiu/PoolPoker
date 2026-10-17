@@ -87,7 +87,7 @@ function executeGameRoomCommand(room: ServerRoom, command: GameRoomCommand): Gam
       }
       return NO_BROADCAST;
     case 'kick_player': {
-      if (command.actorUserId !== room.hostUserId) return NO_BROADCAST;
+      if (command.actorUserId !== room.hostUserId || room.status !== 'waiting') return NO_BROADCAST;
       const kickIdx = room.players.findIndex((p) => p.userId === command.targetUserId);
       if (kickIdx !== -1 && room.players[kickIdx].userId !== room.hostUserId) {
         const [kicked] = room.players.splice(kickIdx, 1);

@@ -61,7 +61,9 @@ export function useSocket() {
       socket.value = null;
     }
     const currentUserId = userId || localStorage.getItem('billiards_user_id') || `user_${Date.now()}`;
-    const ble = new BleTransport(currentUserId);
+    const savedName = localStorage.getItem('billiards_player_name') || '我';
+    const savedAvatar = localStorage.getItem('billiards_player_avatar') || '🎱';
+    const ble = new BleTransport(currentUserId, savedName, savedAvatar);
     ble.init();
     socket.value = ble as any;
     socketId.value = `ble_${currentUserId}`;

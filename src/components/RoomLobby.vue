@@ -100,7 +100,8 @@ const onJoin = async (customCode?: string, deviceId?: string) => {
     await showAlert('请输入4位房间码', '提示');
     return;
   }
-  const extraSource = deviceId ? ({ type: 'ble', deviceId } as any) : undefined;
+  const resolvedDeviceId = deviceId || (props.isBleOfflineMode ? bleScanner.findByRoomCode(code)?.deviceId : undefined);
+  const extraSource = resolvedDeviceId ? ({ type: 'ble', deviceId: resolvedDeviceId } as any) : undefined;
   emit('join-room', code, extraSource);
 };
 </script>
@@ -268,7 +269,7 @@ const onJoin = async (customCode?: string, deviceId?: string) => {
     <div v-if="props.isBleOfflineMode" class="mb-3 px-3 py-2 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs flex items-center justify-between shadow-lg">
       <div class="flex items-center gap-2">
         <i class="fa-brands fa-bluetooth-b text-amber-400 text-sm animate-pulse"></i>
-        <span><strong>已开启离线蓝牙对战</strong>：无需联网，由本机 QuickJS 状态机作为局域房主</span>
+        <span><strong>已开启离线蓝牙对战</strong>：无需联网，多部手机通过蓝牙面对面联机游玩</span>
       </div>
     </div>
 
@@ -317,7 +318,7 @@ const onJoin = async (customCode?: string, deviceId?: string) => {
         </button>
       </div>
 
-      <NearbyRooms
+      <NearbyRooms v-if="!props.isBleOfflineMode"
         :rooms="nearbyRooms" :status="nearbyStatus" :enabled="nearbyEnabled" :joining="joiningRoom" :retrying="props.nearbyRetrying"
         @update:enabled="emit('update:nearbyEnabled', $event)" @retry="emit('retry-nearby')"
         @join="(room) => emit('join-room', room.roomCode, room.source)" />
@@ -388,7 +389,7 @@ const onJoin = async (customCode?: string, deviceId?: string) => {
 
   <!-- View 2: 房间等待大厅 -->
   <div v-else-if="room && (room.status === 'waiting' || room.status === 'lobby')" class="flex-1 flex flex-col justify-between py-2 space-y-4">
-    <NearbyRooms v-if="isHost"
+    <NearbyRooms v-if="isHost && !props.isBleOfflineMode"
       :rooms="[]" :status="nearbyStatus" :enabled="nearbyEnabled" :advertising="true" :joining="false" :retrying="props.nearbyRetrying"
       @update:enabled="emit('update:nearbyEnabled', $event)" @retry="emit('retry-nearby')" />
     <!-- 成员列表 -->

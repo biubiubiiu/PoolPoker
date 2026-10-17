@@ -16,10 +16,20 @@ export interface UseGameRoomOptions {
   selectedAvatar?: Ref<string>;
   getFinalPlayerName: () => string;
   serverUrl?: Ref<string>;
+  isBleOfflineMode?: Ref<boolean>;
 }
 
 export function useGameRoom(options: UseGameRoomOptions) {
-  const { socket, userId, playerName, selectedAvatar, getFinalPlayerName, serverUrl } = options;
+  const { socket, userId, playerName, selectedAvatar, getFinalPlayerName, serverUrl, isBleOfflineMode } = options;
+
+  const isOfflineBleActive = () => {
+    if (isBleOfflineMode?.value !== undefined) return isBleOfflineMode.value;
+    try {
+      return typeof localStorage !== 'undefined' && localStorage.getItem('poolpoker_offline_ble') === 'true';
+    } catch (_) {
+      return false;
+    }
+  };
 
   const getApiUrl = (endpointPath: string) => {
     const base = serverUrl?.value ? serverUrl.value.trim().replace(/\/+$/, '') : '';
@@ -70,7 +80,11 @@ export function useGameRoom(options: UseGameRoomOptions) {
   };
   const acceptRoom = (next: Room, live = false) => {
     const previous = room.value;
-    if (previous?.code === next.code && (next.revision ?? 0) < (previous.revision ?? 0)) return;
+    if (previous?.code === next.code) {
+      const prevRev = previous.revision ?? 0;
+      const nextRev = next.revision ?? 0;
+      if (nextRev < prevRev && prevRev - nextRev < 32768) return;
+    }
     const changed = previous?.sceneEvent?.id !== next.sceneEvent?.id;
     if (!live) feedback.value = '';
     const animate = shouldAnimateRoomChange(previous, next, {
@@ -188,6 +202,8 @@ export function useGameRoom(options: UseGameRoomOptions) {
   };
 
   const fetchLatestRoomState = async () => {
+    // 离线蓝牙面对面模式下，房间状态完全由本地/蓝牙维护，严禁请求远端 HTTP 快照（防止 404 误删本地房间）
+    if (isOfflineBleActive()) return;
     const savedRoomCode = localStorage.getItem('billiards_room_code');
     if (!savedRoomCode) return;
     const savedToken = localStorage.getItem('billiards_session_token');

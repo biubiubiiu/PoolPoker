@@ -42,22 +42,46 @@ object BleMeshManager {
     private var bluetoothManager: BluetoothManager? = null
     private var bluetoothAdapter: BluetoothAdapter? = null
 
+    private data class PendingNotification(
+        val device: BluetoothDevice,
+        val payload: ByteArray
+    )
+
     // 房主 (Peripheral) 组件
     private var advertiser: BluetoothLeAdvertiser? = null
     private var gattServer: BluetoothGattServer? = null
     private var stateCharacteristic: BluetoothGattCharacteristic? = null
     private val connectedCentrals = mutableSetOf<BluetoothDevice>()
+    private val notificationQueue = ArrayDeque<PendingNotification>()
+    private var inFlightNotificationDevice: BluetoothDevice? = null
 
     // 客端 (Central) 组件
     private var scanner: BluetoothLeScanner? = null
     private var clientGatt: BluetoothGatt? = null
     private var commandCharacteristic: BluetoothGattCharacteristic? = null
+    private val clientCommandQueue = ArrayDeque<ByteArray>()
+    private var isClientReadyToWrite = false
+    private var isClientWriteInFlight = false
 
     @JvmStatic
     fun init(context: Context) {
         appContext = context.applicationContext
         bluetoothManager = appContext?.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
         bluetoothAdapter = bluetoothManager?.adapter
+    }
+
+    private fun truncateUtf8(input: String, maxBytes: Int): String {
+        val bytes = input.toByteArray(Charsets.UTF_8)
+        if (bytes.size <= maxBytes) return input
+        var count = 0
+        val sb = StringBuilder()
+        for (ch in input) {
+            val chBytes = ch.toString().toByteArray(Charsets.UTF_8).size
+            if (count + chBytes > maxBytes) break
+            sb.append(ch)
+            count += chBytes
+        }
+        return sb.toString()
     }
 
     // -------------------------------------------------------------
@@ -85,7 +109,12 @@ object BleMeshManager {
                 val wasConnected: Boolean
                 synchronized(connectedCentrals) {
                     wasConnected = connectedCentrals.remove(device)
+                    notificationQueue.removeAll { it.device.address.equals(device.address, ignoreCase = true) }
+                    if (inFlightNotificationDevice?.address.equals(device.address, ignoreCase = true)) {
+                        inFlightNotificationDevice = null
+                    }
                 }
+                drainNotificationQueue()
                 if (wasConnected) {
                     notifyNativeClientDisconnected(device.address)
                 }
@@ -144,11 +173,23 @@ object BleMeshManager {
                 }
             }
         }
+
+        override fun onNotificationSent(device: BluetoothDevice, status: Int) {
+            super.onNotificationSent(device, status)
+            synchronized(connectedCentrals) {
+                if (inFlightNotificationDevice?.address.equals(device.address, ignoreCase = true)) {
+                    inFlightNotificationDevice = null
+                }
+            }
+            drainNotificationQueue()
+        }
     }
 
     @JvmStatic
     @Keep
     fun startAdvertising(roomCode: String, hostName: String) {
+        stopAdvertising()
+
         val adapter = bluetoothAdapter ?: return
         if (!adapter.isEnabled) return
 
@@ -183,7 +224,7 @@ object BleMeshManager {
         gattServer?.addService(service)
         stateCharacteristic = stateChar
 
-        // 2. 构造并发送广播包 (携带房间码)
+        // 2. 构造广播包与扫描响应包（分离 ServiceUUID 与 ServiceData，严格控制在 31 字节以内）
         val settings = AdvertiseSettings.Builder()
             .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
             .setConnectable(true)
@@ -191,15 +232,21 @@ object BleMeshManager {
             .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
             .build()
 
-        val serviceDataPayload = roomCode.toByteArray(Charsets.UTF_8)
-        val data = AdvertiseData.Builder()
+        val shortHostName = truncateUtf8(hostName.replace("|", ""), 8)
+        val serviceDataPayload = "$roomCode|$shortHostName".toByteArray(Charsets.UTF_8)
+
+        val advertiseData = AdvertiseData.Builder()
             .setIncludeDeviceName(false)
             .addServiceUuid(ParcelUuid(SERVICE_UUID))
+            .build()
+
+        val scanResponse = AdvertiseData.Builder()
+            .setIncludeDeviceName(false)
             .addServiceData(ParcelUuid(SERVICE_UUID), serviceDataPayload)
             .build()
 
-        advertiser?.startAdvertising(settings, data, advertiseCallback)
-        Log.d(TAG, "Started BLE Advertising for room: $roomCode ($hostName)")
+        advertiser?.startAdvertising(settings, advertiseData, scanResponse, advertiseCallback)
+        Log.d(TAG, "Started BLE Advertising for room: $roomCode ($shortHostName)")
     }
 
     @JvmStatic
@@ -210,8 +257,11 @@ object BleMeshManager {
             advertiser = null
             gattServer?.close()
             gattServer = null
+            stateCharacteristic = null
             synchronized(connectedCentrals) {
                 connectedCentrals.clear()
+                notificationQueue.clear()
+                inFlightNotificationDevice = null
             }
             Log.d(TAG, "Stopped BLE Advertising & closed GATT server.")
         } catch (e: Exception) {
@@ -223,14 +273,51 @@ object BleMeshManager {
     @JvmOverloads
     @Keep
     fun notifyClients(payload: ByteArray, targetAddress: String? = null) {
-        val server = gattServer ?: return
-        val characteristic = stateCharacteristic ?: return
-
-        characteristic.value = payload
         synchronized(connectedCentrals) {
             for (device in connectedCentrals) {
                 if (targetAddress == null || device.address.equals(targetAddress, ignoreCase = true)) {
-                    server.notifyCharacteristicChanged(device, characteristic, false)
+                    notificationQueue.addLast(PendingNotification(device, payload.copyOf()))
+                }
+            }
+        }
+        drainNotificationQueue()
+    }
+
+    private fun drainNotificationQueue() {
+        val server = gattServer ?: return
+        val characteristic = stateCharacteristic ?: return
+
+        while (true) {
+            val next: PendingNotification = synchronized(connectedCentrals) {
+                if (inFlightNotificationDevice != null) return
+                var candidate: PendingNotification? = null
+                while (notificationQueue.isNotEmpty()) {
+                    val item = notificationQueue.removeFirst()
+                    if (connectedCentrals.any { it.address.equals(item.device.address, ignoreCase = true) }) {
+                        candidate = item
+                        break
+                    }
+                }
+                if (candidate != null) {
+                    inFlightNotificationDevice = candidate.device
+                }
+                candidate
+            } ?: return
+
+            characteristic.value = next.payload
+            val sent = try {
+                server.notifyCharacteristicChanged(next.device, characteristic, false)
+            } catch (e: Exception) {
+                Log.w(TAG, "notifyCharacteristicChanged failed for ${next.device.address}: ${e.message}")
+                false
+            }
+            if (sent) {
+                return
+            } else {
+                synchronized(connectedCentrals) {
+                    if (inFlightNotificationDevice?.address.equals(next.device.address, ignoreCase = true)) {
+                        inFlightNotificationDevice = null
+                    }
                 }
             }
         }
@@ -244,14 +331,34 @@ object BleMeshManager {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             val record = result.scanRecord ?: return
             val serviceData = record.getServiceData(ParcelUuid(SERVICE_UUID))
-            val roomCode = if (serviceData != null && serviceData.isNotEmpty()) {
-                String(serviceData, Charsets.UTF_8)
-            } else {
-                "8848"
+            val rawName = record.deviceName ?: result.device.name
+
+            var roomCode = "8848"
+            var displayName = rawName ?: "台球桌台"
+
+            if (serviceData != null && serviceData.isNotEmpty()) {
+                val decoded = String(serviceData, Charsets.UTF_8)
+                val parts = decoded.split("|", limit = 2)
+                if (parts[0].isNotBlank()) {
+                    roomCode = parts[0]
+                }
+                if (parts.size > 1 && parts[1].isNotBlank()) {
+                    displayName = "${parts[1]}的球桌"
+                }
+            } else if (rawName != null && rawName.startsWith("PoolPoker_")) {
+                val rest = rawName.removePrefix("PoolPoker_")
+                val parts = rest.split("_", limit = 2)
+                if (parts[0].isNotBlank()) {
+                    roomCode = parts[0]
+                }
+                displayName = if (parts.size > 1 && parts[1].isNotBlank()) {
+                    "${parts[1]}的球桌"
+                } else {
+                    "房间 $roomCode"
+                }
             }
 
-            val deviceName = record.deviceName ?: result.device.name ?: "台球桌台"
-            notifyNativeDiscoveredRoom(result.device.address, roomCode, deviceName, result.rssi)
+            notifyNativeDiscoveredRoom(result.device.address, roomCode, displayName, result.rssi)
         }
 
         override fun onScanFailed(errorCode: Int) {
@@ -264,10 +371,21 @@ object BleMeshManager {
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 Log.d(TAG, "Connected to Host peripheral. Requesting MTU 256...")
                 clientGatt = gatt
-                gatt.requestMtu(256)
-                notifyNativePeripheralConnected(gatt.device.address)
+                synchronized(clientCommandQueue) {
+                    isClientReadyToWrite = false
+                    isClientWriteInFlight = false
+                }
+                if (!gatt.requestMtu(256)) {
+                    gatt.discoverServices()
+                }
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 Log.d(TAG, "Disconnected from Host peripheral.")
+                synchronized(clientCommandQueue) {
+                    clientCommandQueue.clear()
+                    isClientReadyToWrite = false
+                    isClientWriteInFlight = false
+                    commandCharacteristic = null
+                }
                 clientGatt?.close()
                 clientGatt = null
                 notifyNativePeripheralDisconnected(gatt.device.address)
@@ -275,7 +393,7 @@ object BleMeshManager {
         }
 
         override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
-            Log.d(TAG, "GATT MTU negotiated: $mtu bytes. Discovering services...")
+            Log.d(TAG, "GATT MTU negotiated: $mtu bytes (status=$status). Discovering services...")
             gatt.discoverServices()
         }
 
@@ -285,16 +403,45 @@ object BleMeshManager {
                 if (service != null) {
                     commandCharacteristic = service.getCharacteristic(CHAR_COMMAND_UUID)
                     val stateChar = service.getCharacteristic(CHAR_STATE_UUID)
+                    var wroteDescriptor = false
                     if (stateChar != null) {
                         gatt.setCharacteristicNotification(stateChar, true)
                         val cccd = stateChar.getDescriptor(CCCD_UUID)
                         if (cccd != null) {
                             cccd.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                            gatt.writeDescriptor(cccd)
-                            Log.d(TAG, "Successfully subscribed to State updates from Host.")
+                            wroteDescriptor = gatt.writeDescriptor(cccd)
+                            Log.d(TAG, "Subscribing to State updates from Host (wroteDescriptor=$wroteDescriptor).")
                         }
                     }
+                    notifyNativePeripheralConnected(gatt.device.address)
+                    if (!wroteDescriptor) {
+                        synchronized(clientCommandQueue) {
+                            isClientReadyToWrite = true
+                        }
+                        drainClientCommandQueue()
+                    }
                 }
+            }
+        }
+
+        override fun onDescriptorWrite(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
+            super.onDescriptorWrite(gatt, descriptor, status)
+            if (descriptor.uuid == CCCD_UUID) {
+                Log.d(TAG, "CCCD write completed (status=$status). Ready to flush client commands.")
+                synchronized(clientCommandQueue) {
+                    isClientReadyToWrite = true
+                }
+                drainClientCommandQueue()
+            }
+        }
+
+        override fun onCharacteristicWrite(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
+            super.onCharacteristicWrite(gatt, characteristic, status)
+            if (characteristic.uuid == CHAR_COMMAND_UUID) {
+                synchronized(clientCommandQueue) {
+                    isClientWriteInFlight = false
+                }
+                drainClientCommandQueue()
             }
         }
 
@@ -309,6 +456,8 @@ object BleMeshManager {
     @JvmStatic
     @Keep
     fun startScanning() {
+        stopScanning()
+
         val adapter = bluetoothAdapter ?: return
         if (!adapter.isEnabled) return
 
@@ -347,6 +496,12 @@ object BleMeshManager {
         }
         clientGatt?.close()
         clientGatt = null
+        synchronized(clientCommandQueue) {
+            clientCommandQueue.clear()
+            isClientReadyToWrite = false
+            isClientWriteInFlight = false
+            commandCharacteristic = null
+        }
         Log.d(TAG, "Connecting to Host device: $address")
         clientGatt = device.connectGatt(appContext, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
     }
@@ -355,6 +510,12 @@ object BleMeshManager {
     @Keep
     fun disconnectPeripheral() {
         try {
+            synchronized(clientCommandQueue) {
+                clientCommandQueue.clear()
+                isClientReadyToWrite = false
+                isClientWriteInFlight = false
+                commandCharacteristic = null
+            }
             clientGatt?.disconnect()
             clientGatt?.close()
             clientGatt = null
@@ -367,12 +528,41 @@ object BleMeshManager {
     @JvmStatic
     @Keep
     fun sendCommandToHost(payload: ByteArray) {
+        synchronized(clientCommandQueue) {
+            clientCommandQueue.addLast(payload.copyOf())
+        }
+        drainClientCommandQueue()
+    }
+
+    private fun drainClientCommandQueue() {
         val gatt = clientGatt ?: return
         val characteristic = commandCharacteristic ?: return
 
-        characteristic.value = payload
-        characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
-        gatt.writeCharacteristic(characteristic)
+        while (true) {
+            val nextPayload: ByteArray = synchronized(clientCommandQueue) {
+                if (!isClientReadyToWrite || isClientWriteInFlight || clientCommandQueue.isEmpty()) {
+                    return
+                }
+                isClientWriteInFlight = true
+                clientCommandQueue.removeFirst()
+            }
+
+            characteristic.value = nextPayload
+            characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+            val initiated = try {
+                gatt.writeCharacteristic(characteristic)
+            } catch (e: Exception) {
+                Log.w(TAG, "writeCharacteristic failed: ${e.message}")
+                false
+            }
+            if (initiated) {
+                return
+            } else {
+                synchronized(clientCommandQueue) {
+                    isClientWriteInFlight = false
+                }
+            }
+        }
     }
 
     // -------------------------------------------------------------

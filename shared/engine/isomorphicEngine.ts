@@ -22,12 +22,17 @@ import type { Player, ServerRoom } from '../types/game';
 
 export { decodeBleAction, decodeBleRoomState, encodeBleAction, encodeBleRoomState };
 
-export function createLocalRoom(hostUserId: string, hostName: string, roomCode = '8848'): ServerRoom {
+export function createLocalRoom(
+  hostUserId: string,
+  hostName: string,
+  roomCode = '8848',
+  hostAvatar = '🎱'
+): ServerRoom {
   const hostPlayer: Player = {
     id: `ble_host_${hostUserId}`,
     userId: hostUserId,
     name: hostName,
-    avatar: '🎱',
+    avatar: hostAvatar || '🎱',
     isHost: true,
     online: true,
     cardCount: 0,
@@ -88,21 +93,42 @@ export function getLocalBleState(room: ServerRoom, targetUserId: string): BleRoo
   const targetPlayer = foundIndex !== -1 ? room.players[foundIndex] : null;
   const selfHandCards = targetPlayer ? targetPlayer.cards.map((c) => cardToIndex(c)) : [];
 
+  const isFinished = room.status === 'finished';
   const players: BlePlayerSummary[] = room.players.map((p) => {
     const roundScore = room.lastRoundScores?.find((rs) => rs.userId === p.userId)?.delta;
     return {
       userIdHash: simpleHash8(p.userId),
       userId: p.userId,
       name: p.name,
+      avatar: p.avatar || '🎱',
       cardCount: p.cards.length,
       isHost: p.userId === room.hostUserId,
       online: p.online !== false,
       isWinner: p.isWinner || false,
+      wins: p.wins || 0,
       totalScore: p.totalScore || 0,
       pocketedCards: (p.pocketedCards || []).map((c) => cardToIndex(c)),
+      revealedCards: isFinished ? (p.cards || []).map((c) => cardToIndex(c)) : undefined,
       roundScoreDelta: roundScore,
     };
   });
+
+  const turnOrderSeats =
+    room.turnOrder && room.turnOrder.length > 0
+      ? room.turnOrder.map((uid) => room.players.findIndex((p) => p.userId === uid)).filter((idx) => idx !== -1)
+      : undefined;
+
+  let sceneEventKind: string | undefined;
+  let sceneEventTargetSeat: number | undefined;
+  let sceneEventBallNumber: number | undefined;
+  if (room.sceneEvent) {
+    sceneEventKind = room.sceneEvent.kind;
+    if (room.sceneEvent.targetUserId) {
+      const seatIdx = room.players.findIndex((p) => p.userId === room.sceneEvent?.targetUserId);
+      if (seatIdx !== -1) sceneEventTargetSeat = seatIdx;
+    }
+    sceneEventBallNumber = room.sceneEvent.ballNumber;
+  }
 
   const lastHistoryStep =
     room.gameHistory && room.gameHistory.length > 1 ? room.gameHistory[room.gameHistory.length - 1] : null;
@@ -110,7 +136,7 @@ export function getLocalBleState(room: ServerRoom, targetUserId: string): BleRoo
 
   return {
     version: BLE_PROTOCOL_VERSION,
-    revision: (room.revision ?? 0) & 0xff,
+    revision: (room.revision ?? 0) & 0xffff,
     status,
     pocketedBallsMask,
     roundCount: room.roundCount,
@@ -119,6 +145,10 @@ export function getLocalBleState(room: ServerRoom, targetUserId: string): BleRoo
     selfSeatIndex: targetPlayerIndex,
     hostSeatIndex: hostIndex,
     selfHandCards,
+    turnOrderSeats,
+    sceneEventKind,
+    sceneEventTargetSeat,
+    sceneEventBallNumber,
     players,
     lastActionText,
   };

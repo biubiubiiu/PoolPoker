@@ -57,6 +57,19 @@ describe('BleScanner radar discovery', () => {
     // 强信号排在前面
     expect(scanner.discoveredRooms.value[0].roomCode).toBe('6666');
     expect(scanner.discoveredRooms.value[1].roomCode).toBe('8848');
+    expect(scanner.findByRoomCode('6666')?.deviceId).toBe('dev_2');
+
+    // 另一台设备也使用房间号 8848，不应覆盖 dev_1，且 findByRoomCode 返回信号更强的设备
+    eventListeners['ble://discovered_room']({
+      payload: {
+        device_id: 'dev_3',
+        room_code: '8848',
+        name: '更近的8848桌',
+        rssi: -50,
+      },
+    });
+    expect(scanner.discoveredRooms.value).toHaveLength(3);
+    expect(scanner.findByRoomCode('8848')?.deviceId).toBe('dev_3');
 
     await scanner.stop();
     expect(scanner.isScanning.value).toBe(false);

@@ -477,4 +477,48 @@ describe('BleTransport Virtual Socket Layer', () => {
     expect(rejoinCb).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
     expect(mockInvokes.filter((i) => i.cmd === 'ble_connect_peripheral').length).toBe(0);
   });
+
+  it('should sync guest identity via CLIENT_JOIN and notify kicked guest via HOST_EVENT_NOTIFY', async () => {
+    const hostTransport = new BleTransport('host_u', '房主大王');
+    await hostTransport.init();
+    let hostRoom: any = null;
+    hostTransport.on('room_updated', (r) => {
+      hostRoom = r;
+    });
+    await hostTransport.emit('create_room', { roomCode: '1234', name: '房主大王' });
+
+    // 模拟从机连接并发送 CLIENT_JOIN
+    eventListeners['ble://client_connected']?.({ payload: { peer_id: 'ble_peer_mac_9' } });
+    const { encodeBleJoin, decodeBleHostEvent, BleHostEventCode } = await import('../../shared/types/bleProtocol');
+    const joinPayload = Array.from(
+      encodeBleJoin({
+        version: BLE_PROTOCOL_VERSION,
+        userId: 'guest_real_uid',
+        name: '赵敏',
+        avatar: '🌸',
+      })
+    );
+    eventListeners['ble://command_received']?.({
+      payload: { peer_id: 'ble_peer_mac_9', payload: joinPayload },
+    });
+
+    expect(hostRoom.players).toHaveLength(2);
+    expect(hostRoom.players[1].userId).toBe('guest_real_uid');
+    expect(hostRoom.players[1].name).toBe('赵敏');
+    expect(hostRoom.players[1].avatar).toBe('🌸');
+
+    // 房主踢出该玩家，应向 ble_peer_mac_9 单播 KICKED 事件帧
+    mockInvokes.length = 0;
+    const kickCb = vi.fn();
+    await hostTransport.emit('kick_player', { targetUserId: 'guest_real_uid' }, kickCb);
+    expect(kickCb).toHaveBeenCalledWith({ success: true });
+    expect(hostRoom.players).toHaveLength(1);
+
+    const kickNotify = mockInvokes.find(
+      (i) => i.cmd === 'ble_notify_state_to_clients' && i.args?.targetPeerId === 'ble_peer_mac_9'
+    );
+    expect(kickNotify).toBeDefined();
+    const decodedEvent = decodeBleHostEvent(new Uint8Array(kickNotify?.args?.payload));
+    expect(decodedEvent.code).toBe(BleHostEventCode.KICKED);
+  });
 });

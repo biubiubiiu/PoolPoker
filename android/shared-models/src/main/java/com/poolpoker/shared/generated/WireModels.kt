@@ -8,6 +8,37 @@ import kotlinx.serialization.descriptors.*
 import kotlinx.serialization.encoding.*
 
 @Serializable
+data class BleWireClientJoin (
+    val avatar: String? = null,
+    val name: String,
+    val revision: Int? = null,
+    val roomCode: Int? = null,
+    val userId: String,
+    val version: Int
+) {
+    companion object
+}
+
+@Serializable
+data class BleWireHostEvent (
+    val code: BleWireHostEventCode,
+    val roomCode: Int? = null,
+    val version: Int
+) {
+    companion object
+}
+
+/**
+ * BLE 房主下行控制事件码
+ */
+@Serializable
+enum class BleWireHostEventCode(val value: String) {
+    @SerialName("JOIN_REJECTED_FULL") JOIN_REJECTED_FULL("JOIN_REJECTED_FULL"),
+    @SerialName("JOIN_REJECTED_PLAYING") JOIN_REJECTED_PLAYING("JOIN_REJECTED_PLAYING"),
+    @SerialName("KICKED") KICKED("KICKED");
+}
+
+@Serializable
 data class BleWireClientAction (
     val actionType: BleWireActionType,
     val ballNumber: Int? = null,
@@ -50,8 +81,10 @@ data class BleWireRoomState (
     val pocketedBallsMask: Int,
     val revision: Int,
     val roundCount: Int,
+    val selfHandCards: List<Int>,
     val selfSeatIndex: Int,
     val status: BleWireGameStatus,
+    val turnOrderSeats: List<Int>? = null,
     val version: Int
 ) {
     companion object
@@ -59,15 +92,19 @@ data class BleWireRoomState (
 
 @Serializable
 data class BleWirePlayerSummary (
+    val avatar: String? = null,
     val cardCount: Int,
     val isHost: Boolean,
     val isWinner: Boolean,
     val name: String,
     val online: Boolean,
+    val pocketedCards: List<Int>? = null,
+    val revealedCards: List<Int>? = null,
     val roundScoreDelta: Int? = null,
     val totalScore: Int,
     val userId: String,
-    val userIdHash: Int
+    val userIdHash: Int,
+    val wins: Int? = null
 ) {
     companion object
 }

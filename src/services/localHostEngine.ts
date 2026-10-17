@@ -35,8 +35,8 @@ export class LocalHostEngine {
   /**
    * 初始化创建本地房间
    */
-  public initRoom(hostUserId: string, hostName: string, roomCode = '8848'): Room {
-    this.room = createLocalRoom(hostUserId, hostName, roomCode);
+  public initRoom(hostUserId: string, hostName: string, roomCode = '8848', hostAvatar = '🎱'): Room {
+    this.room = createLocalRoom(hostUserId, hostName, roomCode, hostAvatar);
     return this.broadcastState(hostUserId);
   }
 
@@ -50,19 +50,32 @@ export class LocalHostEngine {
   /**
    * 添加或恢复玩家入局
    */
-  public addPlayer(userId: string, name: string): Room | null {
+  public addPlayer(userId: string, name: string, avatar = '🎱'): Room | null {
     if (!this.room) return null;
 
     const existing = this.room.players.find((p) => p.userId === userId);
     if (existing) {
       existing.online = true;
-      existing.name = name || existing.name;
+      if (name && name !== '蓝牙球友') {
+        existing.name = name;
+      }
+      if (avatar && avatar !== '🎱') {
+        existing.avatar = avatar;
+      }
     } else {
+      // 严禁在对局进行中或结算时插入 0 手牌新玩家，防止触发 checkGameWinners 0 手牌直接获胜漏洞
+      if (this.room.status !== 'waiting') {
+        return null;
+      }
+      const maxPlayers = this.room.settings?.maxPlayers || 8;
+      if (this.room.players.length >= maxPlayers) {
+        return null;
+      }
       this.room.players.push({
         id: `ble_${userId}`,
         userId,
         name: name || `球友_${userId.slice(-4)}`,
-        avatar: '🎱',
+        avatar: avatar || '🎱',
         isHost: false,
         online: true,
         cardCount: 0,
@@ -77,6 +90,58 @@ export class LocalHostEngine {
     this.broadcastAll();
     const targetPlayer = this.room.players.find((p) => p.userId === userId);
     return targetPlayer ? this.getStateForUser(userId).clientRoom : null;
+  }
+
+  /**
+   * 绑定物理蓝牙 peerId 与玩家真实身份 (CLIENT_JOIN 握手与 RPA 地址轮换重连恢复)
+   */
+  public bindPeerPlayer(
+    peerId: string,
+    userId: string,
+    name: string,
+    avatar = '🎱'
+  ): { ok: boolean; reason?: 'playing' | 'full'; room?: Room } {
+    if (!this.room) return { ok: false };
+
+    const existingByUser = this.room.players.find((p) => p.userId === userId);
+    if (existingByUser) {
+      if (peerId !== userId) {
+        const tempIdx = this.room.players.findIndex((p) => p.userId === peerId && p.cards.length === 0);
+        if (tempIdx !== -1) {
+          this.room.players.splice(tempIdx, 1);
+        }
+      }
+      existingByUser.online = true;
+      if (name) existingByUser.name = name;
+      if (avatar) existingByUser.avatar = avatar;
+      this.broadcastAll();
+      return { ok: true, room: this.getStateForUser(userId).clientRoom };
+    }
+
+    const placeholder = this.room.players.find((p) => p.userId === peerId);
+    if (placeholder) {
+      placeholder.id = `ble_${userId}`;
+      placeholder.userId = userId;
+      if (name) placeholder.name = name;
+      if (avatar) placeholder.avatar = avatar;
+      placeholder.online = true;
+      if (this.room.turnOrder) {
+        this.room.turnOrder = this.room.turnOrder.map((uid) => (uid === peerId ? userId : uid));
+      }
+      this.broadcastAll();
+      return { ok: true, room: this.getStateForUser(userId).clientRoom };
+    }
+
+    if (this.room.status !== 'waiting') {
+      return { ok: false, reason: 'playing' };
+    }
+    const maxPlayers = this.room.settings?.maxPlayers || 8;
+    if (this.room.players.length >= maxPlayers) {
+      return { ok: false, reason: 'full' };
+    }
+
+    const added = this.addPlayer(userId, name, avatar);
+    return added ? { ok: true, room: added } : { ok: false };
   }
 
   /**
@@ -149,6 +214,7 @@ export class LocalHostEngine {
       case 8: // REFEREE_POCKET
         command = {
           type: 'referee_pocket_ball',
+          actorSocketId: `ble_${selfUser}`,
           targetUserId: tUser,
           ballNumber: action.ballNumber ?? 0,
         };
@@ -184,7 +250,13 @@ export class LocalHostEngine {
     const bleState = getLocalBleState(this.room, userId);
     const bytes = encodeBleRoomState(bleState);
     const targetPlayer = this.room.players.find((p) => p.userId === userId);
-    const clientRoom = bleStateToClientRoom(bleState, userId, this.room.code, targetPlayer?.name || '我');
+    const clientRoom = bleStateToClientRoom(
+      bleState,
+      userId,
+      this.room.code,
+      targetPlayer?.name || '我',
+      targetPlayer?.avatar || '🎱'
+    );
     return { bleState, bytes, clientRoom };
   }
 

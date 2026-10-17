@@ -18,11 +18,12 @@ describe('Isomorphic Engine with BLE Serialization', () => {
     expect(bleState.status).toBe(BleGameStatus.WAITING);
 
     const binary = encodeBleRoomState(bleState);
-    expect(binary.length).toBeLessThan(30);
+    expect(binary.length).toBeLessThan(60);
 
     const decoded = decodeBleRoomState(binary);
     expect(decoded.version).toBe(BLE_PROTOCOL_VERSION);
     expect(decoded.status).toBe(BleGameStatus.WAITING);
+    expect(decoded.players[0].name).toBe('老球霸');
   });
 
   it('should start game and deal cards with private hand isolation in BLE payload', () => {
@@ -62,11 +63,11 @@ describe('Isomorphic Engine with BLE Serialization', () => {
     expect(guestBle.selfHandCards.length).toBe(5);
     expect(guestBle.selfHandCards).not.toEqual(hostBle.selfHandCards);
 
-    // 编码成极紧凑二进制
+    // 编码成极紧凑二进制（远低于 BLE 185 字节单包 MTU）
     const hostBin = encodeBleRoomState(hostBle);
     const guestBin = encodeBleRoomState(guestBle);
-    expect(hostBin.length).toBeLessThan(45);
-    expect(guestBin.length).toBeLessThan(45);
+    expect(hostBin.length).toBeLessThan(100);
+    expect(guestBin.length).toBeLessThan(100);
   });
 
   it('should not leak host cards when an unknown userId queries local state', () => {
@@ -83,7 +84,7 @@ describe('Isomorphic Engine with BLE Serialization', () => {
     expect(unknownBle.selfHandCards).toEqual([]); // 必须为空，严禁泄露房主手牌
   });
 
-  it('should correctly round-trip UTF-8 lastActionText and cardsPerPlayer in compact binary', () => {
+  it('should correctly round-trip UTF-8 lastActionText, sceneEvent, turnOrderSeats, and finished revealedCards', () => {
     const room = createLocalRoom('user_host', '老球霸');
     handleLocalCommand(room, {
       type: 'update_settings',
@@ -92,7 +93,7 @@ describe('Isomorphic Engine with BLE Serialization', () => {
     });
     expect(room.settings.cardsPerPlayer).toBe(7);
 
-    // 罚牌生成带中文字符和 Emoji 的 actionText
+    // 罚牌生成带中文字符和 Emoji 的 actionText 与 sceneEvent
     handleLocalCommand(room, {
       type: 'start_game',
       actorUserId: 'user_host',
@@ -106,11 +107,14 @@ describe('Isomorphic Engine with BLE Serialization', () => {
     expect(bleState.cardsPerPlayer).toBe(7);
     expect(bleState.lastActionText).toBeDefined();
     expect(bleState.lastActionText).toContain('老球霸 犯规，罚抽 1 张扑克牌');
+    expect(bleState.sceneEventKind).toBe('draw_penalty');
 
     // 二进制往返
     const bin = encodeBleRoomState(bleState);
     const decoded = decodeBleRoomState(bin);
     expect(decoded.cardsPerPlayer).toBe(7);
     expect(decoded.lastActionText).toBe(bleState.lastActionText);
+    expect(decoded.sceneEventKind).toBe('draw_penalty');
+    expect(decoded.turnOrderSeats).toEqual([0]);
   });
 });

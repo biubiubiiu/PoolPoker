@@ -45,12 +45,11 @@ export class BleScanner {
         const { device_id, room_code, name, rssi } = event.payload;
         const now = Date.now();
 
-        const existingIdx = this.discoveredRooms.value.findIndex(
-          (r) => r.deviceId === device_id || r.roomCode === room_code
-        );
+        const existingIdx = this.discoveredRooms.value.findIndex((r) => r.deviceId === device_id);
 
         if (existingIdx !== -1) {
           const room = this.discoveredRooms.value[existingIdx];
+          if (room_code) room.roomCode = room_code;
           room.rssi = rssi;
           room.lastSeen = now;
           if (name) room.name = name;
@@ -72,6 +71,12 @@ export class BleScanner {
     } catch (err) {
       console.warn('[BleScanner] start scanning failed or not in mobile env:', err);
     }
+  }
+
+  public findByRoomCode(roomCode: string): DiscoveredBleRoom | undefined {
+    const normalized = roomCode.trim();
+    if (!normalized) return undefined;
+    return this.discoveredRooms.value.find((r) => r.roomCode === normalized);
   }
 
   public async stop(): Promise<void> {

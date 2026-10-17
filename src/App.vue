@@ -81,6 +81,7 @@ const {
   selectedAvatar,
   getFinalPlayerName,
   serverUrl,
+  isBleOfflineMode,
 });
 
 provideBallAppearance();

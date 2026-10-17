@@ -25,6 +25,34 @@
       "enum": ["WAITING", "PLAYING", "FINISHED"],
       "description": "BLE 房间对局状态"
     },
+    "BleWireHostEventCode": {
+      "type": "string",
+      "enum": ["KICKED", "JOIN_REJECTED_PLAYING", "JOIN_REJECTED_FULL"],
+      "description": "BLE 房主下行控制事件码"
+    },
+    "BleWireClientJoin": {
+      "type": "object",
+      "properties": {
+        "version": { "type": "integer" },
+        "revision": { "type": ["integer", "null"] },
+        "roomCode": { "type": ["integer", "null"] },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "avatar": { "type": ["string", "null"] }
+      },
+      "required": ["version", "userId", "name"],
+      "additionalProperties": false
+    },
+    "BleWireHostEvent": {
+      "type": "object",
+      "properties": {
+        "version": { "type": "integer" },
+        "code": { "$ref": "BleWireHostEventCode" },
+        "roomCode": { "type": ["integer", "null"] }
+      },
+      "required": ["version", "code"],
+      "additionalProperties": false
+    },
     "BleWireClientAction": {
       "type": "object",
       "properties": {
@@ -47,11 +75,21 @@
         "userIdHash": { "type": "integer" },
         "userId": { "type": "string" },
         "name": { "type": "string" },
+        "avatar": { "type": ["string", "null"] },
         "cardCount": { "type": "integer" },
         "isHost": { "type": "boolean" },
         "online": { "type": "boolean" },
         "isWinner": { "type": "boolean" },
+        "wins": { "type": ["integer", "null"] },
         "totalScore": { "type": "integer" },
+        "pocketedCards": {
+          "type": ["array", "null"],
+          "items": { "type": "integer" }
+        },
+        "revealedCards": {
+          "type": ["array", "null"],
+          "items": { "type": "integer" }
+        },
         "roundScoreDelta": { "type": ["integer", "null"] }
       },
       "required": ["userIdHash", "userId", "name", "cardCount", "isHost", "online", "isWinner", "totalScore"],
@@ -69,6 +107,14 @@
         "cardsPerPlayer": { "type": "integer" },
         "selfSeatIndex": { "type": "integer" },
         "hostSeatIndex": { "type": "integer" },
+        "selfHandCards": {
+          "type": "array",
+          "items": { "type": "integer" }
+        },
+        "turnOrderSeats": {
+          "type": ["array", "null"],
+          "items": { "type": "integer" }
+        },
         "players": {
           "type": "array",
           "items": { "$ref": "BleWirePlayerSummary" }
@@ -85,6 +131,7 @@
         "cardsPerPlayer",
         "selfSeatIndex",
         "hostSeatIndex",
+        "selfHandCards",
         "players"
       ],
       "additionalProperties": false

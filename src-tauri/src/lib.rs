@@ -44,12 +44,18 @@ use std::sync::Mutex;
 static JAVA_VM: Mutex<Option<jni::JavaVM>> = Mutex::new(None);
 
 #[cfg(target_os = "android")]
+static MAIN_ACTIVITY_CLASS: Mutex<Option<jni::objects::GlobalRef>> = Mutex::new(None);
+
+#[cfg(target_os = "android")]
+static BLE_MESH_CLASS: Mutex<Option<jni::objects::GlobalRef>> = Mutex::new(None);
+
+#[cfg(target_os = "android")]
 #[no_mangle]
 pub unsafe extern "C" fn Java_com_poolpoker_app_MainActivity_nativeInitJni(
     env: *mut jni::sys::JNIEnv,
     _class: jni::sys::jclass,
 ) {
-    let jni_env = match jni::JNIEnv::from_raw(env) {
+    let mut jni_env = match jni::JNIEnv::from_raw(env) {
         Ok(e) => e,
         Err(e) => {
             println!("[Tauri Rust] nativeInitJni: JNIEnv::from_raw failed: {:?}", e);
@@ -67,6 +73,27 @@ pub unsafe extern "C" fn Java_com_poolpoker_app_MainActivity_nativeInitJni(
         Err(e) => {
             println!("[Tauri Rust] nativeInitJni: get_java_vm failed: {:?}", e);
         }
+    }
+
+    if let Ok(cls) = jni_env.find_class("com/poolpoker/app/MainActivity") {
+        if let Ok(global_ref) = jni_env.new_global_ref(cls) {
+            if let Ok(mut guard) = MAIN_ACTIVITY_CLASS.lock() {
+                *guard = Some(global_ref);
+            }
+        }
+    } else {
+        let _ = jni_env.exception_clear();
+    }
+
+    if let Ok(cls) = jni_env.find_class("com/poolpoker/app/BleMeshManager") {
+        if let Ok(global_ref) = jni_env.new_global_ref(cls) {
+            if let Ok(mut guard) = BLE_MESH_CLASS.lock() {
+                *guard = Some(global_ref);
+                println!("[Tauri Rust] nativeInitJni: BleMeshManager GlobalRef cached!");
+            }
+        }
+    } else {
+        let _ = jni_env.exception_clear();
     }
 }
 
@@ -88,7 +115,13 @@ pub unsafe extern "C" fn JNI_OnLoad(
 }
 
 #[cfg(target_os = "android")]
-fn call_kotlin_broadcast(payload: &str) {
+fn with_android_class<F>(
+    cached_class: &Mutex<Option<jni::objects::GlobalRef>>,
+    class_name: &str,
+    f: F,
+) where
+    F: FnOnce(&mut jni::JNIEnv, jni::objects::JClass),
+{
     let vm_guard = match JAVA_VM.lock() {
         Ok(g) => g,
         Err(_) => return,
@@ -120,23 +153,48 @@ fn call_kotlin_broadcast(payload: &str) {
         };
         let env = &mut *env_guard;
 
-        let target_cls = match env.find_class("com/poolpoker/app/MainActivity") {
-            Ok(c) => c,
-            Err(_) => return,
+        let target_cls: jni::objects::JClass = {
+            let cached_raw = cached_class
+                .lock()
+                .ok()
+                .and_then(|g| g.as_ref().map(|r| r.as_raw()));
+            if let Some(raw) = cached_raw {
+                jni::objects::JClass::from_raw(raw)
+            } else {
+                match env.find_class(class_name) {
+                    Ok(c) => c,
+                    Err(_) => {
+                        let _ = env.exception_clear();
+                        return;
+                    }
+                }
+            }
         };
 
-        let j_str: jni::objects::JString = match env.new_string(payload) {
-            Ok(s) => s,
-            Err(_) => return,
-        };
-
-        let _ = env.call_static_method(
-            target_cls,
-            "onNativeSyncWearState",
-            "(Ljava/lang/String;)V",
-            &[(&j_str).into()],
-        );
+        f(env, target_cls);
+        if env.exception_check().unwrap_or(false) {
+            let _ = env.exception_describe();
+            let _ = env.exception_clear();
+        }
     }
+}
+
+#[cfg(target_os = "android")]
+fn call_kotlin_broadcast(payload: &str) {
+    with_android_class(
+        &MAIN_ACTIVITY_CLASS,
+        "com/poolpoker/app/MainActivity",
+        |env, target_cls| {
+            if let Ok(j_str) = env.new_string(payload) {
+                let _ = env.call_static_method(
+                    target_cls,
+                    "onNativeSyncWearState",
+                    "(Ljava/lang/String;)V",
+                    &[(&j_str).into()],
+                );
+            }
+        },
+    );
 }
 
 #[tauri::command]
@@ -163,13 +221,14 @@ fn sync_wear_state(payload: String) -> Result<(), String> {
 #[tauri::command]
 fn ble_start_advertising(room_code: String, host_name: String) -> Result<(), String> {
     #[cfg(target_os = "android")]
-    unsafe {
-        let vm_guard = JAVA_VM.lock().unwrap();
-        if let Some(ref vm) = *vm_guard {
-            if let Ok(mut env) = vm.attach_current_thread() {
-                if let Ok(cls) = env.find_class("com/poolpoker/app/BleMeshManager") {
-                    let j_code = env.new_string(&room_code).unwrap();
-                    let j_name = env.new_string(&host_name).unwrap();
+    {
+        with_android_class(
+            &BLE_MESH_CLASS,
+            "com/poolpoker/app/BleMeshManager",
+            |env, cls| {
+                if let (Ok(j_code), Ok(j_name)) =
+                    (env.new_string(&room_code), env.new_string(&host_name))
+                {
                     let _ = env.call_static_method(
                         cls,
                         "startAdvertising",
@@ -177,8 +236,8 @@ fn ble_start_advertising(room_code: String, host_name: String) -> Result<(), Str
                         &[(&j_code).into(), (&j_name).into()],
                     );
                 }
-            }
-        }
+            },
+        );
     }
 
     #[cfg(target_os = "ios")]
@@ -198,15 +257,14 @@ fn ble_start_advertising(room_code: String, host_name: String) -> Result<(), Str
 #[tauri::command]
 fn ble_stop_advertising() -> Result<(), String> {
     #[cfg(target_os = "android")]
-    unsafe {
-        let vm_guard = JAVA_VM.lock().unwrap();
-        if let Some(ref vm) = *vm_guard {
-            if let Ok(mut env) = vm.attach_current_thread() {
-                if let Ok(cls) = env.find_class("com/poolpoker/app/BleMeshManager") {
-                    let _ = env.call_static_method(cls, "stopAdvertising", "()V", &[]);
-                }
-            }
-        }
+    {
+        with_android_class(
+            &BLE_MESH_CLASS,
+            "com/poolpoker/app/BleMeshManager",
+            |env, cls| {
+                let _ = env.call_static_method(cls, "stopAdvertising", "()V", &[]);
+            },
+        );
     }
 
     #[cfg(target_os = "ios")]
@@ -223,15 +281,14 @@ fn ble_stop_advertising() -> Result<(), String> {
 #[tauri::command]
 fn ble_start_scanning() -> Result<(), String> {
     #[cfg(target_os = "android")]
-    unsafe {
-        let vm_guard = JAVA_VM.lock().unwrap();
-        if let Some(ref vm) = *vm_guard {
-            if let Ok(mut env) = vm.attach_current_thread() {
-                if let Ok(cls) = env.find_class("com/poolpoker/app/BleMeshManager") {
-                    let _ = env.call_static_method(cls, "startScanning", "()V", &[]);
-                }
-            }
-        }
+    {
+        with_android_class(
+            &BLE_MESH_CLASS,
+            "com/poolpoker/app/BleMeshManager",
+            |env, cls| {
+                let _ = env.call_static_method(cls, "startScanning", "()V", &[]);
+            },
+        );
     }
 
     #[cfg(target_os = "ios")]
@@ -248,15 +305,14 @@ fn ble_start_scanning() -> Result<(), String> {
 #[tauri::command]
 fn ble_stop_scanning() -> Result<(), String> {
     #[cfg(target_os = "android")]
-    unsafe {
-        let vm_guard = JAVA_VM.lock().unwrap();
-        if let Some(ref vm) = *vm_guard {
-            if let Ok(mut env) = vm.attach_current_thread() {
-                if let Ok(cls) = env.find_class("com/poolpoker/app/BleMeshManager") {
-                    let _ = env.call_static_method(cls, "stopScanning", "()V", &[]);
-                }
-            }
-        }
+    {
+        with_android_class(
+            &BLE_MESH_CLASS,
+            "com/poolpoker/app/BleMeshManager",
+            |env, cls| {
+                let _ = env.call_static_method(cls, "stopScanning", "()V", &[]);
+            },
+        );
     }
 
     #[cfg(target_os = "ios")]
@@ -273,12 +329,12 @@ fn ble_stop_scanning() -> Result<(), String> {
 #[tauri::command]
 fn ble_connect_peripheral(device_id: String) -> Result<(), String> {
     #[cfg(target_os = "android")]
-    unsafe {
-        let vm_guard = JAVA_VM.lock().unwrap();
-        if let Some(ref vm) = *vm_guard {
-            if let Ok(mut env) = vm.attach_current_thread() {
-                if let Ok(cls) = env.find_class("com/poolpoker/app/BleMeshManager") {
-                    let j_dev = env.new_string(&device_id).unwrap();
+    {
+        with_android_class(
+            &BLE_MESH_CLASS,
+            "com/poolpoker/app/BleMeshManager",
+            |env, cls| {
+                if let Ok(j_dev) = env.new_string(&device_id) {
                     let _ = env.call_static_method(
                         cls,
                         "connectPeripheral",
@@ -286,8 +342,8 @@ fn ble_connect_peripheral(device_id: String) -> Result<(), String> {
                         &[(&j_dev).into()],
                     );
                 }
-            }
-        }
+            },
+        );
     }
 
     #[cfg(target_os = "ios")]
@@ -306,15 +362,14 @@ fn ble_connect_peripheral(device_id: String) -> Result<(), String> {
 #[tauri::command]
 fn ble_disconnect_peripheral() -> Result<(), String> {
     #[cfg(target_os = "android")]
-    unsafe {
-        let vm_guard = JAVA_VM.lock().unwrap();
-        if let Some(ref vm) = *vm_guard {
-            if let Ok(mut env) = vm.attach_current_thread() {
-                if let Ok(cls) = env.find_class("com/poolpoker/app/BleMeshManager") {
-                    let _ = env.call_static_method(cls, "disconnectPeripheral", "()V", &[]);
-                }
-            }
-        }
+    {
+        with_android_class(
+            &BLE_MESH_CLASS,
+            "com/poolpoker/app/BleMeshManager",
+            |env, cls| {
+                let _ = env.call_static_method(cls, "disconnectPeripheral", "()V", &[]);
+            },
+        );
     }
 
     #[cfg(target_os = "ios")]
@@ -331,12 +386,12 @@ fn ble_disconnect_peripheral() -> Result<(), String> {
 #[tauri::command]
 fn ble_send_command_to_host(payload: Vec<u8>) -> Result<(), String> {
     #[cfg(target_os = "android")]
-    unsafe {
-        let vm_guard = JAVA_VM.lock().unwrap();
-        if let Some(ref vm) = *vm_guard {
-            if let Ok(mut env) = vm.attach_current_thread() {
-                if let Ok(cls) = env.find_class("com/poolpoker/app/BleMeshManager") {
-                    let j_arr = env.byte_array_from_slice(&payload).unwrap();
+    {
+        with_android_class(
+            &BLE_MESH_CLASS,
+            "com/poolpoker/app/BleMeshManager",
+            |env, cls| {
+                if let Ok(j_arr) = env.byte_array_from_slice(&payload) {
                     let _ = env.call_static_method(
                         cls,
                         "sendCommandToHost",
@@ -344,8 +399,8 @@ fn ble_send_command_to_host(payload: Vec<u8>) -> Result<(), String> {
                         &[(&j_arr).into()],
                     );
                 }
-            }
-        }
+            },
+        );
     }
 
     #[cfg(target_os = "ios")]
@@ -367,29 +422,28 @@ fn ble_notify_state_to_clients(
 ) -> Result<(), String> {
     #[cfg(target_os = "android")]
     {
-        let vm_guard = JAVA_VM.lock().unwrap();
-        if let Some(ref vm) = *vm_guard {
-            if let Ok(mut env) = vm.attach_current_thread() {
-                if let Ok(cls) = env.find_class("com/poolpoker/app/BleMeshManager") {
-                    if let Ok(j_arr) = env.byte_array_from_slice(&payload) {
-                        let j_target = target_peer_id
-                            .as_deref()
-                            .and_then(|t| env.new_string(t).ok());
-                        let target_null = jni::objects::JObject::null();
-                        let target_val = match j_target {
-                            Some(ref s) => s.into(),
-                            None => (&target_null).into(),
-                        };
-                        let _ = env.call_static_method(
-                            cls,
-                            "notifyClients",
-                            "([BLjava/lang/String;)V",
-                            &[(&j_arr).into(), target_val],
-                        );
-                    }
+        with_android_class(
+            &BLE_MESH_CLASS,
+            "com/poolpoker/app/BleMeshManager",
+            |env, cls| {
+                if let Ok(j_arr) = env.byte_array_from_slice(&payload) {
+                    let j_target = target_peer_id
+                        .as_deref()
+                        .and_then(|t| env.new_string(t).ok());
+                    let target_null = jni::objects::JObject::null();
+                    let target_val = match j_target {
+                        Some(ref s) => s.into(),
+                        None => (&target_null).into(),
+                    };
+                    let _ = env.call_static_method(
+                        cls,
+                        "notifyClients",
+                        "([BLjava/lang/String;)V",
+                        &[(&j_arr).into(), target_val],
+                    );
                 }
-            }
-        }
+            },
+        );
     }
 
     #[cfg(target_os = "ios")]

@@ -106,4 +106,39 @@ describe('LocalHostEngine in Front-end', () => {
     expect(engine.getRawRoom()?.players[0].cards.length).toBe(6);
     expect(engine.getRawRoom()?.players[1].cards.length).toBe(5);
   });
+
+  it('should reject adding new player mid-game to prevent 0-card instant victory bug, while allowing existing player reconnect via bindPeerPlayer', () => {
+    engine.initRoom('host_user', '老球霸', '8848');
+    engine.addPlayer('peer_temp_1', '球友');
+    // 升级身份握手
+    const bindRes = engine.bindPeerPlayer('peer_temp_1', 'real_guest_1', '张三', '🐯');
+    expect(bindRes.ok).toBe(true);
+    expect(engine.getRawRoom()?.players[1].userId).toBe('real_guest_1');
+    expect(engine.getRawRoom()?.players[1].name).toBe('张三');
+    expect(engine.getRawRoom()?.players[1].avatar).toBe('🐯');
+
+    // 开局
+    const startAction = encodeBleAction({
+      version: 1,
+      revision: 1,
+      actionType: BleActionType.START_GAME,
+    });
+    engine.executeBinaryAction(startAction, 'host_user');
+    expect(engine.getRawRoom()?.status).toBe('playing');
+
+    // 对局中陌生设备尝试中途加入，必须被拒绝
+    const midGameJoin = engine.addPlayer('stranger_peer', '陌生人');
+    expect(midGameJoin).toBeNull();
+    const bindStranger = engine.bindPeerPlayer('stranger_peer', 'stranger_user', '陌生人', '🎱');
+    expect(bindStranger.ok).toBe(false);
+    expect(bindStranger.reason).toBe('playing');
+    expect(engine.getRawRoom()?.players).toHaveLength(2);
+
+    // 对局中已加入玩家因 BLE MAC 轮换使用新 peerId 重连并发送 CLIENT_JOIN，必须成功恢复其席位与手牌
+    engine.setPlayerOffline('real_guest_1');
+    const reconnectRes = engine.bindPeerPlayer('new_rotated_mac', 'real_guest_1', '张三', '🐯');
+    expect(reconnectRes.ok).toBe(true);
+    expect(engine.getRawRoom()?.players[1].online).toBe(true);
+    expect(engine.getRawRoom()?.players[1].cards).toHaveLength(5);
+  });
 });

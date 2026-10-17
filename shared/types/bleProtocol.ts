@@ -42,10 +42,40 @@ export enum BlePlayerFlag {
   IS_WINNER = 1 << 2,
 }
 
+export enum BleHostEventCode {
+  KICKED = 0x01,
+  JOIN_REJECTED_PLAYING = 0x02,
+  JOIN_REJECTED_FULL = 0x03,
+}
+
+export interface BleHostEvent {
+  version: number;
+  code: BleHostEventCode;
+  roomCode?: number;
+}
+
+const SCENE_EVENT_KINDS = [
+  '',
+  'start_game',
+  'pocket_ball',
+  'draw_penalty',
+  'accidental_pocket',
+  'break_pocket',
+  'retract_ball',
+  'referee_pocket_ball',
+  'referee_draw_penalty',
+  'restart_game',
+  'update_settings',
+  'kick_player',
+  'request_restart',
+] as const;
+
+const BLE_TAIL_EXTENSION_MAGIC = 0xa5;
+
 export interface BleFrameHeader {
   version: number; // 协议版本号 (目前 0x01)
   msgType: BleMessageType;
-  revision: number; // 房间修订版本号 / 请求序列号 (0-255 回绕)
+  revision: number; // 房间修订版本号 / 请求序列号
   flags: number; // 保留标志位，供后续扩展使用 (如加密、压缩等)
 }
 
@@ -53,12 +83,15 @@ export interface BlePlayerSummary {
   userIdHash: number; // 玩家 userId 的 8 位短哈希或席位编号
   userId: string; // 对应的真实或恢复 userId
   name?: string; // 玩家昵称
+  avatar?: string; // 玩家头像 Emoji
   cardCount: number;
   isHost: boolean;
   online: boolean;
   isWinner: boolean;
+  wins?: number; // 累计胜场数
   totalScore: number;
   pocketedCards?: number[]; // 0..53 编码的已落袋卡牌
+  revealedCards?: number[]; // 0..53 编码的局末结算亮牌手牌 (仅 FINISHED 状态携带)
   roundScoreDelta?: number; // 当局结算得分变化
 }
 
@@ -73,12 +106,16 @@ export interface BleRoomState {
   selfSeatIndex?: number; // 当前接收者在 players 中的席位下标 (0..7)
   hostSeatIndex?: number; // 房主在 players 中的席位下标 (0..7)
   selfHandCards: number[]; // 0..53 编码的当前玩家手牌
+  turnOrderSeats?: number[]; // 按击球顺序排列的席位下标 (0..7)
+  sceneEventKind?: string; // 最近一步场景动画事件类型
+  sceneEventTargetSeat?: number; // 最近一步场景动画关联席位下标
+  sceneEventBallNumber?: number; // 最近一步场景动画关联球号
   players: BlePlayerSummary[];
   lastActionText?: string; // 最近一步操作日志描述 (用于撤回展示与判定)
 }
 
 /**
- * 纯 JS 实现的 UTF-8 编码器，兼容 QuickJS / 嵌入式 JS 引擎（无原生 TextEncoder 环境）
+ * 纯 JS 实现的 UTF-8 编码器，兼容无原生 TextEncoder 环境
  */
 export function utf8Encode(str: string): Uint8Array {
   if (typeof TextEncoder !== 'undefined') {
@@ -110,7 +147,7 @@ export function utf8Encode(str: string): Uint8Array {
 }
 
 /**
- * 纯 JS 实现的 UTF-8 解码器，兼容 QuickJS / 嵌入式 JS 引擎（无原生 TextDecoder 环境）
+ * 纯 JS 实现的 UTF-8 解码器，兼容无原生 TextDecoder 环境
  */
 export function utf8Decode(bytes: Uint8Array): string {
   if (typeof TextDecoder !== 'undefined') {
@@ -155,10 +192,11 @@ export interface BleClientAction {
 
 export interface BleClientJoin {
   version: number;
-  revision: number;
-  roomCode: number; // 4位数字 (1000..9999)
+  revision?: number;
+  roomCode?: number; // 4位数字 (1000..9999)
   userId: string;
   name: string;
+  avatar?: string;
 }
 
 // -------------------------------------------------------------
@@ -218,6 +256,16 @@ export function indexToCard(index: number, idPrefix = 'ble'): Card {
   };
 }
 
+function mapCardIndicesToCards(indices: number[], basePrefix = 'ble'): Card[] {
+  const counts = new Map<number, number>();
+  return indices.map((cIdx) => {
+    const seen = counts.get(cIdx) || 0;
+    counts.set(cIdx, seen + 1);
+    const prefix = seen === 0 ? basePrefix : `${basePrefix}_dup${seen}`;
+    return indexToCard(cIdx, prefix);
+  });
+}
+
 export function ballsToMask(ballNumbers: number[]): number {
   let mask = 0;
   for (const b of ballNumbers) {
@@ -255,26 +303,60 @@ export function simpleHash8(str: string): number {
  * 编码 HOST_STATE_SYNC 下行状态帧
  */
 export function encodeBleRoomState(state: BleRoomState): Uint8Array {
-  const headerSize = 4; // version, msgType, revision, flags
+  const headerSize = 4; // version, msgType, revisionLow, cardsPerPlayer
   const fixedStateSize = 7; // status (1), pocketedMask (2), roundCount (1), deckRemaining (1), selfSeat (1), hostSeat (1)
   const selfCardsSize = 1 + state.selfHandCards.length; // length (1) + cards (N)
 
-  // 预估大小
   let dynamicSize = 1; // playerCount (1)
   for (const p of state.players) {
-    // userIdHash (1), cardCount (1), flags (1), totalScore (2), roundScoreDelta (2), pocketedCount (1) + pocketedCards (M)
+    // userIdHash (1), cardCount (1), flags+wins (1), totalScore (2), roundScoreDelta (2), pocketedCount (1) + pocketedCards (M)
     dynamicSize += 8 + (p.pocketedCards?.length || 0);
   }
 
   const actionTextBytes = state.lastActionText ? utf8Encode(state.lastActionText) : new Uint8Array(0);
   dynamicSize += 1 + actionTextBytes.length; // actionTextLen (1) + textBytes
 
+  // 检查是否需要附加尾部扩展块 (16-bit revision 高位、玩家昵称/头像、局末亮牌、击球顺序、3D 动画事件)
+  const hasRevisionHigh = (state.revision & 0xff00) !== 0;
+  const hasTurnOrder = !!(state.turnOrderSeats && state.turnOrderSeats.length > 0);
+  const sceneEventKindIdx = state.sceneEventKind
+    ? Math.max(0, SCENE_EVENT_KINDS.indexOf(state.sceneEventKind as any))
+    : 0;
+  const hasPlayerMeta = state.players.some(
+    (p) =>
+      (p.name && p.name !== `球友_${p.userIdHash}`) ||
+      (p.avatar && p.avatar !== '🎱') ||
+      (state.status === BleGameStatus.FINISHED && p.revealedCards && p.revealedCards.length > 0)
+  );
+  const includeTail = hasRevisionHigh || hasTurnOrder || sceneEventKindIdx > 0 || hasPlayerMeta;
+
+  const encodedPlayerNames: Uint8Array[] = [];
+  const encodedPlayerAvatars: Uint8Array[] = [];
+  if (includeTail) {
+    // magic (1) + revisionHigh (1) + turnOrderLen (1) + turnOrder (T) + sceneEventKind (1) + [targetSeat (1) + ballNum (1)]
+    dynamicSize += 3 + (state.turnOrderSeats?.length || 0) + (sceneEventKindIdx > 0 ? 3 : 1);
+    for (const p of state.players) {
+      const nameStr = p.name && p.name !== `球友_${p.userIdHash}` ? p.name.slice(0, 16) : '';
+      const nameBytes = nameStr ? utf8Encode(nameStr) : new Uint8Array(0);
+      encodedPlayerNames.push(nameBytes);
+
+      const avatarStr = p.avatar && p.avatar !== '🎱' ? p.avatar : '';
+      const avatarBytes = avatarStr ? utf8Encode(avatarStr) : new Uint8Array(0);
+      encodedPlayerAvatars.push(avatarBytes);
+
+      dynamicSize += 1 + nameBytes.length + 1 + avatarBytes.length;
+      if (state.status === BleGameStatus.FINISHED) {
+        dynamicSize += 1 + (p.revealedCards?.length || 0);
+      }
+    }
+  }
+
   const totalSize = headerSize + fixedStateSize + selfCardsSize + dynamicSize;
   const buffer = new ArrayBuffer(totalSize);
   const view = new DataView(buffer);
   const bytes = new Uint8Array(buffer);
 
-  // 1. Header (版本号 + 状态同步指令 + 修订号 + cardsPerPlayer)
+  // 1. Header (版本号 + 状态同步指令 + 修订号低8位 + cardsPerPlayer)
   view.setUint8(0, state.version ?? BLE_PROTOCOL_VERSION);
   view.setUint8(1, BleMessageType.HOST_STATE_SYNC);
   view.setUint8(2, state.revision & 0xff);
@@ -304,6 +386,8 @@ export function encodeBleRoomState(state: BleRoomState): Uint8Array {
     if (p.isHost) flags |= BlePlayerFlag.IS_HOST;
     if (p.online) flags |= BlePlayerFlag.ONLINE;
     if (p.isWinner) flags |= BlePlayerFlag.IS_WINNER;
+    const winsClamped = Math.min(31, Math.max(0, p.wins ?? (p.isWinner ? 1 : 0)));
+    flags |= (winsClamped & 0x1f) << 3;
     view.setUint8(offset++, flags);
     view.setInt16(offset, p.totalScore, true);
     offset += 2;
@@ -324,6 +408,48 @@ export function encodeBleRoomState(state: BleRoomState): Uint8Array {
     offset += actionTextBytes.length;
   }
 
+  // 6. Optional Tail Extension Block
+  if (includeTail) {
+    view.setUint8(offset++, BLE_TAIL_EXTENSION_MAGIC);
+    view.setUint8(offset++, (state.revision >> 8) & 0xff);
+
+    const turnSeats = state.turnOrderSeats || [];
+    view.setUint8(offset++, turnSeats.length);
+    for (const seat of turnSeats) {
+      view.setUint8(offset++, seat & 0xff);
+    }
+
+    view.setUint8(offset++, sceneEventKindIdx & 0xff);
+    if (sceneEventKindIdx > 0) {
+      view.setUint8(offset++, (state.sceneEventTargetSeat ?? 0xff) & 0xff);
+      view.setUint8(offset++, (state.sceneEventBallNumber ?? 0) & 0xff);
+    }
+
+    for (let i = 0; i < state.players.length; i++) {
+      const nameBytes = encodedPlayerNames[i];
+      view.setUint8(offset++, nameBytes.length);
+      if (nameBytes.length > 0) {
+        bytes.set(nameBytes, offset);
+        offset += nameBytes.length;
+      }
+
+      const avatarBytes = encodedPlayerAvatars[i];
+      view.setUint8(offset++, avatarBytes.length);
+      if (avatarBytes.length > 0) {
+        bytes.set(avatarBytes, offset);
+        offset += avatarBytes.length;
+      }
+
+      if (state.status === BleGameStatus.FINISHED) {
+        const revealed = state.players[i].revealedCards || [];
+        view.setUint8(offset++, revealed.length);
+        for (const rc of revealed) {
+          view.setUint8(offset++, rc & 0x3f);
+        }
+      }
+    }
+  }
+
   return bytes.subarray(0, offset);
 }
 
@@ -341,7 +467,7 @@ export function decodeBleRoomState(bytes: Uint8Array): BleRoomState {
   if (msgType !== BleMessageType.HOST_STATE_SYNC) {
     throw new Error(`Unexpected message type: 0x${msgType.toString(16)}`);
   }
-  const revision = view.getUint8(2);
+  let revision = view.getUint8(2);
   const cardsPerPlayerRaw = view.getUint8(3);
   const cardsPerPlayer = cardsPerPlayerRaw > 0 ? cardsPerPlayerRaw : 5;
 
@@ -361,6 +487,7 @@ export function decodeBleRoomState(bytes: Uint8Array): BleRoomState {
 
   const playerCount = view.getUint8(offset++);
   const players: BlePlayerSummary[] = [];
+  const usedHashes = new Set<number>();
   for (let i = 0; i < playerCount; i++) {
     const userIdHash = view.getUint8(offset++);
     const cardCount = view.getUint8(offset++);
@@ -376,14 +503,24 @@ export function decodeBleRoomState(bytes: Uint8Array): BleRoomState {
       pocketedCards.push(view.getUint8(offset++));
     }
 
+    const isWinner = (flags & BlePlayerFlag.IS_WINNER) !== 0;
+    const winsRaw = (flags >> 3) & 0x1f;
+    const wins = winsRaw > 0 ? winsRaw : isWinner ? 1 : 0;
+
+    // 防止不同席位 8-bit 哈希碰撞导致 userId 重复
+    const fallbackUserId = usedHashes.has(userIdHash) ? `user_${userIdHash}_${i}` : `user_${userIdHash}`;
+    usedHashes.add(userIdHash);
+
     players.push({
       userIdHash,
-      userId: `user_${userIdHash}`,
+      userId: fallbackUserId,
       name: `球友_${userIdHash}`,
+      avatar: '🎱',
       cardCount,
       isHost: (flags & BlePlayerFlag.IS_HOST) !== 0,
       online: (flags & BlePlayerFlag.ONLINE) !== 0,
-      isWinner: (flags & BlePlayerFlag.IS_WINNER) !== 0,
+      isWinner,
+      wins,
       totalScore,
       pocketedCards,
       roundScoreDelta,
@@ -399,6 +536,62 @@ export function decodeBleRoomState(bytes: Uint8Array): BleRoomState {
     }
   }
 
+  let turnOrderSeats: number[] | undefined;
+  let sceneEventKind: string | undefined;
+  let sceneEventTargetSeat: number | undefined;
+  let sceneEventBallNumber: number | undefined;
+
+  if (offset < bytes.length && view.getUint8(offset) === BLE_TAIL_EXTENSION_MAGIC) {
+    offset++;
+    if (offset < bytes.length) {
+      const revisionHigh = view.getUint8(offset++);
+      revision = revision | (revisionHigh << 8);
+    }
+    if (offset < bytes.length) {
+      const turnLen = view.getUint8(offset++);
+      turnOrderSeats = [];
+      for (let i = 0; i < turnLen && offset < bytes.length; i++) {
+        turnOrderSeats.push(view.getUint8(offset++));
+      }
+    }
+    if (offset < bytes.length) {
+      const kindIdx = view.getUint8(offset++);
+      if (kindIdx > 0 && kindIdx < SCENE_EVENT_KINDS.length) {
+        sceneEventKind = SCENE_EVENT_KINDS[kindIdx];
+        if (offset < bytes.length) {
+          const targetSeatRaw = view.getUint8(offset++);
+          sceneEventTargetSeat = targetSeatRaw === 0xff ? undefined : targetSeatRaw;
+        }
+        if (offset < bytes.length) {
+          const ballRaw = view.getUint8(offset++);
+          sceneEventBallNumber = ballRaw === 0 ? undefined : ballRaw;
+        }
+      }
+    }
+    for (let i = 0; i < players.length && offset < bytes.length; i++) {
+      const nameLen = view.getUint8(offset++);
+      if (nameLen > 0 && offset + nameLen <= bytes.length) {
+        players[i].name = utf8Decode(bytes.subarray(offset, offset + nameLen));
+        offset += nameLen;
+      }
+      if (offset < bytes.length) {
+        const avatarLen = view.getUint8(offset++);
+        if (avatarLen > 0 && offset + avatarLen <= bytes.length) {
+          players[i].avatar = utf8Decode(bytes.subarray(offset, offset + avatarLen));
+          offset += avatarLen;
+        }
+      }
+      if (status === BleGameStatus.FINISHED && offset < bytes.length) {
+        const revLen = view.getUint8(offset++);
+        const revealedCards: number[] = [];
+        for (let j = 0; j < revLen && offset < bytes.length; j++) {
+          revealedCards.push(view.getUint8(offset++));
+        }
+        players[i].revealedCards = revealedCards;
+      }
+    }
+  }
+
   return {
     version,
     revision,
@@ -410,9 +603,118 @@ export function decodeBleRoomState(bytes: Uint8Array): BleRoomState {
     selfSeatIndex,
     hostSeatIndex,
     selfHandCards,
+    turnOrderSeats,
+    sceneEventKind,
+    sceneEventTargetSeat,
+    sceneEventBallNumber,
     players,
     lastActionText,
   };
+}
+
+/**
+ * 编码 CLIENT_JOIN 上行入房握手帧
+ */
+export function encodeBleJoin(join: BleClientJoin): Uint8Array {
+  const userIdBytes = utf8Encode(join.userId.slice(0, 48));
+  const nameBytes = utf8Encode((join.name || '球友').slice(0, 16));
+  const avatarBytes = join.avatar && join.avatar !== '🎱' ? utf8Encode(join.avatar.slice(0, 8)) : new Uint8Array(0);
+
+  const totalSize = 6 + 1 + userIdBytes.length + 1 + nameBytes.length + 1 + avatarBytes.length;
+  const buffer = new ArrayBuffer(totalSize);
+  const view = new DataView(buffer);
+  const bytes = new Uint8Array(buffer);
+
+  view.setUint8(0, join.version ?? BLE_PROTOCOL_VERSION);
+  view.setUint8(1, BleMessageType.CLIENT_JOIN);
+  view.setUint16(2, (join.revision ?? 0) & 0xffff, true);
+  view.setUint16(4, (join.roomCode ?? 0) & 0xffff, true);
+
+  let offset = 6;
+  view.setUint8(offset++, userIdBytes.length);
+  bytes.set(userIdBytes, offset);
+  offset += userIdBytes.length;
+
+  view.setUint8(offset++, nameBytes.length);
+  bytes.set(nameBytes, offset);
+  offset += nameBytes.length;
+
+  view.setUint8(offset++, avatarBytes.length);
+  if (avatarBytes.length > 0) {
+    bytes.set(avatarBytes, offset);
+    offset += avatarBytes.length;
+  }
+
+  return bytes;
+}
+
+/**
+ * 解码 CLIENT_JOIN 上行入房握手帧
+ */
+export function decodeBleJoin(bytes: Uint8Array): BleClientJoin {
+  if (bytes.length < 8) {
+    throw new Error(`BLE packet too small for CLIENT_JOIN: ${bytes.length} bytes`);
+  }
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const version = view.getUint8(0);
+  const msgType = view.getUint8(1);
+  if (msgType !== BleMessageType.CLIENT_JOIN) {
+    throw new Error(`Unexpected message type for CLIENT_JOIN: 0x${msgType.toString(16)}`);
+  }
+  const revision = view.getUint16(2, true);
+  const roomCode = view.getUint16(4, true);
+
+  let offset = 6;
+  const userIdLen = view.getUint8(offset++);
+  const userId = utf8Decode(bytes.subarray(offset, offset + userIdLen));
+  offset += userIdLen;
+
+  const nameLen = offset < bytes.length ? view.getUint8(offset++) : 0;
+  const name = nameLen > 0 ? utf8Decode(bytes.subarray(offset, offset + nameLen)) : '球友';
+  offset += nameLen;
+
+  const avatarLen = offset < bytes.length ? view.getUint8(offset++) : 0;
+  const avatar = avatarLen > 0 ? utf8Decode(bytes.subarray(offset, offset + avatarLen)) : '🎱';
+
+  return {
+    version,
+    revision,
+    roomCode,
+    userId,
+    name,
+    avatar,
+  };
+}
+
+/**
+ * 编码 HOST_EVENT_NOTIFY 下行控制帧 (如踢人、拒绝加入)
+ */
+export function encodeBleHostEvent(event: BleHostEvent): Uint8Array {
+  const buffer = new ArrayBuffer(5);
+  const view = new DataView(buffer);
+  view.setUint8(0, event.version ?? BLE_PROTOCOL_VERSION);
+  view.setUint8(1, BleMessageType.HOST_EVENT_NOTIFY);
+  view.setUint8(2, event.code);
+  view.setUint16(3, (event.roomCode ?? 0) & 0xffff, true);
+  return new Uint8Array(buffer);
+}
+
+/**
+ * 解码 HOST_EVENT_NOTIFY 下行控制帧
+ */
+export function decodeBleHostEvent(bytes: Uint8Array): BleHostEvent {
+  if (bytes.length < 5) {
+    throw new Error(`BLE packet too small for HOST_EVENT_NOTIFY: ${bytes.length} bytes`);
+  }
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const version = view.getUint8(0);
+  const msgType = view.getUint8(1);
+  if (msgType !== BleMessageType.HOST_EVENT_NOTIFY) {
+    throw new Error(`Unexpected message type for HOST_EVENT_NOTIFY: 0x${msgType.toString(16)}`);
+  }
+  const code = view.getUint8(2) as BleHostEventCode;
+  const roomCode = view.getUint16(3, true);
+  return { version, code, roomCode };
 }
 
 /**
@@ -484,7 +786,8 @@ export function bleStateToClientRoom(
   state: BleRoomState,
   selfUserId: string,
   roomCode = '8848',
-  selfPlayerName = '我'
+  selfPlayerName = '我',
+  selfPlayerAvatar?: string
 ): Room {
   const pocketedBalls = maskToBalls(state.pocketedBallsMask);
 
@@ -515,20 +818,27 @@ export function bleStateToClientRoom(
   const players = state.players.map((p, idx) => {
     const isSelf = idx === selfSeatIndex;
     const effectiveUserId = isSelf ? selfUserId : p.userId;
-    const effectiveName = isSelf ? selfPlayerName : p.name || `球友_${p.userIdHash}`;
+    const effectiveName =
+      p.name && p.name !== `球友_${p.userIdHash}` ? p.name : isSelf ? selfPlayerName : p.name || `球友_${p.userIdHash}`;
+    const effectiveAvatar = isSelf ? selfPlayerAvatar || p.avatar || '🎱' : p.avatar || '🎱';
     const pIsHost = idx === hostSeatIndex;
+    const handCards = isSelf
+      ? mapCardIndicesToCards(state.selfHandCards, 'ble')
+      : state.status === BleGameStatus.FINISHED && p.revealedCards
+        ? mapCardIndicesToCards(p.revealedCards, `ble_s${idx}`)
+        : [];
 
     return {
       id: `ble_${effectiveUserId}`,
       userId: effectiveUserId,
       name: effectiveName,
-      avatar: '🎱',
+      avatar: effectiveAvatar,
       isHost: pIsHost,
       online: p.online,
       cardCount: isSelf ? state.selfHandCards.length : p.cardCount,
-      cards: isSelf ? state.selfHandCards.map((cIdx) => indexToCard(cIdx)) : [],
-      pocketedCards: (p.pocketedCards || []).map((cIdx) => indexToCard(cIdx)),
-      wins: p.isWinner ? 1 : 0,
+      cards: handCards,
+      pocketedCards: mapCardIndicesToCards(p.pocketedCards || [], 'ble'),
+      wins: p.wins !== undefined ? p.wins : p.isWinner ? 1 : 0,
       isWinner: p.isWinner,
       totalScore: p.totalScore,
     };
@@ -540,14 +850,32 @@ export function bleStateToClientRoom(
       id: p.id,
       userId: p.userId,
       name: p.name,
-      avatar: '🎱',
-      wins: 1,
+      avatar: p.avatar,
+      wins: p.wins,
     }));
 
   const lastRoundScores = state.players.map((p, idx) => ({
-    userId: idx === state.selfSeatIndex ? selfUserId : p.userId,
+    userId: idx === selfSeatIndex ? selfUserId : p.userId,
     delta: p.roundScoreDelta ?? 0,
   }));
+
+  const turnOrder =
+    state.turnOrderSeats && state.turnOrderSeats.length > 0
+      ? state.turnOrderSeats.map((seatIdx) => players[seatIdx]?.userId).filter((uid): uid is string => !!uid)
+      : players.map((p) => p.userId);
+
+  const sceneEvent = state.sceneEventKind
+    ? {
+        id: `ble_evt_${state.roundCount}_${state.revision}_${state.sceneEventKind}`,
+        kind: state.sceneEventKind,
+        revision: state.revision,
+        targetUserId:
+          state.sceneEventTargetSeat !== undefined && players[state.sceneEventTargetSeat]
+            ? players[state.sceneEventTargetSeat].userId
+            : undefined,
+        ballNumber: state.sceneEventBallNumber,
+      }
+    : undefined;
 
   return {
     code: roomCode,
@@ -565,9 +893,10 @@ export function bleStateToClientRoom(
     logs: state.lastActionText ? [{ id: `ble_log_${state.revision}`, time: '', text: state.lastActionText }] : [],
     winners,
     pocketedBallNumbers: pocketedBalls,
-    turnOrder: players.map((p) => p.userId),
+    turnOrder,
     players,
     lastRoundScores,
     lastActionText: state.lastActionText || null,
+    sceneEvent,
   };
 }

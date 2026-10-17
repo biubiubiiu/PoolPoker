@@ -2,6 +2,45 @@
 
 import Foundation
 
+// MARK: - BleWireClientJoin
+struct BleWireClientJoin: Codable {
+    var avatar: String?
+    var name: String
+    var revision: Int?
+    var roomCode: Int?
+    var userId: String
+    var version: Int
+
+    enum CodingKeys: String, CodingKey {
+        case avatar = "avatar"
+        case name = "name"
+        case revision = "revision"
+        case roomCode = "roomCode"
+        case userId = "userId"
+        case version = "version"
+    }
+}
+
+// MARK: - BleWireHostEvent
+struct BleWireHostEvent: Codable {
+    var code: BleWireHostEventCode
+    var roomCode: Int?
+    var version: Int
+
+    enum CodingKeys: String, CodingKey {
+        case code = "code"
+        case roomCode = "roomCode"
+        case version = "version"
+    }
+}
+
+/// BLE 房主下行控制事件码
+enum BleWireHostEventCode: String, Codable {
+    case joinRejectedFull = "JOIN_REJECTED_FULL"
+    case joinRejectedPlaying = "JOIN_REJECTED_PLAYING"
+    case kicked = "KICKED"
+}
+
 // MARK: - BleWireClientAction
 struct BleWireClientAction: Codable {
     var actionType: BleWireActionType
@@ -52,8 +91,10 @@ struct BleWireRoomState: Codable {
     var pocketedBallsMask: Int
     var revision: Int
     var roundCount: Int
+    var selfHandCards: [Int]
     var selfSeatIndex: Int
     var status: BleWireGameStatus
+    var turnOrderSeats: [Int]?
     var version: Int
 
     enum CodingKeys: String, CodingKey {
@@ -65,34 +106,44 @@ struct BleWireRoomState: Codable {
         case pocketedBallsMask = "pocketedBallsMask"
         case revision = "revision"
         case roundCount = "roundCount"
+        case selfHandCards = "selfHandCards"
         case selfSeatIndex = "selfSeatIndex"
         case status = "status"
+        case turnOrderSeats = "turnOrderSeats"
         case version = "version"
     }
 }
 
 // MARK: - BleWirePlayerSummary
 struct BleWirePlayerSummary: Codable {
+    var avatar: String?
     var cardCount: Int
     var isHost: Bool
     var isWinner: Bool
     var name: String
     var online: Bool
+    var pocketedCards: [Int]?
+    var revealedCards: [Int]?
     var roundScoreDelta: Int?
     var totalScore: Int
     var userId: String
     var userIdHash: Int
+    var wins: Int?
 
     enum CodingKeys: String, CodingKey {
+        case avatar = "avatar"
         case cardCount = "cardCount"
         case isHost = "isHost"
         case isWinner = "isWinner"
         case name = "name"
         case online = "online"
+        case pocketedCards = "pocketedCards"
+        case revealedCards = "revealedCards"
         case roundScoreDelta = "roundScoreDelta"
         case totalScore = "totalScore"
         case userId = "userId"
         case userIdHash = "userIdHash"
+        case wins = "wins"
     }
 }
 

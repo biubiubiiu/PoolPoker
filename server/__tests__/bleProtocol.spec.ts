@@ -5,13 +5,18 @@ import {
   BleActionType,
   type BleClientAction,
   BleGameStatus,
+  BleHostEventCode,
   type BleRoomState,
   ballsToMask,
   bleStateToClientRoom,
   cardToIndex,
   decodeBleAction,
+  decodeBleHostEvent,
+  decodeBleJoin,
   decodeBleRoomState,
   encodeBleAction,
+  encodeBleHostEvent,
+  encodeBleJoin,
   encodeBleRoomState,
   indexToCard,
   maskToBalls,
@@ -54,6 +59,26 @@ describe('BLE Compact Binary Wire Protocol', () => {
     expect(decoded.cardIndex).toBe(7);
   });
 
+  it('should encode and decode CLIENT_JOIN and HOST_EVENT_NOTIFY frames', () => {
+    const joinBytes = encodeBleJoin({
+      version: BLE_PROTOCOL_VERSION,
+      userId: 'user_abc_123',
+      name: '张无忌',
+      avatar: '🐉',
+    });
+    const decodedJoin = decodeBleJoin(joinBytes);
+    expect(decodedJoin.userId).toBe('user_abc_123');
+    expect(decodedJoin.name).toBe('张无忌');
+    expect(decodedJoin.avatar).toBe('🐉');
+
+    const eventBytes = encodeBleHostEvent({
+      version: BLE_PROTOCOL_VERSION,
+      code: BleHostEventCode.KICKED,
+    });
+    const decodedEvent = decodeBleHostEvent(eventBytes);
+    expect(decodedEvent.code).toBe(BleHostEventCode.KICKED);
+  });
+
   it('should compress full room state into ultra-compact payload (< 50 bytes) with versioning', () => {
     const state: BleRoomState = {
       version: BLE_PROTOCOL_VERSION,
@@ -86,7 +111,6 @@ describe('BLE Compact Binary Wire Protocol', () => {
     };
 
     const encoded = encodeBleRoomState(state);
-    // 头部4 + 状态5 + 手牌(1+5) + 玩家(1+2*5) = 4 + 5 + 6 + 11 = 26 bytes!
     expect(encoded.length).toBeLessThan(50);
     expect(encoded[0]).toBe(BLE_PROTOCOL_VERSION);
 
@@ -104,35 +128,67 @@ describe('BLE Compact Binary Wire Protocol', () => {
     expect(decoded.players[1].totalScore).toBe(-12);
   });
 
-  it('should transform BleRoomState to frontend Room structure seamlessly', () => {
+  it('should transform BleRoomState to frontend Room structure with turnOrder, sceneEvent, wins, and revealedCards', () => {
     const state: BleRoomState = {
       version: BLE_PROTOCOL_VERSION,
-      revision: 8,
-      status: BleGameStatus.PLAYING,
+      revision: 300, // > 255 16-bit revision
+      status: BleGameStatus.FINISHED,
       pocketedBallsMask: ballsToMask([8]),
-      roundCount: 1,
+      roundCount: 2,
       deckRemaining: 44,
+      selfSeatIndex: 0,
       selfHandCards: [0, 52], // ♠A and 小王
+      turnOrderSeats: [1, 0],
+      sceneEventKind: 'pocket_ball',
+      sceneEventTargetSeat: 0,
+      sceneEventBallNumber: 8,
       players: [
         {
           userIdHash: 1,
           userId: 'user_1',
+          name: '房主',
+          avatar: '👑',
+          wins: 3,
           cardCount: 2,
           isHost: true,
           online: true,
-          isWinner: false,
+          isWinner: true,
           totalScore: 5,
+          pocketedCards: [7],
+          revealedCards: [0, 52],
+        },
+        {
+          userIdHash: 2,
+          userId: 'user_2',
+          name: '客机',
+          avatar: '🎱',
+          wins: 1,
+          cardCount: 1,
+          isHost: false,
+          online: true,
+          isWinner: false,
+          totalScore: -5,
+          pocketedCards: [],
+          revealedCards: [12], // ♠K
         },
       ],
     };
 
-    const clientRoom = bleStateToClientRoom(state, 'user_1', '8848');
+    const bin = encodeBleRoomState(state);
+    const decoded = decodeBleRoomState(bin);
+    expect(decoded.revision).toBe(300);
+
+    const clientRoom = bleStateToClientRoom(decoded, 'user_1', '8848');
     expect(clientRoom.code).toBe('8848');
-    expect(clientRoom.status).toBe('playing');
+    expect(clientRoom.status).toBe('finished');
     expect(clientRoom.pocketedBallNumbers).toEqual([8]);
-    expect(clientRoom.players[0].cards.length).toBe(2);
-    expect(clientRoom.players[0].cards[0].rank).toBe('A');
-    expect(clientRoom.players[0].cards[1].rank).toBe('小王');
+    expect(clientRoom.turnOrder).toEqual([clientRoom.players[1].userId, 'user_1']);
+    expect(clientRoom.sceneEvent?.kind).toBe('pocket_ball');
+    expect(clientRoom.sceneEvent?.ballNumber).toBe(8);
+    expect(clientRoom.players[0].wins).toBe(3);
+    expect(clientRoom.players[0].avatar).toBe('👑');
+    expect(clientRoom.players[1].cards.length).toBe(1);
+    expect(clientRoom.players[1].cards[0].rank).toBe('K');
     expect(BLE_UUIDS.SERVICE).toBeDefined();
   });
 });

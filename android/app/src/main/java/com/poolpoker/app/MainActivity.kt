@@ -28,19 +28,23 @@ class MainActivity : TauriActivity() {
             Log.e("MainActivity", "Failed to call nativeInitJni", e)
         }
 
-        // Request Bluetooth Connect runtime permissions on Android 12+ (API 31+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val permissions = arrayOf(
+        // Request Bluetooth runtime permissions (Android 12+ vs Android 8-11)
+        val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            arrayOf(
                 Manifest.permission.BLUETOOTH_CONNECT,
                 Manifest.permission.BLUETOOTH_SCAN,
                 Manifest.permission.BLUETOOTH_ADVERTISE
             )
-            val missing = permissions.filter {
-                checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED
-            }
-            if (missing.isNotEmpty()) {
-                requestPermissions(missing.toTypedArray(), 101)
-            }
+        } else {
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION
+            )
+        }
+        val missing = permissions.filter {
+            checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED
+        }
+        if (missing.isNotEmpty()) {
+            requestPermissions(missing.toTypedArray(), 101)
         }
 
         BluetoothServerRelay.startListening(this)

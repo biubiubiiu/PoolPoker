@@ -32,11 +32,18 @@ func poolpoker_on_ble_client_disconnected(_ peerId: UnsafePointer<CChar>)
 final class BleMeshController: NSObject, CBPeripheralManagerDelegate, CBCentralManagerDelegate, CBPeripheralDelegate {
     static let shared = BleMeshController()
 
+    private struct PendingNotification {
+        let data: Data
+        let targetCentralIds: [UUID]?
+    }
+
     // 房主外设模式
     private var peripheralManager: CBPeripheralManager?
     private var stateCharacteristic: CBMutableCharacteristic?
     private var subscribedCentrals: [UUID: CBCentral] = [:]
+    private var pendingNotifications: [PendingNotification] = []
     private var currentRoomCode = "8848"
+    private var currentHostName = "房主"
     private var isAdvertising = false
 
     // 客端中心模式
@@ -46,9 +53,23 @@ final class BleMeshController: NSObject, CBPeripheralManagerDelegate, CBCentralM
     private var connectedPeripheral: CBPeripheral?
     private var commandCharacteristic: CBCharacteristic?
     private var pendingConnectIdentifier: String?
+    private var pendingClientCommands: [Data] = []
 
     override init() {
         super.init()
+    }
+
+    private func truncateUtf8(_ input: String, maxBytes: Int) -> String {
+        if input.utf8.count <= maxBytes { return input }
+        var result = ""
+        var byteCount = 0
+        for ch in input {
+            let chBytes = String(ch).utf8.count
+            if byteCount + chBytes > maxBytes { break }
+            result.append(ch)
+            byteCount += chBytes
+        }
+        return result
     }
 
     func setupManagers() {
@@ -67,8 +88,13 @@ final class BleMeshController: NSObject, CBPeripheralManagerDelegate, CBCentralM
     func startAdvertising(roomCode: String, hostName: String) {
         setupManagers()
         currentRoomCode = roomCode
+        currentHostName = hostName
         isAdvertising = true
         guard let pm = peripheralManager, pm.state == .poweredOn else { return }
+
+        pm.stopAdvertising()
+        pm.removeAllServices()
+        pendingNotifications.removeAll()
 
         // 配置 GATT 服务与特征值
         let commandChar = CBMutableCharacteristic(
@@ -87,15 +113,16 @@ final class BleMeshController: NSObject, CBPeripheralManagerDelegate, CBCentralM
 
         let service = CBMutableService(type: POOLPOKER_SERVICE_UUID, primary: true)
         service.characteristics = [commandChar, stateChar]
-        pm.removeAllServices()
         pm.add(service)
 
+        let shortHostName = truncateUtf8(hostName.replacingOccurrences(of: "_", with: ""), maxBytes: 8)
+        let localName = shortHostName.isEmpty ? "PoolPoker_\(roomCode)" : "PoolPoker_\(roomCode)_\(shortHostName)"
         let advertisementData: [String: Any] = [
             CBAdvertisementDataServiceUUIDsKey: [POOLPOKER_SERVICE_UUID],
-            CBAdvertisementDataLocalNameKey: "PoolPoker_\(roomCode)"
+            CBAdvertisementDataLocalNameKey: localName
         ]
         pm.startAdvertising(advertisementData)
-        NSLog("[BleMeshController] iOS Started Advertising for room: %@", roomCode)
+        NSLog("[BleMeshController] iOS Started Advertising for room: %@ (%@)", roomCode, localName)
     }
 
     func stopAdvertising() {
@@ -103,23 +130,46 @@ final class BleMeshController: NSObject, CBPeripheralManagerDelegate, CBCentralM
         peripheralManager?.stopAdvertising()
         peripheralManager?.removeAllServices()
         subscribedCentrals.removeAll()
+        pendingNotifications.removeAll()
         stateCharacteristic = nil
         NSLog("[BleMeshController] iOS Stopped Advertising.")
     }
 
     func notifyClients(data: Data, targetPeerId: String? = nil) {
-        guard let pm = peripheralManager, let char = stateCharacteristic else { return }
         if let targetId = targetPeerId {
-            if let targetUuid = UUID(uuidString: targetId), let central = subscribedCentrals[targetUuid] {
-                pm.updateValue(data, for: char, onSubscribedCentrals: [central])
+            guard let targetUuid = UUID(uuidString: targetId), subscribedCentrals[targetUuid] != nil else {
+                // 指定目标不存在（例如客机刚刚断开或注销）时立即返回，严禁回退全员广播泄露手牌
+                return
             }
-            // 指定目标不存在（例如客机刚刚断开或注销）时立即返回，严禁回退全员广播泄露手牌
-            return
+            pendingNotifications.append(PendingNotification(data: data, targetCentralIds: [targetUuid]))
+        } else {
+            guard !subscribedCentrals.isEmpty else { return }
+            pendingNotifications.append(PendingNotification(data: data, targetCentralIds: nil))
         }
+        drainPendingNotifications()
+    }
 
-        let centrals = Array(subscribedCentrals.values)
-        if !centrals.isEmpty {
-            pm.updateValue(data, for: char, onSubscribedCentrals: centrals)
+    private func drainPendingNotifications() {
+        guard let pm = peripheralManager, let char = stateCharacteristic else { return }
+        while !pendingNotifications.isEmpty {
+            let item = pendingNotifications[0]
+            let targets: [CBCentral]
+            if let ids = item.targetCentralIds {
+                targets = ids.compactMap { subscribedCentrals[$0] }
+            } else {
+                targets = Array(subscribedCentrals.values)
+            }
+            if targets.isEmpty {
+                pendingNotifications.removeFirst()
+                continue
+            }
+            let sent = pm.updateValue(item.data, for: char, onSubscribedCentrals: targets)
+            if sent {
+                pendingNotifications.removeFirst()
+            } else {
+                // 底层发送队列已满，等待 peripheralManagerIsReady(toUpdateSubscribers:) 回调重发
+                return
+            }
         }
     }
 
@@ -127,8 +177,14 @@ final class BleMeshController: NSObject, CBPeripheralManagerDelegate, CBCentralM
     nonisolated func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
         Task { @MainActor in
             if peripheral.state == .poweredOn && self.isAdvertising {
-                self.startAdvertising(roomCode: self.currentRoomCode, hostName: "房主")
+                self.startAdvertising(roomCode: self.currentRoomCode, hostName: self.currentHostName)
             }
+        }
+    }
+
+    nonisolated func peripheralManagerIsReady(toUpdateSubscribers peripheral: CBPeripheralManager) {
+        Task { @MainActor in
+            self.drainPendingNotifications()
         }
     }
 
@@ -208,6 +264,9 @@ final class BleMeshController: NSObject, CBPeripheralManagerDelegate, CBCentralM
             return
         }
 
+        commandCharacteristic = nil
+        pendingClientCommands.removeAll()
+
         // 1. 优先从内存缓存查找
         if let peripheral = discoveredPeripherals[uuid] {
             pendingConnectIdentifier = nil
@@ -237,6 +296,8 @@ final class BleMeshController: NSObject, CBPeripheralManagerDelegate, CBCentralM
 
     func disconnectPeripheral() {
         pendingConnectIdentifier = nil
+        commandCharacteristic = nil
+        pendingClientCommands.removeAll()
         if let p = connectedPeripheral {
             centralManager?.cancelPeripheralConnection(p)
             connectedPeripheral = nil
@@ -244,8 +305,19 @@ final class BleMeshController: NSObject, CBPeripheralManagerDelegate, CBCentralM
     }
 
     func sendCommand(data: Data) {
-        guard let p = connectedPeripheral, let char = commandCharacteristic else { return }
+        guard let p = connectedPeripheral, let char = commandCharacteristic else {
+            pendingClientCommands.append(data)
+            return
+        }
         p.writeValue(data, for: char, type: .withoutResponse)
+    }
+
+    private func flushPendingClientCommands() {
+        guard let p = connectedPeripheral, let char = commandCharacteristic else { return }
+        while !pendingClientCommands.isEmpty {
+            let cmd = pendingClientCommands.removeFirst()
+            p.writeValue(cmd, for: char, type: .withoutResponse)
+        }
     }
 
     // CBCentralManagerDelegate
@@ -278,16 +350,41 @@ final class BleMeshController: NSObject, CBPeripheralManagerDelegate, CBCentralM
                 return
             }
 
-            let localName = (advertisementData[CBAdvertisementDataLocalNameKey] as? String) ?? peripheral.name ?? "台球桌台"
+            let rawLocalName = (advertisementData[CBAdvertisementDataLocalNameKey] as? String) ?? peripheral.name
             var roomCode = "8848"
-            if localName.hasPrefix("PoolPoker_") {
-                roomCode = String(localName.dropFirst("PoolPoker_".count))
+            var displayName = rawLocalName ?? "台球桌台"
+
+            // 1. 优先解析 Android 端广播的 ServiceData ("8848|房主昵称")
+            if let serviceDataMap = advertisementData[CBAdvertisementDataServiceDataKey] as? [CBUUID: Data],
+               let rawData = serviceDataMap[POOLPOKER_SERVICE_UUID] ?? serviceDataMap.values.first,
+               let decoded = String(data: rawData, encoding: .utf8), !decoded.isEmpty {
+                let parts = decoded.split(separator: "|", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
+                if !parts[0].isEmpty {
+                    roomCode = parts[0]
+                }
+                if parts.count > 1 && !parts[1].isEmpty {
+                    displayName = "\(parts[1])的球桌"
+                } else {
+                    displayName = "房间 \(roomCode)"
+                }
+            } else if let localName = rawLocalName, localName.hasPrefix("PoolPoker_") {
+                // 2. 解析 iOS 端广播的 LocalName ("PoolPoker_8848_房主昵称" 或 "PoolPoker_8848")
+                let rest = String(localName.dropFirst("PoolPoker_".count))
+                let parts = rest.split(separator: "_", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
+                if !parts[0].isEmpty {
+                    roomCode = parts[0]
+                }
+                if parts.count > 1 && !parts[1].isEmpty {
+                    displayName = "\(parts[1])的球桌"
+                } else {
+                    displayName = "房间 \(roomCode)"
+                }
             }
 
             let idStr = peripheral.identifier.uuidString
             idStr.withCString { cId in
                 roomCode.withCString { cCode in
-                    localName.withCString { cName in
+                    displayName.withCString { cName in
                         poolpoker_on_ble_discovered_room(cId, cCode, cName, RSSI.int32Value)
                     }
                 }
@@ -299,10 +396,6 @@ final class BleMeshController: NSObject, CBPeripheralManagerDelegate, CBCentralM
         Task { @MainActor in
             NSLog("[BleMeshController] Peripheral connected: %@", peripheral.identifier.uuidString)
             self.pendingConnectIdentifier = nil
-            let idStr = peripheral.identifier.uuidString
-            idStr.withCString { cId in
-                poolpoker_on_ble_peripheral_connected(cId)
-            }
             peripheral.discoverServices([POOLPOKER_SERVICE_UUID])
         }
     }
@@ -316,6 +409,8 @@ final class BleMeshController: NSObject, CBPeripheralManagerDelegate, CBCentralM
             }
             if self.connectedPeripheral == peripheral {
                 self.connectedPeripheral = nil
+                self.commandCharacteristic = nil
+                self.pendingClientCommands.removeAll()
             }
         }
     }
@@ -339,6 +434,11 @@ final class BleMeshController: NSObject, CBPeripheralManagerDelegate, CBCentralM
                     NSLog("[BleMeshController] Subscribed to State updates from Host.")
                 }
             }
+            let idStr = peripheral.identifier.uuidString
+            idStr.withCString { cId in
+                poolpoker_on_ble_peripheral_connected(cId)
+            }
+            self.flushPendingClientCommands()
         }
     }
 
