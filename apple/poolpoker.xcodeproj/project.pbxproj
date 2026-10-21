@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		0FFB030A4D813CB431E0F9ED /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C75A90F0308C3FDD7B701C1 /* CoreGraphics.framework */; };
 		13D6DFB72AE45DBAA8AC3753 /* SettlementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DCEC5D81A249D39CBA647C2 /* SettlementView.swift */; };
-		1ADF5FC81C97A481E3565103 /* PoolPokerWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = B26BA4D586A4EF23DB1570C4 /* PoolPokerWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1B96EAD42A3A1BACA3DB3540 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = 48D3AAC67060EACAD8F3434D /* main.mm */; };
 		23CD303BFC6652C5F8E11D87 /* WatchConnectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71D12AB32CD09A9C43D6A59B /* WatchConnectView.swift */; };
 		3356170A50ED9236C1FA2C47 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 22F75D582AED0A711AE69CBD /* Security.framework */; };
@@ -38,30 +37,6 @@
 		E688C3AD2570A2FDC1C02CC7 /* RoomCredential.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20066BF475245FA0A3043176 /* RoomCredential.swift */; };
 		F27360C8CB569250D7584FE9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1BB8B3CEA9FA8596157746BC /* Assets.xcassets */; };
 /* End PBXBuildFile section */
-
-/* Begin PBXContainerItemProxy section */
-		B6CBEEC116E82DC57A799805 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = E2D1319648EC0563DB8BE051 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = DB2F95D2D4FFF271AAAF82FF;
-			remoteInfo = poolpoker_watchOS;
-		};
-/* End PBXContainerItemProxy section */
-
-/* Begin PBXCopyFilesBuildPhase section */
-		D194717D4FE53155D9EFCE5A /* Embed Watch Content */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
-			dstSubfolderSpec = 16;
-			files = (
-				1ADF5FC81C97A481E3565103 /* PoolPokerWatch.app in Embed Watch Content */,
-			);
-			name = "Embed Watch Content";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		E3C0F19A2D789B1000000001 /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
@@ -473,12 +448,10 @@
 				4A811471B1E939258CA84CD1 /* Sources */,
 				AF4166914FB475DD055A7374 /* Resources */,
 				B12473B44219B818EAFC861F /* Frameworks */,
-				D194717D4FE53155D9EFCE5A /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				BE621015AC28783260553DDD /* PBXTargetDependency */,
 			);
 			name = poolpoker_iOS;
 			packageProductDependencies = (
@@ -601,14 +574,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin PBXTargetDependency section */
-		BE621015AC28783260553DDD /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = DB2F95D2D4FFF271AAAF82FF /* poolpoker_watchOS */;
-			targetProxy = B6CBEEC116E82DC57A799805 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		00926CA1AA62FD31B49F45C0 /* release */ = {

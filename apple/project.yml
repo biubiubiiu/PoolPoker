@@ -90,8 +90,6 @@ targets:
         EXCLUDED_ARCHS[sdk=iphoneos*]: x86_64
       groups: [app]
     dependencies:
-      - target: poolpoker_watchOS
-        embed: true
       - framework: libapp.a
         embed: false
       - sdk: CoreGraphics.framework
