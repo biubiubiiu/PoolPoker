@@ -1,260 +1,268 @@
-# overview — PoolPoker 球霸扑克
+# PoolPoker（球霸扑克）系统架构与工程全景 (`docs/overview.md`)
 
-Android/iOS Debug 与 Release 由 pnpm 任务图编排，构建入口、前置检查及并发约束见 [移动端构建编排](mobile_build_pipeline.md)。
-
-## 需求概述
-
-实现「朋友线下打台球聚会」场景的实时多人在线对战 Web 应用：以 54 张扑克牌发牌、牌面映射台球球号（A\~K → 1\~13 号、小王 → 14 号、大王 → 15 号，固定包含 8 号黑八），玩家通过 4 位数字房间号创建/加入房间，开局发牌后按「进球 → 点击对应卡牌销牌」的方式逐步消去手牌，率先清空全部有效手牌者获胜。应用覆盖完整对战生命周期：房间大厅（昵称/头像/球色配置/发牌数调节）、断线重连与暂离保护、击球顺序轮转、销牌/撤回上一步（快照栈逐步回退）、犯规罚抽牌、意外进球/误进无关球、开球进球（不归入任何玩家手牌）、裁判代记（进球/犯规）、多人联合胜利结算与累计胜负/积分统计、每局结算自动推送企业微信机器人（Webhook 链接运行时配置），以及 Playwright 端到端测试与一键构建部署脚本。前端经 Vue3 + TS + Vite 重构，后端从单文件 `server.js` 演进为 TypeScript 模块化 + Socket.IO 实时同步，前后端共享 `shared/types` 类型定义。
+本文档是 PoolPoker 项目的权威架构总览，涵盖核心领域规则、在线/离线双模数据流、跨端单一事实来源（SSOT）契约、各层模块职责以及关键工程不变量。
 
 ---
 
-## 架构设计
+## 目录
 
-### 数据流
+1. [项目定位与核心规则](#1-项目定位与核心规则)
+2. [全平台双模系统架构](#2-全平台双模系统架构)
+   - [2.1 模式 A：在线服务器实时同步架构](#21-模式-a在线服务器实时同步架构)
+   - [2.2 模式 B：无服务器 BLE 面对面离线联机架构](#22-模式-b无服务器-ble-面对面离线联机架构)
+   - [2.3 跨端单一事实来源 (JSON Schema SSOT)](#23-跨端单一事实来源-json-schema-ssot)
+   - [2.4 核心安全与工程不变量](#24-核心安全与工程不变量)
+3. [仓库目录结构](#3-仓库目录结构)
+4. [领域模型与服务端模块详解](#4-领域模型与服务端模块详解)
+   - [4.1 牌库与加密安全洗牌 (`server/pokerDeck.ts`)](#41-牌库与加密安全洗牌-serverpokerdekts)
+   - [4.2 游戏规则与积分引擎 (`server/gameEngine.ts`)](#42-游戏规则与积分引擎-servergameenginets)
+   - [4.3 进行态快照栈与悔球回退 (`server/gameState.ts`)](#43-进行态快照栈与悔球回退-servergamestatets)
+   - [4.4 牌局命令边界与生命周期服务 (`server/services/`)](#44-牌局命令边界与生命周期服务-serverservices)
+   - [4.5 房间注册表、状态裁剪与会话路由 (`server/roomManager.ts` & `socketHandlers.ts`)](#45-房间注册表状态裁剪与会话路由-serverroommanagerts--sockethandlersts)
+   - [4.6 附近房间定位发现 (`server/roomDiscovery.ts`)](#46-附近房间定位发现-serverroomdiscoveryts)
+   - [4.7 企业微信机器人结算推送 (`server/wecomWebhook.ts`)](#47-企业微信机器人结算推送-serverwecomwebhookts)
+5. [前端与多端客户端架构](#5-前端与多端客户端架构)
+   - [5.1 组合式业务状态层 (`src/composables/`)](#51-组合式业务状态层-srccomposables)
+   - [5.2 双版本对局视图体系（v1 经典 2D vs v2 沉浸式 3D）](#52-双版本对局视图体系v1-经典-2d-vs-v2-沉浸式-3d)
+   - [5.3 离线蓝牙面对面传输层 (`src/services/`)](#53-离线蓝牙面对面传输层-srcservices)
+   - [5.4 智能手表原生端（Wear OS & Apple Watch）](#54-智能手表原生端wear-os--apple-watch)
+6. [构建流水线、测试与工程规范](#6-构建流水线测试与工程规范)
+7. [专题架构文档索引](#7-专题架构文档索引)
 
-```
-浏览器 (Vue 组件) → composables (useGameRoom/useSocket) → protocol 常量 → Socket.IO emit 事件
-        ↓
-   socketHandlers (传输会话、鉴权上下文、广播调度)
-        ↓
-   gameRoomService (牌局命令边界：发牌 / 进球 / 犯规 / 撤回 / 重开)
-        ↓
-   gameEngine (胜负判定 / 积分结算 / 击球顺序)  ·  gameState (快照撤回)  ·  pokerDeck (牌库 + 洗牌)
-        ↓
-   roomManager (房间注册表 + Socket 会话索引 + 按玩家身份序列化广播)
-        ↓
-   room_updated 事件 → 各客户端 room 状态 → Vue 响应式渲染
-```
+---
 
-- **前端**：Vue 3 + TypeScript + Vite + Tailwind CSS，业务逻辑收敛到三个 composable（`usePlayerProfile` / `useSocket` / `useGameRoom`），组件只做展示与事件转发。
-- **后端**：Node.js + Express + Socket.IO（TypeScript，`tsx` 运行），房间状态全部保存在内存 `rooms: Record<string, ServerRoom>`。
-- **共享层与 SSOT**：以 `shared/schemas/` 下的 Draft-07 JSON Schema (`card.schema.json` / `room.schema.json` / `wear.schema.json`) 作为跨端 Wire Models 的单一事实来源 (Single Source of Truth)。通过 `scripts/codegen-models.mjs` 自动生成 TypeScript 契约 (`shared/types/generated/wire-models.ts`) 与 Kotlin 契约 (`android/shared-models/.../generated/WireModels.kt`)。`shared/types/game.ts` 重新导出生成的 Wire Models 并隔离服务端内部模型 (`ServerRoom` / `GameState`)。`shared/types/protocol.ts` 集中维护事件与路径常量，`shared/types/socket.ts` 定义 Socket payload。
-- **关键约束**：
-  - 房间状态以 `ServerRoom`（服务端内部态，含 `deck`/`accidentalBalls` 等敏感字段）与 `Room`（下发客户端的裁剪态）两种形态存在；`getClientRoomState` 按「是否本人 / 房间是否 finished」裁剪未进球手牌 `cards`（防止泄露其他玩家手牌），而 `pocketedCards`（已消除卡牌）公开下发给所有玩家（在全局赛况显示「已消xxxx」）。
-  - 撤回采用快照栈：`ServerRoom.gameHistory` 存每步操作后的 `GameState` 快照（深拷贝，不含日志），每步操作 `recordGameStep` push、撤回 `undoGameStep` pop 回退到上一步；每局 `start_game` 清空并播种发牌完成基线，历史只剩基线时撤回无效果；`gameHistory` 不下发客户端。
-  - 准备界面踢人：`kick_player` 仅允许同房间的已认证房主在 `waiting` / `lobby` 状态移出其他玩家；清理目标全部 Socket 会话并发送 `room_kicked`，Web 与 Wear 直连端清空房间凭证和界面。被踢玩家不能使用旧凭证重连，仍可手动重新加入。`leave_room` 仅允许会话本人退出，不能代他人退房。
-  - 身份校验：每个玩家持有 `sessionToken`（`crypto.randomUUID`），`rejoin_room` 重连必须校验 token，防止会话劫持。
-  - 随机性统一用 `node:crypto` CSPRNG（洗牌 `crypto.randomInt`、房间码 `crypto.randomInt`、token `crypto.randomUUID`），不使用 `Math.random`。
+## 1. 项目定位与核心规则
 
-### 面对面加入（Web / Wear OS 定位发现）
+**PoolPoker（球霸扑克）** 面向线下台球聚会场景，将一副 **54 张扑克牌**与 **1~15 号台球**建立映射：
+- **A ~ K** → **1 ~ 13 号球**（固定包含 8 号黑八）
+- **小王 (`JOKER-S`)** → **14 号球**
+- **大王 (`JOKER-B`)** → **15 号球**
 
-大厅通过 `useNearbyRooms` 和可替换的 `RoomDiscoveryProvider` 自动发现附近等待中的房间，默认范围 300 米、2 秒推送列表变化。仅首页无有效位置时先快速获取粗略位置并持续改善，精度达到 50 米或 10 秒无明显改善后停止监听；原始样本 60 秒过期后首页才重启。进房/开局停止定位，房主仅沿用首页位置剩余有效期发布，过期后退出附近列表。房主位置与浏览者位置只保存在服务端短期 Socket presence 中，最长 60 秒；不加入 `Room` 或公开 HTTP 快照。附近入口复用 `join_room`，加入前再次检查可见性；手动房间码行为保留。跨端发现模型由 `shared/schemas/discovery.schema.json` 生成 TS/Kotlin，原生 BLE 预留适配接口和来源类型。部署、权限、隐私、生命周期和扩展说明见 [nearby_room_discovery.md](nearby_room_discovery.md)。
+### 对局生命周期与规则要点
 
-Wear OS 直连首页提供「面对面加入」，通过 `WearNearbyDiscovery` 获取有时限的前台位置、订阅附近列表，再由 `WearDirectSocketManager` 在实际入房连接上登记位置并通过服务端校验后加入。退出发现页、后台和选房后停止定位；手动房间号与会话恢复流程保留。
+1. **建房与入房**：支持 4 位数字房间码（`1000~9999`）、在线地理位置面对面发现（300 米内）或离线蓝牙扫描桌台加入，单房最多支持 8 名玩家。
+2. **开局与击球顺序 (`computeTurnOrder`)**：
+   - 首局随机洗牌决定击球顺序；
+   - 后续局保留上一局在场玩家并补入新玩家 → 顺序反转 → 上一局获胜者轮转至首位开球。
+3. **进球销牌与全局免打判定 (`getPocketedBallNumbers`)**：
+   - 全局“已落袋球号集合”等于：`accidentalBalls`（意外进球） $\cup$ `breakBalls`（开球进球） $\cup$ 所有玩家的 `pocketedCards`（已消手牌）。
+   - 玩家手中若有球号已落袋的卡牌，界面将其置灰标为“已进球·无需打出”（免打牌），既提示无需再打，又不向他人暴露底牌。
+   - **获胜条件 (`checkGameWinners`)**：当某位玩家手中“尚未落袋的有效手牌”数量归零时立即获胜（支持一球触发多人同时获胜）。
+4. **积分结算 (`calculateHandScore`)**：
+   - 输家按手中未进球的剩余有效牌扣分：大小王基础分 `1` 分，其余牌基础分 `2` 分；同点数（`rank`）卡牌触发倍乘（$n$ 张同点数牌得分 = $\text{基础分之和} \times n$）。
+   - 赢家平分所有输家扣除的总分，除不尽的余数归属触发本局结束的击球获胜者。
 
-### 目录结构
+---
 
-├── apple/                   # iOS 与 Apple Watch 原生工程 (Tauri v2 iOS 打包与 watchOS Companion)
-├── android/                 # Android 多模块工程 (:app / :wear-app / :shared-models)
-├── src-tauri/               # Tauri v2 配置文件与 Rust 核心桥接层
-├── server/                  # 后端 (TypeScript)
-│   ├── index.ts             # Express + Socket.IO 启动、静态托管、/api 路由
-│   ├── config.ts            # config.yaml 加载
-│   ├── logger.ts            # socket 连接/断开日志（时间戳 + 用户名）
-│   ├── pokerDeck.ts         # 54 张牌库 + CSPRNG 洗牌
-│   ├── gameEngine.ts        # 胜负判定 / 积分结算 / 击球顺序
-│   ├── gameState.ts         # 游戏进行态快照 / 记录 / 撤回（gameHistory 快照栈）
-│   ├── gameRoomService.ts   # 牌局命令边界（发牌/进球/犯规/撤回/重开）
-│   ├── roomManager.ts       # 房间注册表、Socket 会话索引、状态裁剪、广播
-│   ├── wecomWebhook.ts      # 每局结算推送到企业微信机器人
-│   ├── robotConfig.ts       # 机器人 Webhook 链接运行时配置（内存）
-│   ├── socketHandlers.ts    # 15 个 Socket 事件处理器
-├── scripts/                 # 构建与代码生成脚本
-│   └── codegen-models.mjs   # JSON Schema 自动生成 TS 与 Kotlin 模型脚本
-├── shared/                  # 多端共享 Schema 与类型
-│   ├── schemas/             # JSON Schema 单一事实来源 (card/room/wear.schema.json)
-│   └── types/               # 前后端共享类型
-│       ├── generated/       # 自动生成的 Wire Models (wire-models.ts)
-│       ├── game.ts          # 导出 Wire Models 并定义 ServerRoom/GameState 领域模型
-│       ├── protocol.ts      # Socket 事件 / Wear action / DataLayer path 协议常量
-│       └── socket.ts        # 事件 payload 与 Client/Server 事件接口
-├── src/                     # 前端 (Vue 3 + TS + Vite + 移动端/iOS 适配)
-│   ├── composables/         # usePlayerProfile / useSocket / useGameRoom
-│   ├── components/          # RoomLobby/BilliardsTable/PokerCard/VictoryModal 等
-│   ├── utils/dialog.ts      # 跨平台原生弹窗封装 (@tauri-apps/plugin-dialog)
-│   ├── App.vue              # 页面组装与弹窗编排
-│   └── styles/main.css      # iOS Safe Area 留白避让 & 物理实体球牌防反色保护
-├── public/enter_robot.html  # 机器人 Webhook 链接设置页面（独立于 SPA）
-├── e2e/poolpoker.spec.ts    # Playwright 端到端测试
-├── config.yaml              # 端口与房间默认设置
-├── run.sh / webhook-deploy.sh  # 一键构建运行 / Webhook 自动部署
-└── vite.config.ts / tsconfig.json / biome.json / commitlint.config.js
+## 2. 全平台双模系统架构
+
+### 2.1 模式 A：在线服务器实时同步架构
+
+```text
+浏览器 / Tauri App (Vue 3) / Wear OS (:wear-app) / Apple Watch (poolpoker_watchOS)
+        │
+        ├─ Socket.IO (WebSocket / Engine.IO Long-Polling) & Watch Companion Bridge
+        ▼
+server/socketHandlers.ts (会话鉴权、生命周期事件、广播触发)
+        │
+        ▼
+server/services/gameRoomService.ts & roomLifecycleService.ts (命令边界)
+        │
+        ├─► gameEngine.ts (胜负判定 / 积分结算 / 击球顺序)
+        ├─► gameState.ts  (gameHistory 快照栈记录与撤回)
+        └─► pokerDeck.ts  (54 张牌库构建与 CSPRNG 洗牌)
+        │
+        ▼
+server/roomManager.ts (按 userId 裁剪私有手牌 + 多 Socket 会话广播 room_updated)
 ```
 
----
+### 2.2 模式 B：无服务器 BLE 面对面离线联机架构
 
-## 实现摘要
+在无网络环境下，应用通过 `useSocket.ts` 的 `toggleBleOfflineMode(true)` 切换至 `BleTransport`（虚拟 Socket 适配器）：
 
-### 牌库与洗牌（`server/pokerDeck.ts`）
+```text
+房主与客机 Vue 业务层 (useGameRoom.ts —— 零业务代码改动)
+        │
+        ▼
+src/services/bleTransport.ts (模拟 Socket.IO 接口)
+  ├─ 房主模式 (Host):
+  │    ├─ LocalHostEngine (直接复用 gameEngine / pokerDeck / gameRoomService 权威逻辑)
+  │    ├─ 本机视图: getDirectClientRoom() 零拷贝无损直通
+  │    └─ 客机推送: encodeBleRoomState() 脱敏二进制帧 -> GATT Notification 按 peerId 单播
+  └─ 客机模式 (Guest):
+       ├─ BleScanner (扫描解析广播包 + 12s TTL 过期淘汰)
+       └─ BleChunkReassembler (动态 MTU 分片重组 -> decodeBleRoomState)
+        │
+        ▼
+src-tauri/src/ble_mesh.rs (Rust Tauri Commands & Events)
+  ├─ Android JNI  ──► BleMeshManager.kt (BluetoothLeAdvertiser / GattServer / BluetoothGatt)
+  └─ iOS C-ABI    ──► BleMeshBridge.swift (CBPeripheralManager / CBCentralManager)
+```
 
-- `create54PokerDeck()` 生成标准 54 张牌库：52 张正牌（4 花色 × A\~K，`ballNumber` 1\~13）+ 小王（`suitType: joker-small`，球号 14，灰）+ 大王（`joker-big`，球号 15，金）。
-- `shuffle()` Fisher-Yates 洗牌，随机源 `crypto.randomInt`（CSPRNG），返回新数组不改原数组。
-- 每张 `Card` 含 `id`（`c_1`…）、`suit`（花色符号）、`suitType`、`color`（红/黑/金/灰）、`rank`、`ballNumber`。
+> 完整的蓝牙 GATT UUID、二进制帧字节布局与握手时序见 [BLE 面对面离线联机架构文档](ble_offline_architecture.md)。
 
-### 游戏引擎（`server/gameEngine.ts`）
+### 2.3 跨端单一事实来源 (JSON Schema SSOT)
 
-- `addLog`：追加对局日志（`zh-CN` 时间戳 + `crypto.randomBytes` id），保留最近 50 条。
-- `getPocketedBallNumbers`：`accidentalBalls`（意外进球）、`breakBalls`（开球进球）与各玩家 `pocketedCards`（销牌）的球号并集，升序返回——全局「已打进球号」的唯一来源。
-- `checkGameWinners`：仅 `status === 'playing'` 时判定，某玩家 `cards` 中未被已打进球号命中的「有效卡牌」数量为 0 即胜，支持多人同时胜利。
-- `calculateHandScore`：结算输家剩余手牌积分——大小王基数 1、其余牌基数 2，同 rank 组合倍乘（n 张 = 基数之和 × n）。
-- `handleGameFinished`：置 `finished`、胜者 `wins+1`、击球触发者优先排序、记录 `lastWinnerUserId`；随后做本局积分结算——每位输家 `totalScore` 扣剩余手牌分、赢家平分输家总分（余数归击球触发的胜者），结果写入 `room.lastRoundScores` 并打印结算日志；结算完成后调用 `sendRoundResultToWecom` 异步推送本局结果到企业微信机器人（不阻塞结算流程）。
-- `computeTurnOrder`：计算下局击球顺序——无上一局顺序时随机洗牌；否则保留上一局在场玩家并补入新玩家 → 顺序反转 → 上一局胜者轮转到首位。
+- `shared/schemas/` 下的 Draft-07 JSON Schema（`card.schema.json`、`room.schema.json`、`wear.schema.json`、`discovery.schema.json`）是跨平台在线 Wire Models 的唯一事实来源。
+- 执行 `pnpm run codegen:models`（底层基于 `quicktype-core`）一键生成三端模型：
+  - **TypeScript**: `shared/types/generated/wire-models.ts`
+  - **Kotlin**: `android/shared-models/src/main/java/com/poolpoker/shared/generated/WireModels.kt`
+  - **Swift**: `apple/Shared/Generated/WireModels.swift`
+- 二进制 BLE 协议则由 `shared/types/bleProtocol.ts` 作为单一事实来源，原生层仅负责字节透传与按连接 MTU 动态切片。
 
-### 游戏进行态快照与撤回（`server/gameState.ts`）
+### 2.4 核心安全与工程不变量
 
-- 将一局游戏的「进行态」收敛为 `GameState`（`shared/types/game.ts`）：`status` / `players[]`（`GamePlayerSnapshot`，仅含 `cards`/`pocketedCards`/`cardCount`/`wins`/`isWinner`/`totalScore`）/ `deck` / `accidentalBalls` / `breakBalls` / `winners` / `turnOrder` / `lastTurnOrder` / `lastWinnerUserId` / `roundCount` / `lastRoundScores`；不含 `logs` 与身份/连接/设置类字段。
-- `snapshotGameState` / `restoreGameState`：深拷贝打包 / 还原进行态；`recordGameStep` 把「操作后」状态 push 进 `ServerRoom.gameHistory`；`undoGameStep` pop 掉当前状态回退到上一步（历史只剩基线时无效果）。
-- 撤回语义：`retract_ball` 不再按 `cardId` 精确撤牌，而是整体回退牌桌最近一步操作；日志属于审计记录不随快照回退，每次撤回额外追加一条日志。
-
-### 牌局命令边界（`server/gameRoomService.ts`）
-
-- `applyGameRoomCommand(room, command)` 是服务端牌局内操作的统一边界，负责把发牌、销牌、犯规罚抽、意外进球、开球进球、裁判代记、撤回、重开等命令应用到 `ServerRoom`。
-- 该模块隐藏原先散落在 Socket 事件里的组合顺序：状态校验、玩家定位、牌堆耗尽补牌、日志文本、胜负判定、积分结算、`recordGameStep`/`undoGameStep` 调用时机。
-- `socketHandlers.ts` 保留传输与会话职责：Socket callback、`socket.join/leave`、create/join/rejoin/leave/disconnect、以及根据命令结果调用 `broadcastRoomState`；Socket 到玩家身份的索引由 `roomManager` 的 session registry helper 维护。
-
-### 协议常量与数据模型契约（JSON Schema SSOT / `shared/schemas/` / `scripts/codegen-models.mjs`）
-
-- **SSOT 单一事实来源**：在 `shared/schemas/` 集中定义了 `card.schema.json`、`room.schema.json` 与 `wear.schema.json` 三组 Draft-07 JSON Schema，作为前端 Web、后端 Server、Android App 与 Wear OS 手表全平台 Wire Models 的唯一规范来源。
-- **自动代码生成 (Codegen)**：`scripts/codegen-models.mjs` 使用 `quicktype-core` 将 JSON Schema 自动编译为：
-  - **TypeScript Wire Models** (`shared/types/generated/wire-models.ts`)：在 `shared/types/game.ts` 中重新导出，同时严格保持 `ServerRoom` / `GameState` 为服务端内部隔离模型。
-  - **Kotlin Wire Models** (`android/shared-models/.../generated/WireModels.kt`)：采用 `kotlinx.serialization` 注解，在 `Models.kt` 中通过 `typealias` 桥接现有代码，实现无缝向后兼容。
-  - 提供了 `pnpm run codegen:models`（重新生成）与 `pnpm run codegen:check`（CI/Pre-commit 漂移检查）脚本。
-- **协议常量面**：`shared/types/protocol.ts` 集中维护 Socket.IO 事件名（`CLIENT_TO_SERVER_EVENTS` / `SERVER_TO_CLIENT_EVENTS`）、Wear action 序列化值（`WEAR_ACTIONS`）与 Wear OS DataLayer path（`DATA_LAYER_PATHS`）。
-- `shared/types/socket.ts` 使用这些常量作为 `ClientToServerEvents` / `ServerToClientEvents` 的 computed keys，确保 TS 类型契约与运行时 `emit/on` 使用同一份事件名。
-- Android/Wear 端在 `:shared-models` 中维护对应的 `SocketEvents` / `WearAction` / `DataLayerConstants` mirror，`WearDirectSocketManager` 与蓝牙凭证桥接统一引用该常量面。
-- `server/__tests__/protocolContract.spec.ts` 作为轻量漂移检测：校验协议值稳定且唯一，确认 Kotlin mirror 覆盖 TS 协议层，并验证生成的 Wire Models 与 JSON Schema 保持同步。
-
-### 企业微信结算推送（`server/wecomWebhook.ts` / `server/robotConfig.ts`）
-
-- `wecomWebhook.ts`：`sendRoundResultToWecom(room)` 每局结算后把「房间号 + 各成员本局得分变化 + 累计积分」拼成文本，POST 到企业微信机器人 Webhook（`msgtype: text` + 固定提及成员列表）；未配置 Webhook 链接时直接返回不发送；HTTP 非 2xx / `errcode !== 0` / 异常时打印 `⚠️ [WeCom]` 警告日志，不抛出。
-- `robotConfig.ts`：机器人 Webhook 链接运行时配置——内存变量 `robotWebhookUrl`，`getRobotWebhookUrl` / `setRobotWebhookUrl`（`trim` 后保存），服务重启即清空。
-
-### 房间管理（`server/roomManager.ts`）
-
-- `rooms` 内存房间表由 registry helper 统一读写；内部 `socketIndex` 作为 `socketId → { roomCode, userId }` 反向索引，外部通过 `registerSocketSession` / `getSocketSession` / `removeSocketSession` / `hasOtherSocketForUser` 维护多 Socket 身份。
-- `generateRoomCode`：`crypto.randomInt(1000, 10000)` 生成 4 位数字房号，冲突时重试。
-- `getClientRoomState`：把 `ServerRoom` 裁剪为下发客户端的 `Room`——未进球手牌 `cards` 仅当「目标用户本人」或「房间 finished」时下发，否则置空，从源头防止泄露其他玩家未进球手牌；而已消除的 `pocketedCards` 则向所有玩家下发；`logs` 只取最近 15 条。
-- `broadcastRoomState`：遍历房间内 socket，按每个玩家的身份分别序列化下发，保证各客户端只见各自可见的数据。
-
-### Socket 事件（`server/socketHandlers.ts`）
-
-共 15 个事件处理器。create/join/rejoin/leave/disconnect 保持 Socket 会话生命周期职责；牌局内命令委托给 `gameRoomService` 后按结果 `broadcastRoomState`：
-
-- `create_room` / `join_room` / `rejoin_room`：建房/加入/断线重连。均生成或校验 `sessionToken`（`crypto.randomUUID`）；`join_room` 按 `userId` 判重复，重复则复用玩家并刷新 `sessionToken`/`id`/`online`，新玩家若房间已在 `playing` 则从 `deck` 补发牌；`rejoin_room` 严格校验 `player.sessionToken === sessionToken`，不通过拒绝并返回「身份凭证失效」。
-- `update_settings` / `start_game`：房主专属（通过 session registry 反查 `userId === hostUserId`）。`start_game` 洗牌发牌、清空 `accidentalBalls`/`breakBalls`/`winners`/`lastRoundScores`、`roundCount+1`、按 `computeTurnOrder` 计算击球顺序；随后清空 `gameHistory` 并 `recordGameStep` 播种发牌完成基线。
-- `pocket_ball`（销牌）/ `draw_penalty`（犯规罚抽）/ `accidental_pocket`（意外进球）/ `retract_ball`（撤回上一步）：本人手牌操作；罚抽时牌堆耗尽自动洗新牌堆补牌；前三个操作完成后 `recordGameStep` 记快照，`retract_ball` 调用 `undoGameStep` 回退上一步。
-- `break_pocket`（开球进球）：记录开球时入袋的球号到 `breakBalls`（不归入任何玩家手牌），已进则跳过，随后判定胜负并 `recordGameStep`。
-- `referee_pocket_ball` / `referee_draw_penalty`：裁判代记，按 `targetUserId` 定位目标玩家消卡/罚抽；进球找不到对应球号时回退为「全场已进球」记录（`accidentalBalls`）；完成后 `recordGameStep`。
-- `request_restart` / `confirm_restart` / `restart_game`：重开流程，`handleRestartRoom` 重置牌堆/球号/胜负、玩家清空手牌回 `waiting`，并清空 `gameHistory`。
-- `leave_room`：移出玩家，房主离开自动转让给首位玩家；空房删除。
-- `disconnect`：`logSocketDisconnect` + 标记 `online=false` 并广播。
-
-### 服务启动与配置（`server/index.ts` / `server/config.ts` / `server/logger.ts`）
-
-- `config.ts`：读取 `config.yaml`（端口），缺失/异常回退默认 3000。
-- `index.ts`：Express 提供 `/api/rooms/:code`（HTTP 快照查询房间状态，供移动端快速同步）、`/api/robot-url`（GET/POST 读取/设置机器人 Webhook 链接）、`/enter_robot`（机器人链接设置页面，独立于 SPA 的静态路由）等接口；托管 `dist` 静态资源并 SPA 回退；Socket.IO 配置 `pingTimeout 10000` / `pingInterval 5000`。
-- `logger.ts`：`formatTimestamp` 统一时间戳格式；`getSocketUsername` 从 `socket.data` → `handshake.auth/query` → 房间成员逐级取用户名；`logSocketConnect`/`logSocketDisconnect` 打印带时间戳、用户、断开原因的日志。
-
-### 前端 Composables（`src/composables/`）
-
-- `usePlayerProfile`：玩家身份持久化——`userId`（首次生成 `u_随机串`）、`playerName`、`selectedAvatar`（6 个头像）均存 `localStorage`；`getFinalPlayerName` 空名回退「球友+随机三位数」。
-- `useSocket`：Socket.IO 客户端初始化，`auth` 携带已存 name/userId，调优重连参数 `reconnectionAttempts: Infinity` / `reconnectionDelay: 300` / `reconnectionDelayMax: 1000` / `timeout: 5000`；封装 `on`/`off`/`emit`。
-- `useBallAppearance`：由 `App` 通过 provide/inject 提供只读、响应式的球主题；`BallIcon` 和 `ThreeBilliardsArena` 直接读取，容器、卡牌与弹窗不再透传主题。`BallIcon.ballTheme` 可显式覆盖主题；默认星牌（xingpai）。
-- `useGameRoom`：核心业务状态与操作——`room` 状态、`isHost`/`myInfo`/`turnOrderPlayers` 计算属性、`sortedMyCards`（本人手牌按球号升序排序的计算属性）、`isCardDimmed`（球号已打进则置灰免打）；挂载时 `fetchLatestRoomState`（HTTP 快照）+ `visibilitychange` 切前台时快照同步 + Socket 重连；`setupSocketListeners` 监听 `connect`（自动 `rejoin_room`）、`room_updated`（更新 `room` 并胜利时放彩带）、`room_created`、`error_message`；对外暴露建房/加入/调发牌数/开局/销牌/撤回上一步（`handleRetract`，`window.confirm` 确认后发 `retract_ball`）/记录进球/记录犯规/重开/离开等全部 `handle*` 方法。
-
-### 前端组件结构
-
-- **公共组件（`src/components/`）**：
-  - `RoomLobby`：登录（昵称）+ 创建/加入选项卡（4 位房间码数字输入）+ 等待大厅（成员列表/房主发牌数调节/开始发牌/新版 UI 切换开关）。
-  - `GameHeader`：顶部状态栏（在等待大厅中通用，以及 v1 对局中使用）。
-  - `VictoryModal`：结算弹窗——胜利者信息、图例、每位玩家三类手牌明细（已消除/免打卡/未消除，未消除牌按同 rank 倍乘标注 `-N分` 罚分）、本局积分变化（`+/-N分`）与累计总积分、房主「再来一局」。
-  - `RefereePocketModal` / `RefereeFoulModal`：记录进球/犯规弹窗，默认选中当前玩家自己，进球额外选择未打进球号，并可切换「开球进球」记录不归属任何玩家的入袋球。
-  - `RestartModal`：重开确认弹窗。
-- **v1 经典版组件（`src/components/v1/`）**：
-  - `GameView`：v1 对局主视图，装配手牌区、球盘与实况日志。
-  - `BilliardsTable`：全局赛况——本局击球顺序、已打出球号列表（mini-ball 彩色球 + 条纹）、玩家赛况列表（胜场/剩余张数/暂离态/进度条/记录进球与犯规快捷按钮）。
-  - `PokerCard`：2D 手牌卡牌（牌面 rank/suit + 台球球号），已打进球号覆盖「已进球·无需打出」遮罩。
-  - `GameLogs`：对局实况日志面板。
-- **v2 沉浸式组件（`src/components/v2/`）**：
-  - `GameView`：v2 3D 对局主视图，装配极简 HUD、对手席、3D 球台与扇形手牌。
-  - `ThreeBilliardsArena`：Three.js 3D 渲染球台、高光球号与入袋动画。
-  - `HandDeckFan` / `PokerCardProp`：3D 拟真弧形扇面手牌与卡牌组件。
-  - `GameMinimalHud`：极简顶栏（局数、比分概览、抽屉菜单入口）。
-  - `TableOpponentSeats` / `RecordingPlayerDropdown`：环绕对手座位席与代记目标下拉框。
-  - `GameControlDrawer`：侧边/底栏抽屉，收纳规则说明、对局实况日志与房间控制。
-- `App.vue`：组装公共组件与根据 `useNewUi` 切换加载 `GameViewV1` / `GameViewV2`；手牌区含「规则」按钮弹出积分规则说明弹窗。
-
-### 配置文件（`config.yaml`）
-
-- `config.yaml`：`app_name`、`port`、`room.default_cards_per_player`（默认 5）、`room.max_players`（8）、`room.disconnect_timeout_ms`（默认 1 小时）。
-
-### 工程化与测试
-
-- 构建链：Vite + `vue-tsc` 类型检查；`@/` 指向 `src`、`@shared/` 指向 `shared` 的路径别名；Biome 做 lint/format，Husky `pre-commit` + lint-staged、`commit-msg` + commitlint（conventional commits）；`tsx` 运行后端。
-- `e2e/poolpoker.spec.ts`：Playwright 端到端测试，覆盖玩家资料持久化、多人房间同步、销牌/置灰/意外进球/撤回/罚牌/重开、累计胜负、多人同时胜利与下局首击顺序、裁判代记等全流程。
+1. **双形态房间模型与私牌防泄露裁剪**：
+   - `ServerRoom` 保存服务端内部敏感字段（`deck`、`accidentalBalls`、`gameHistory`、每位玩家的 `sessionToken` 与底牌 `cards`）。
+   - `Room` 是下发给客户端的脱敏视图：`getClientRoomState`（在线）与 `getLocalBleState` / `getDirectClientRoom`（离线）严格保证未打出的 `cards` **仅下发给玩家本人**（或对局进入 `finished` 结算态后全员亮牌），而 `pocketedCards`（已消除牌）与 `cardCount`（手牌张数）全员公开。
+2. **多设备同账号多 Socket 广播**：
+   - `roomManager.ts` 维护 `socketIndex`（`socketId → { roomCode, userId }`），允许同一 `userId` 同时挂载手机端与智能手表端 Socket，并同时收到包含本人底牌的定制化 `room_updated`。
+3. **会话令牌防劫持 (`sessionToken`)**：
+   - 玩家建房或入房时签发 `crypto.randomUUID()` 作为 `sessionToken`；断线重连 `rejoin_room` 必须匹配该令牌，被房主踢出（`kick_player`）后旧令牌立即失效。
+4. **纯加密安全随机数 (CSPRNG)**：
+   - 服务端使用 `node:crypto`（`randomInt`、`randomUUID`），前端离线引擎使用 Web Crypto API（`shared/utils/crypto.ts` 的 `crypto.getRandomValues`），严禁使用 `Math.random()`。
+5. **单调递增修订号 (`revision`) 与场景事件 (`sceneEvent`)**：
+   - 每次有效牌局变更使 `room.revision` 自增，并生成携带动作类型与球号的 `sceneEvent`。前端据此判断事件连续性（`shouldAnimateRoomChange`），避免重连或切回前台时重播过期动画，并在撤回操作时通过 `expectedRevision` 防止并发冲突。
 
 ---
 
-## 涉及文件清单
+## 3. 仓库目录结构
 
-| 文件路径 |
-|----------|
-| `server/index.ts`（Express + Socket.IO 启动、`/api/rooms/:code` 快照接口、静态托管） |
-| `server/config.ts`（config.yaml 加载） |
-| `server/logger.ts`（socket 连接/断开日志，时间戳 + 用户名） |
-| `server/pokerDeck.ts`（54 张牌库、CSPRNG 洗牌） |
-| `server/gameEngine.ts`（胜负判定、积分结算、击球顺序） |
-| `server/gameState.ts`（游戏进行态快照、记录、撤回 gameHistory 栈） |
-| `server/gameRoomService.ts`（牌局命令边界，收敛发牌/进球/犯规/撤回/重开组合规则） |
-| `server/wecomWebhook.ts`（每局结算推送企业微信机器人） |
-| `server/robotConfig.ts`（机器人 Webhook 链接运行时配置） |
-| `server/roomManager.ts`（房间注册表、Socket 会话索引、房间码生成、状态裁剪防泄露、广播） |
-| `server/socketHandlers.ts`（15 个 Socket 事件处理器、sessionToken 校验） |
-| `shared/types/game.ts`（Card/Player/Room/ServerRoom/GameState/GamePlayerSnapshot/RoundScoreEntry 等） |
-| `shared/types/protocol.ts`（Socket 事件、Wear action、DataLayer path 协议常量） |
-| `shared/types/socket.ts`（事件 payload 与 Client/Server 事件接口） |
-| `src/composables/usePlayerProfile.ts` / `useSocket.ts` / `useGameRoom.ts` / `useUiPreferences.ts` / `useBallAppearance.ts` |
-| `src/App.vue`（页面组装、v1/v2 路由分发、积分规则弹窗） |
-| `src/components/`（公共组件：`RoomLobby.vue` / `GameHeader.vue` / `VictoryModal.vue` / `RefereePocketModal.vue` / `RefereeFoulModal.vue` / `RestartModal.vue`） |
-| `src/components/v1/`（v1 经典版组件：`GameView.vue` / `BilliardsTable.vue` / `PokerCard.vue` / `GameLogs.vue`） |
-| `src/components/v2/`（v2 沉浸式组件：`GameView.vue` / `ThreeBilliardsArena.vue` / `HandDeckFan.vue` / `PokerCardProp.vue` / `GameMinimalHud.vue` / `TableOpponentSeats.vue` / `RecordingPlayerDropdown.vue` / `GameControlDrawer.vue`） |
-| `public/enter_robot.html`（机器人 Webhook 链接设置页面） |
-| `src/styles/main.css`（玻璃拟态、mini-ball 回退球色、条纹样式） |
-| `e2e/poolpoker.spec.ts`（Playwright 端到端测试） |
-| `config.yaml`（端口、房间默认设置） |
-| `run.sh`（一键构建运行）/ `webhook-deploy.sh`（Webhook 自动部署） |
-| `vite.config.ts` / `tsconfig.json` / `tailwind.config.js` / `postcss.config.mjs` / `biome.json` / `commitlint.config.js` / `.husky/` |
+```text
+PoolPoker/
+├── android/                        # Android 与 Wear OS Gradle 多模块工程
+│   ├── app/                        # Tauri Android 手机端宿主 (:app, 含 BleMeshManager & Wear 插件)
+│   ├── phone-companion/            # 手机端 Wearable DataLayer 伴侣服务 (:phone-companion)
+│   ├── shared-models/              # 跨模块共享模型与常量 (:shared-models)
+│   └── wear-app/                   # Wear OS 手表独立原生应用 (:wear-app, Jetpack Compose)
+├── apple/                          # iOS 与 Apple Watch 原生工程 (XcodeGen project.yml 管理)
+│   ├── Shared/Generated/           # 自动生成的 Swift WireModels
+│   ├── Sources/poolpoker/          # iOS 原生插件桥接 (BleMeshBridge.swift, WatchSyncBridge.swift)
+│   └── WatchApp/                   # watchOS 10+ 原生应用源码 (SwiftUI + Engine.IO 客户端)
+├── assets/models/                  # Blender 3D 球台可编辑源文件 (billiards_table.blend, Git LFS)
+├── docs/                           # 架构设计、协议规范与演进日志文档库
+├── e2e/                            # Playwright 端到端测试 (poolpoker.spec.ts)
+├── public/                         # 静态资源、球台 GLB 模型 (models/billiards_table.glb) 与企微配置页
+├── scripts/                        # 模型生成 (codegen-models.mjs) 与移动端构建编排 (mobile-pipeline.mjs)
+├── server/                         # Node.js + Express + Socket.IO 后端服务
+│   ├── __tests__/                  # 服务端与协议层 Vitest 单元测试
+│   ├── services/                   # 牌局命令边界 (gameRoomService.ts) 与房间生命周期服务
+│   ├── config.ts                   # config.yaml 加载器
+│   ├── gameEngine.ts               # 核心规则引擎 (胜负判定、积分计算、击球顺序)
+│   ├── gameState.ts                # 进行态快照栈 (snapshot / restore / record / undo)
+│   ├── index.ts                    # Express HTTP API (/api/rooms/:code) 与 Socket.IO 入口
+│   ├── pokerDeck.ts                # 54 张扑克牌构建与 Fisher-Yates CSPRNG 洗牌
+│   ├── roomDiscovery.ts            # 在线模式地理位置附近房间匹配服务
+│   ├── roomManager.ts              # 内存房间表、Socket 会话索引、脱敏裁剪与单播分发
+│   ├── socketHandlers.ts           # Socket.IO 事件路由层
+│   └── wecomWebhook.ts             # 企业微信机器人战报推送
+├── shared/                         # 前后端与跨平台共享层
+│   ├── schemas/                    # Draft-07 JSON Schemas (card, room, wear, discovery)
+│   ├── types/                      # TS 类型定义、protocol.ts 常量与 bleProtocol.ts 二进制编解码
+│   └── utils/                      # 同构 CSPRNG 随机工具 (crypto.ts)
+├── src/                            # Vue 3 前端应用
+│   ├── __tests__/                  # 前端服务与组合式函数 Vitest 单元测试
+│   ├── components/                 # 公共组件及 v1 (2D 经典) / v2 (3D 沉浸式) 对局视图组件
+│   ├── composables/                # 响应式业务层 (useGameRoom, useSocket, useNearbyRooms 等)
+│   ├── services/                   # 离线蓝牙引擎与传输层 (localHostEngine, bleTransport, bleScanner)
+│   ├── styles/                     # 全局样式、iOS 安全区适配与球牌防反色规则 (main.css)
+│   └── utils/                      # 原生弹窗桥接等工具函数
+└── src-tauri/                      # Tauri v2 Rust 宿主与跨端插件 (ble_mesh.rs, lib.rs)
+```
 
 ---
 
-## 专题文档索引
+## 4. 领域模型与服务端模块详解
 
-| 文档 | 内容 |
-|------|------|
-| [android_tauri_architecture.md](android_tauri_architecture.md) | Android 移动端 & Tauri 架构设计（Tauri v2 打包 APK、顶层 Gradle 多模块、Wear OS DataLayer 状态同步、R8 混淆规则） |
-| [wear_app_architecture.md](wear_app_architecture.md) | Wear OS 手表端架构（Jetpack Compose for Wear OS 模块划分、单 Activity 架构、Swipe-To-Dismiss 侧滑手势导航规范） |
-| [implement_log.md](implement_log.md) | 实现步骤日志（按轮次记录需求、探索与决策、最终改动、commit） |
+### 4.1 牌库与加密安全洗牌 (`server/pokerDeck.ts`)
 
+- `create54PokerDeck()`：生成标准 54 张牌库（4 花色 $\times$ A~K 对应 `ballNumber: 1..13`，小王对应 `14` 灰色，大王对应 `15` 金色，ID 为 `c_1..c_54`）。
+- `shuffle()`：基于 CSPRNG 的 Fisher-Yates 洗牌算法，返回全新牌组。
 
-### Wear OS 直连恢复（2026-09-07）
+### 4.2 游戏规则与积分引擎 (`server/gameEngine.ts`)
 
-`WearDirectSocketManager` 使用入房 ACK 保存会话凭证，网络重连执行 `rejoin_room`，进程重启由 `WearMainActivity` 恢复最近成功会话。连接状态区分传输建立与入房成功，拒绝入房显示服务器原因；断线操作提示重试。手机原生凭证桥同步 token，详细生命周期见 `docs/wear_app_architecture.md` 第 4 节。
+- `getPocketedBallNumbers(room)`：汇总 `accidentalBalls`、`breakBalls` 及所有玩家的 `pocketedCards`，升序返回全局已落袋球号列表。
+- `checkGameWinners(room)`：筛选手中未落袋卡牌数为 0 的玩家。
+- `calculateHandScore(cards, pocketedBallNumbers)`：计算输家未消手牌罚分（大小王 1 分、其余 2 分，同点数 $n$ 张倍乘 $n$）。
+- `handleGameFinished(room, triggerUserId)`：更新胜场、记录 `lastRoundScores` 与总分，并异步调用 `sendRoundResultToWecom` 推送企微战报。
 
-### v2 沉浸式对局原型（2026-09-07）
+### 4.3 进行态快照栈与悔球回退 (`server/gameState.ts`)
 
-- 对局主屏由 `GameMinimalHud`、`TableOpponentSeats`、`ThreeBilliardsArena`、`HandDeckFan` / `PokerCardProp` 组成；规则、完整记录和重开/退出收进 `GameControlDrawer`。房间大厅和结算仍复用既有组件。
-- “记球对象”是当前设备的代记目标，默认本人。点头像、下拉框或“下一位”切换；它不代表服务器强制执行的击球回合。开球模式逐个登记多球，不消去任何玩家手牌；直接点具体手牌始终为本人销牌。
-- 桌面点球由服务端选择目标玩家第一张匹配牌；同号其他牌保留为免打牌。重复登记已经入袋的球不再消第二张牌。`cardCount` 表示实体手牌数（向全员公开）；未打进的待打牌数由本地客户端仅为本人计算，不通过公网广播避免泄露手牌。
-- JSON Schema 中的可选 `Room.revision` / `Room.sceneEvent` 提供单调递增的版本和 UUID 事件标识。事件只含类型、目标玩家与公开进球号，罚抽事件不携带新牌。类型由 `codegen-models.mjs` 同步生成 TS/Kotlin。旧客户端可以忽略新增字段。
-- 记球、开球、代记罚抽和撤回支持可选 Socket 回调；前端先显示待确认，收到服务器的新事件才演出。撤回带 `expectedRevision`，若期间有新操作则拒绝过期撤回。结算后的撤回入口禁用，既有结算/积分规则不变。
-- `shouldAnimateRoomChange` 判断事件连续性；首次快照、HTTP 对齐、重连、后台更新和旧版本不重播。手牌临时保留上一状态以播放抬牌、出牌和免打转化，随后对齐权威状态；新事件到达会终止旧手牌演出，优先对齐新状态，不积压长动画队列。
-- Three.js 球桌加载 Blender GLB（`public/models/billiards_table.glb`），包含圆角台框、皮革袋口和几何网袋；支持 HTML `link preload`、内存缓存与大厅闲时前置预加载，加载期间呈现台球流光 Loading 动效，模型或上下文异常时提供重试交互。模型中的六个 `PocketTarget_*` 标记驱动进球动画目标。使用顶棚环境反射、主光阴影和透明接影地面（透出页面绿色渐变）。固定球阵表达球号状态，不映射现实球位。投影后的 DOM 球号按钮保持可读和键盘可用；较矮设备允许页面纵向滚动。模型与导出说明见 `docs/table_asset_pipeline.md`。
-- 球号白底随球体投影尺寸缩放，保留球色与条纹；画布填满球桌容器，宽屏使用横向构图。击球顺序以小字放在主屏记球对象下方。
-- 渲染仅在初始化、尺寸变化和动画期间进行；后台停帧，卸载释放资源。WebGL 不可用/上下文丢失时降级为可点击平面球桌。音效和触觉反馈分别存储开关，默认关闭；尊重系统减少动态效果设置。
-- 当前为 Three.js WebGL 原型，尚未接入 WebGPU 专用材质，也未完成 iOS/Android 真机性能与触觉验证。既有 `e2e/poolpoker.spec.ts` 仍使用 v1 选择器，不作为本轮 v2 浏览器验收依据。
+- 将牌局进行态抽象为 `GameState`（包含玩家手牌/已消牌/积分、牌堆 `deck`、`accidentalBalls`、`breakBalls`、`winners`、`turnOrder`、`roundCount` 等，不含聊天/实况日志 `logs`）。
+- 每局 `start_game` 发牌完毕后调用 `recordGameStep` 压入初始基线快照；每次销牌、罚牌、开球进球、意外进球、裁判代记后压入新快照。
+- `retract_ball` 调用 `undoGameStep` 弹出栈顶并恢复至上一步状态（当栈内仅剩发牌基线时不再回退），同时追加一条悔球审计日志。
 
-- 袋口几何（2026-09-08）：桌布与木质底座使用同心的六个开孔，袋内壁和底面下沉；六段倒角库边在袋口处斜向收口，细金属袋沿贴近桌面。球体静止高度与袋口动画高度保持一致。
+### 4.4 牌局命令边界与生命周期服务 (`server/services/`)
 
-## Apple Watch
+- `gameRoomService.ts` (`applyGameRoomCommand`)：统一封装牌局内所有状态变更命令（`start_game`、`pocket_ball`、`draw_penalty`、`accidental_pocket`、`break_pocket`、`referee_pocket_ball`、`referee_draw_penalty`、`retract_ball`、`restart_game`）。在线服务端与前端离线 `LocalHostEngine` 共同复用该命令边界。
+- `roomLifecycleService.ts`：管理在线房间的创建、加入、重连、踢人、退房以及全员离线超时自动清理定时器。
 
-`apple/WatchApp` 提供 watchOS 10+ 原生客户端，与 Wear OS 对齐房间加入、附近发现、手牌操作和结算。iOS 工程嵌入 `poolpoker_watchOS`，协议模型由 JSON Schema 同时生成 Swift / TS / Kotlin。连接与手机同步、安全恢复、构建及真机验收见 [Apple Watch 架构](apple_watch_architecture.md)。
+### 4.5 房间注册表、状态裁剪与会话路由 (`server/roomManager.ts` & `socketHandlers.ts`)
+
+- `roomManager.ts` 管理内存房间表 `rooms` 与 `socketIndex`，提供 `getClientRoomState(room, currentUserId)` 执行底牌脱敏裁剪，并通过 `broadcastRoomState` 向房间内每个连接单播对应视角的状态。
+- `socketHandlers.ts` 绑定 Socket.IO 事件，校验 `sessionToken` 与房主权限，并将业务指令转发至服务层。
+
+### 4.6 附近房间定位发现 (`server/roomDiscovery.ts`)
+
+- 在线模式下，支持玩家在大厅开启短期高精度定位，发现 300 米内处于 `waiting` 状态的房间。位置信息仅保存在服务端短期内存（60 秒自动过期），绝不写入公开 `Room` 快照。详见 [附近房间定位发现文档](nearby_room_discovery.md)。
+
+### 4.7 企业微信机器人结算推送 (`server/wecomWebhook.ts`)
+
+- 支持通过 `/enter_robot` 页面或 `/api/robot-url` 接口在运行时配置企业微信 Webhook 链接；每局结算后自动发送包含各玩家本局得分变化与累计总分的战报消息。
+
+---
+
+## 5. 前端与多端客户端架构
+
+### 5.1 组合式业务状态层 (`src/composables/`)
+
+- `usePlayerProfile.ts`：管理持久化 `userId` 与玩家昵称（`localStorage`）。
+- `useSocket.ts`：管理在线 Socket.IO 实例与离线 `BleTransport` 实例的生命周期及模式切换（`toggleBleOfflineMode`）。
+- `useGameRoom.ts`：核心业务编排层。维护响应式 `room` 状态、乐观待确认状态（`pendingAction`）、3D 场景演出队列（`shouldAnimateRoomChange`）、页面切回前台时的 HTTP 快照极速同步（`/api/rooms/:code`，离线模式下自动跳过）以及智能手表凭证同步。
+- `useNearbyRooms.ts`：统一编排在线 GPS 附近房间发现与离线 BLE 附近桌台扫描。
+- `useUiPreferences.ts` & `useBallAppearance.ts`：管理 v1/v2 视图切换、音效/触觉开关及台球外观主题（星牌等）。
+
+### 5.2 双版本对局视图体系（v1 经典 2D vs v2 沉浸式 3D）
+
+- **v1 经典版 (`src/components/v1/`)**：由 `BilliardsTable.vue`（2D 球盘、击球顺序、玩家进度列表）、`PokerCard.vue`（2D 卡牌与免打遮罩）和 `GameLogs.vue` 组成。
+- **v2 沉浸式 3D 版 (`src/components/v2/`)**：
+  - `ThreeBilliardsArena.vue`：使用 Three.js 加载 `public/models/billiards_table.glb`（支持大厅闲时预加载与内存缓存），读取模型内六个 `PocketTarget_*` 锚点驱动台球落袋动画，并将 3D 球体位置实时投影为可无障碍点击的 DOM 球号热区；在后台或静止时自动停帧以节省电量，WebGL 不可用时优雅降级为平面球桌。
+  - `HandDeckFan.vue` & `PokerCardProp.vue`：拟真弧形扇面手牌，支持抬牌、出牌与免打转化过渡动画。
+  - `GameMinimalHud.vue`、`TableOpponentSeats.vue` 与 `GameControlDrawer.vue`：提供环绕式对手席位、代记对象快速切换与抽屉式规则/日志面板。
+
+### 5.3 离线蓝牙面对面传输层 (`src/services/`)
+
+- `localHostEngine.ts` (`LocalHostEngine`)：运行在房主前端内存中的权威游戏引擎，管理客机 `peerId ↔ userId` 席位映射、满员/开局拒连判定以及状态广播。
+- `bleTransport.ts` (`BleTransport`)：实现 Socket.IO 兼容接口，处理 `CLIENT_JOIN` 20 字节分片握手、`LEAVE_ACK` 退房确认闭环及断线重连。
+- `bleScanner.ts` (`BleScanner`)：监听原生蓝牙扫描事件，维护附近蓝牙桌台列表并执行 12 秒 TTL 过期清理。
+
+### 5.4 智能手表原生端（Wear OS & Apple Watch）
+
+- **Wear OS (`android/wear-app/`)**：基于 Jetpack Compose for Wear OS 构建的单 Activity 架构，支持手机 DataLayer 凭证同步与独立 Wi-Fi/LTE Socket.IO 直连，所有二级弹窗严格遵循 `SwipeToDismissBox` 侧滑返回规范。详见 [Wear OS 架构文档](wear_app_architecture.md)。
+- **Apple Watch (`apple/WatchApp/`)**：基于 watchOS 10+ SwiftUI 构建，支持通过 `WCSession` 接收 iPhone 同步的房间凭证，并使用原生 `URLSession` Engine.IO HTTP 长轮询直连服务器完成看牌、销牌与裁判记球。详见 [Apple Watch 架构文档](apple_watch_architecture.md)。
+
+---
+
+## 6. 构建流水线、测试与工程规范
+
+- **跨端模型同步**：修改 `shared/schemas/*.json` 后必须运行 `pnpm run codegen:models`，CI 与移动端流水线通过 `pnpm run codegen:check` 强制校验无漂移。
+- **移动端统一流水线 (`scripts/mobile-pipeline.mjs`)**：通过 `pnpm pipeline <android-debug|android-release|ios-debug|ios-release> --full` 串联前置检查、代码生成、单元测试、前端构建与 Tauri/Gradle/Xcode 打包，并使用 `poolpoker-native` 互斥锁防止并发污染 `dist/`。详见 [移动端构建编排文档](mobile_build_pipeline.md)。
+- **测试体系**：
+  - **单元测试 (`pnpm run test:unit`)**：基于 Vitest，覆盖服务端规则引擎、房间管理、状态回退、发现服务、BLE 二进制协议编解码与分片重组、`LocalHostEngine`、`BleTransport` 及前端状态逻辑。
+  - **端到端测试 (`pnpm run test:e2e`)**：基于 Playwright（`e2e/poolpoker.spec.ts`），验证多窗口实时建房、发牌、销牌、罚牌、悔球与结算全流程。
+- **代码门禁**：Husky `pre-commit` 自动执行 `vue-tsc --noEmit` 与 `lint-staged`（Biome 格式化与静态检查），`commit-msg` 通过 `commitlint` 强制校验 Conventional Commits 规范。
+
+---
+
+## 7. 专题架构文档索引
+
+| 专题文档 | 核心内容 |
+| :--- | :--- |
+| [ble_offline_architecture.md](ble_offline_architecture.md) | 无服务器 BLE 面对面联机架构、GATT UUID、二进制帧格式、动态 MTU 分片与连接状态机 |
+| [nearby_room_discovery.md](nearby_room_discovery.md) | 在线模式地理位置附近房间发现、定位精度收敛策略、生命周期与隐私安全设计 |
+| [android_tauri_architecture.md](android_tauri_architecture.md) | Android Gradle 多模块架构、Tauri v2 APK 打包、权限配置与 Wear OS DataLayer 桥接 |
+| [wear_app_architecture.md](wear_app_architecture.md) | Wear OS 原生手表端模块划分、会话直连恢复与 `SwipeToDismissBox` 手势导航规范 |
+| [apple_watch_architecture.md](apple_watch_architecture.md) | Apple Watch 原生架构、Engine.IO 长轮询、WatchConnectivity 桥接与 String Catalog 国际化 |
+| [mobile_build_pipeline.md](mobile_build_pipeline.md) | `pnpm pipeline` 移动端构建任务编排、前置环境检查与并发锁机制 |
+| [table_asset_pipeline.md](table_asset_pipeline.md) | Blender 3D 球台源文件维护、GLB 导出规范、`PocketTarget_*` 锚点与 Git LFS 流程 |
+| [implement_log.md](implement_log.md) | 项目按轮次演进的详细工程决策、架构审查与问题修复记录 |

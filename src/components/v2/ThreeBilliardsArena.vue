@@ -81,10 +81,6 @@ async function loadTableModel(targetScene: THREE.Scene) {
   const modelPockets: THREE.Vector3[] = [];
   table.traverse((child: THREE.Object3D) => {
     if (child.name.startsWith('PocketTarget_')) modelPockets.push(child.getWorldPosition(new THREE.Vector3()));
-    if (child instanceof THREE.Mesh) {
-      child.castShadow = true;
-      child.receiveShadow = true;
-    }
   });
   // Anchors exported from Blender keep the drop animation aligned with the openings.
   if (modelPockets.length === 6) pockets = modelPockets;
@@ -97,8 +93,6 @@ async function build() {
   camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 0.9;
   host.value.prepend(renderer.domElement);
@@ -127,30 +121,15 @@ async function build() {
   // 1. Soft ambient hemisphere (felt bounce & dark floor absorption)
   scene.add(new THREE.HemisphereLight(0xe8ede5, 0x0c1611, 0.85));
 
-  // 2. Soft overhead key light for contact shadows without harsh specular glare
+  // 2. Soft overhead key light for illumination and subtle specular shine
   const canopyKey = new THREE.DirectionalLight(0xfff7ea, 1.6);
   canopyKey.position.set(-2.5, 9.5, 1.8);
-  canopyKey.castShadow = true;
-  canopyKey.shadow.mapSize.set(2048, 2048);
-  Object.assign(canopyKey.shadow.camera, { left: -4.3, right: 4.3, top: 6.8, bottom: -6.8, near: 2, far: 14 });
-  canopyKey.shadow.bias = -0.0003;
-  canopyKey.shadow.normalBias = 0.02;
   scene.add(canopyKey);
 
   // A dim oblique bounce reveals the leather skirt and hanging baskets below the rail.
   const apronFill = new THREE.DirectionalLight(0xd5dfd4, 0.7);
   apronFill.position.set(6, 3, 7);
   scene.add(apronFill);
-
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(60, 60),
-    // Only composite the table's shadow; reveal the page gradient everywhere else.
-    new THREE.ShadowMaterial({ opacity: 0.25, depthWrite: false })
-  );
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.y = -2.25;
-  floor.receiveShadow = true;
-  scene.add(floor);
 
   try {
     await loadTableModel(scene);
@@ -172,8 +151,6 @@ async function build() {
     });
     const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 24), material);
     mesh.position.copy(origin);
-
-    mesh.castShadow = true;
     scene.add(mesh);
     // High-visibility blue pending indicator ring
     const pendingRing = new THREE.Mesh(

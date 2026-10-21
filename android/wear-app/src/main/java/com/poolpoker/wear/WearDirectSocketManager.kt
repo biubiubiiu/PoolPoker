@@ -164,7 +164,6 @@ object WearDirectSocketManager {
                             WearPlayerSummary(
                                 userId = p.userId,
                                 name = p.name,
-                                avatar = p.avatar,
                                 cardCount = p.cardCount,
                                 cards = p.cards,
                                 pocketedCards = p.pocketedCards,
@@ -223,7 +222,6 @@ object WearDirectSocketManager {
                 put("sessionToken", token)
             } else {
                 put("name", userName)
-                put("avatar", "⌚")
                 if (discoveryPosition != null) put("discoverySource", "geolocation")
             }
         }

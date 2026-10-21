@@ -88,7 +88,7 @@ function createRoom(
   payload: CreateRoomPayload,
   deps: RoomLifecycleDependencies
 ): RoomLifecycleResult {
-  const { userId, name, avatar } = payload;
+  const { userId, name } = payload;
   if (!userId || !name) {
     return {
       response: { success: false, message: '用户信息不完整' },
@@ -103,7 +103,6 @@ function createRoom(
     userId,
     sessionToken,
     name,
-    avatar,
     isHost: true,
   });
 
@@ -142,7 +141,7 @@ function createRoom(
 }
 
 function joinRoom(socketId: string, payload: JoinRoomPayload, deps: RoomLifecycleDependencies): RoomLifecycleResult {
-  const { roomCode, userId, name, avatar } = payload;
+  const { roomCode, userId, name } = payload;
   const socketData = {
     userId: userId || undefined,
     userName: name || undefined,
@@ -188,7 +187,6 @@ function joinRoom(socketId: string, payload: JoinRoomPayload, deps: RoomLifecycl
     userId,
     sessionToken: deps.createSessionToken(),
     name,
-    avatar,
     isHost: false,
   });
 
@@ -375,7 +373,6 @@ function createPlayer(input: {
   userId: string;
   sessionToken: string;
   name: string;
-  avatar?: string;
   isHost: boolean;
 }): Player {
   return {
@@ -383,7 +380,6 @@ function createPlayer(input: {
     userId: input.userId,
     sessionToken: input.sessionToken,
     name: input.name,
-    avatar: input.avatar || '🎱',
     isHost: input.isHost,
     online: true,
     cardCount: 0,

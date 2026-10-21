@@ -42,7 +42,6 @@ function createPlayer(overrides: Partial<Player>): Player {
     userId: overrides.userId ?? 'user-1',
     sessionToken: overrides.sessionToken,
     name: overrides.name ?? 'Player',
-    avatar: overrides.avatar ?? '🎱',
     isHost: overrides.isHost ?? false,
     online: overrides.online ?? true,
     cardCount: overrides.cards?.length ?? overrides.cardCount ?? 0,
@@ -271,6 +270,33 @@ describe('v2 confirmed table events', () => {
     expect(room.status).toBe('finished');
     expect(room.winners).toHaveLength(2);
     expect(room.players.every((p) => p.cards.length === 1)).toBe(true);
+  });
+
+  it('eliminates the exact specified card when player holds multiple cards with the same ball number', () => {
+    const spadeA = createTestCard('spade-A', 'A', 1, 'spade');
+    const heartA = createTestCard('heart-A', 'A', 1, 'heart');
+    const room = createRoom({
+      players: [
+        createPlayer({
+          userId: 'user-1',
+          cards: [spadeA, heartA],
+        }),
+      ],
+    });
+
+    // 明确出红桃 A (cardId: 'heart-A', ballNumber: 1)
+    applyGameRoomCommand(room, {
+      type: 'pocket_ball',
+      actorUserId: 'user-1',
+      cardId: 'heart-A',
+      ballNumber: 1,
+    });
+
+    // 应该消掉红桃 A，保留黑桃 A，而不是因为 OR 判定把黑桃 A 误消
+    expect(room.players[0].cards).toHaveLength(1);
+    expect(room.players[0].cards[0].id).toBe('spade-A');
+    expect(room.players[0].pocketedCards).toHaveLength(1);
+    expect(room.players[0].pocketedCards[0].id).toBe('heart-A');
   });
 });
 

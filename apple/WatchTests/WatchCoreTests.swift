@@ -45,7 +45,7 @@ final class WatchCoreTests: XCTestCase {
         defer { host.close(); watch.close(); restored.close() }
         try await connect(host, server: server)
         let hostId = UUID().uuidString, watchId = UUID().uuidString
-        let created = await emit(host, "create_room", ["userId": hostId, "name": "Host", "avatar": "🎱"])
+        let created = await emit(host, "create_room", ["userId": hostId, "name": "Host"])
         XCTAssertEqual(created["success"] as? Bool, true)
         let code = try XCTUnwrap(created["roomCode"] as? String)
         try await connect(watch, server: server)
@@ -70,7 +70,7 @@ final class WatchCoreTests: XCTestCase {
         let discovered = await emit(watch, "discovery_update", browsing)
         XCTAssertEqual(discovered["success"] as? Bool, true)
         try await wait { nearby.contains { $0.roomCode == code } }
-        let joined = await emit(watch, "join_room", ["roomCode": code, "userId": watchId, "name": "Watch", "avatar": "⌚", "discoverySource": "geolocation"])
+        let joined = await emit(watch, "join_room", ["roomCode": code, "userId": watchId, "name": "Watch", "discoverySource": "geolocation"])
         XCTAssertEqual(joined["success"] as? Bool, true)
         let token = try XCTUnwrap(joined["sessionToken"] as? String)
         host.emit("start_game", ["roomCode": code])

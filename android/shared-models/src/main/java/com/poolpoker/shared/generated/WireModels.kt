@@ -83,7 +83,6 @@ data class GameLog (
 
 @Serializable
 data class Player (
-    val avatar: String,
     val cardCount: Int,
     val cards: List<Card>,
     val id: String,
@@ -170,7 +169,6 @@ enum class RoomStatus(val value: String) {
 
 @Serializable
 data class WinnerInfo (
-    val avatar: String,
     val id: String,
     val name: String,
     val userId: String,
@@ -227,7 +225,6 @@ data class WearSyncRoomPayload (
 
 @Serializable
 data class WearPlayerSummary (
-    val avatar: String,
     val cardCount: Int,
     val cards: List<Card>,
     val isWinner: Boolean,

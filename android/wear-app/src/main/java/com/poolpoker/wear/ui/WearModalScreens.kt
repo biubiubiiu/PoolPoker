@@ -88,7 +88,7 @@ fun WearFoulModalScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("${player.avatar} ${player.name}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(player.name, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     Text(
                         text = stringResource(R.string.card_count_format, player.cardCount),
                         fontSize = 10.sp,

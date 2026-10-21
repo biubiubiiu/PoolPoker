@@ -11,8 +11,9 @@ export function usePlayerProfile() {
 
   // 玩家个人设置
   const playerName = ref<string>(localStorage.getItem('billiards_player_name') || '');
-  const avatars = ['🎱', '🎯', '🔥', '⚡️', '🏆', '💎'];
-  const selectedAvatar = ref<string>(localStorage.getItem('billiards_player_avatar') || '🎱');
+  try {
+    localStorage.removeItem('billiards_player_avatar');
+  } catch (_) {}
 
   watch(playerName, (val) => {
     const trimmed = val.trim();
@@ -21,10 +22,6 @@ export function usePlayerProfile() {
     } else {
       localStorage.removeItem('billiards_player_name');
     }
-  });
-
-  watch(selectedAvatar, (val) => {
-    localStorage.setItem('billiards_player_avatar', val);
   });
 
   const getFinalPlayerName = (): string => {
@@ -39,8 +36,6 @@ export function usePlayerProfile() {
   return {
     userId,
     playerName,
-    avatars,
-    selectedAvatar,
     getFinalPlayerName,
   };
 }

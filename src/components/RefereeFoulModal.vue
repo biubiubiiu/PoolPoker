@@ -61,7 +61,7 @@ const onConfirm = () => {
       <!-- 步骤1: 选择犯规玩家 -->
       <div class="space-y-1.5 text-left">
         <label class="text-[11px] font-bold text-red-300 flex items-center gap-1">
-          <i class="fa-solid fa-user-xmark"></i> 选择犯规惩罚的玩家：
+          <i class="fa-solid fa-user-xmark"></i> 选择犯规玩家：
         </label>
         <div class="space-y-2">
           <button v-for="p in players" :key="p.userId"
@@ -71,7 +71,6 @@ const onConfirm = () => {
                              ? 'bg-red-950/60 border-red-500 text-amber-300 shadow-md ring-1 ring-red-500/50'
                              : 'bg-black/40 border-white/10 text-gray-300 hover:border-white/30']">
             <div class="flex items-center space-x-2">
-              <span v-if="p.avatar">{{ p.avatar }}</span>
               <span>{{ p.name }}</span>
             </div>
             <span class="text-[10px] text-gray-400 font-normal">
@@ -83,8 +82,8 @@ const onConfirm = () => {
 
       <!-- 确认提示框 -->
       <div v-if="targetPlayer" class="bg-red-950/40 p-2.5 rounded-xl border border-red-500/30 text-xs text-red-200 text-left space-y-1">
-        <div>目标玩家：<span v-if="targetPlayer.avatar" class="mr-1">{{ targetPlayer.avatar }}</span><span class="font-black text-amber-300">{{ targetPlayer.name }}</span></div>
-        <p class="text-[10px] text-gray-300">⚠️ 点击确认后系统将自动从扑克牌库给 {{ targetPlayer.name }} 发一罚牌。</p>
+        <div>目标玩家：<span class="font-black text-amber-300">{{ targetPlayer.name }}</span></div>
+        <p class="text-[10px] text-gray-300">⚠️ 确认后系统将为 {{ targetPlayer.name }} 补发 1 张罚牌。</p>
       </div>
 
       <!-- 操作按钮 -->

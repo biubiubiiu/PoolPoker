@@ -13,13 +13,22 @@ export interface UseGameRoomOptions {
   socket: Ref<Socket | null>;
   userId: Ref<string>;
   playerName: Ref<string>;
-  selectedAvatar?: Ref<string>;
   getFinalPlayerName: () => string;
   serverUrl?: Ref<string>;
+  isBleOfflineMode?: Ref<boolean>;
 }
 
 export function useGameRoom(options: UseGameRoomOptions) {
-  const { socket, userId, playerName, selectedAvatar, getFinalPlayerName, serverUrl } = options;
+  const { socket, userId, playerName, getFinalPlayerName, serverUrl, isBleOfflineMode } = options;
+
+  const isOfflineBleActive = () => {
+    if (isBleOfflineMode?.value !== undefined) return isBleOfflineMode.value;
+    try {
+      return typeof localStorage !== 'undefined' && localStorage.getItem('poolpoker_offline_ble') === 'true';
+    } catch (_) {
+      return false;
+    }
+  };
 
   const getApiUrl = (endpointPath: string) => {
     const base = serverUrl?.value ? serverUrl.value.trim().replace(/\/+$/, '') : '';
@@ -70,7 +79,11 @@ export function useGameRoom(options: UseGameRoomOptions) {
   };
   const acceptRoom = (next: Room, live = false) => {
     const previous = room.value;
-    if (previous?.code === next.code && (next.revision ?? 0) < (previous.revision ?? 0)) return;
+    if (previous?.code === next.code) {
+      const prevRev = previous.revision ?? 0;
+      const nextRev = next.revision ?? 0;
+      if (nextRev < prevRev && prevRev - nextRev < 32768) return;
+    }
     const changed = previous?.sceneEvent?.id !== next.sceneEvent?.id;
     if (!live) feedback.value = '';
     const animate = shouldAnimateRoomChange(previous, next, {
@@ -144,6 +157,8 @@ export function useGameRoom(options: UseGameRoomOptions) {
   };
 
   const syncNativeRoomSession = async (code: string | null) => {
+    // 离线蓝牙面对面模式下无远端 HTTP/Socket.IO 房间会话，不向手表下发在线房间凭证
+    if (code && isOfflineBleActive()) return;
     if (typeof window !== 'undefined' && ('__TAURI__' in window || '__TAURI_INTERNALS__' in window)) {
       try {
         const { invoke } = await import('@tauri-apps/api/core');
@@ -188,6 +203,8 @@ export function useGameRoom(options: UseGameRoomOptions) {
   };
 
   const fetchLatestRoomState = async () => {
+    // 离线蓝牙面对面模式下，房间状态完全由本地/蓝牙维护，严禁请求远端 HTTP 快照（防止 404 误删本地房间）
+    if (isOfflineBleActive()) return;
     const savedRoomCode = localStorage.getItem('billiards_room_code');
     if (!savedRoomCode) return;
     const savedToken = localStorage.getItem('billiards_session_token');
@@ -267,6 +284,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
   const setupSocketListeners = (s: Socket) => {
     const handleConnect = () => {
       suppressNextAnimation = true;
+      feedback.value = '';
       console.log('[Socket] Connected, ID:', s.id);
 
       const savedRoomCode = localStorage.getItem('billiards_room_code');
@@ -295,11 +313,19 @@ export function useGameRoom(options: UseGameRoomOptions) {
 
     s.on('connect', handleConnect);
 
+    const handleDisconnect = () => {
+      if (room.value) {
+        feedback.value = '连接已断开，正在尝试自动重连...';
+      }
+    };
+    s.on('disconnect', handleDisconnect);
+
     if (s.connected) {
       handleConnect();
     }
 
     s.on(SERVER_TO_CLIENT_EVENTS.roomUpdated, (updatedRoom: Room) => {
+      feedback.value = '';
       acceptRoom(updatedRoom, true);
       showRestartConfirm.value = false;
       if (updatedRoom?.code) {
@@ -316,7 +342,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
       }
     });
 
-    s.on(SERVER_TO_CLIENT_EVENTS.roomKicked, ({ roomCode }: { roomCode: string }) => {
+    s.on(SERVER_TO_CLIENT_EVENTS.roomKicked, ({ roomCode, reason }: { roomCode: string; reason?: string }) => {
       if (room.value?.code !== roomCode && localStorage.getItem('billiards_room_code') !== roomCode) return;
       localStorage.removeItem('billiards_room_code');
       localStorage.removeItem('billiards_session_token');
@@ -324,7 +350,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
       showRestartConfirm.value = false;
       showRefereePocketModal.value = false;
       showRefereeFoulModal.value = false;
-      showAlert('你已被房主移出房间');
+      showAlert(reason || '你已被房主移出房间');
     });
 
     s.on(SERVER_TO_CLIENT_EVENTS.roomCreated, ({ roomCode }: { roomCode: string }) => {
@@ -341,6 +367,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
     (newSocket, oldSocket) => {
       if (oldSocket) {
         oldSocket.off('connect');
+        oldSocket.off('disconnect');
         oldSocket.off(SERVER_TO_CLIENT_EVENTS.roomUpdated);
         oldSocket.off(SERVER_TO_CLIENT_EVENTS.roomCreated);
         oldSocket.off(SERVER_TO_CLIENT_EVENTS.roomKicked);
@@ -387,7 +414,6 @@ export function useGameRoom(options: UseGameRoomOptions) {
       {
         userId: userId.value,
         name: finalName,
-        avatar: selectedAvatar?.value || '🎱',
       },
       (res: SocketCallbackResponse) => {
         if (res.success && res.roomCode) {
@@ -406,7 +432,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
     if (joiningRoom.value) return;
     if (!socket.value?.connected) {
       socket.value?.connect();
-      showAlert('尚未连接服务器，正在尝试连接，请稍后重试');
+      showAlert('未连接到服务器，正在重试，请稍候…');
       return;
     }
     joiningRoom.value = true;
@@ -419,13 +445,12 @@ export function useGameRoom(options: UseGameRoomOptions) {
         discoverySource,
         userId: userId.value,
         name: finalName,
-        avatar: selectedAvatar?.value || '🎱',
       },
       (error: Error | null, res?: SocketCallbackResponse) => {
         joiningRoom.value = false;
         if (socket.value !== joiningSocket) return;
         if (error || !res) {
-          showAlert('连接超时，请稍后重试');
+          showAlert('加入超时，请稍后重试');
           return;
         }
         if (!res.success) {
@@ -510,14 +535,12 @@ export function useGameRoom(options: UseGameRoomOptions) {
     if (room.value?.status !== 'playing') return;
 
     if (isCardDimmed(card)) {
-      await showAlert(
-        `【${card.ballNumber}号球】已在场上被打进，你的卡片 [${card.suit}${card.rank}] 属于已进球免打卡，无需重复消去！`
-      );
+      await showAlert(`【${card.ballNumber}号球】已打进，手牌 [${card.suit}${card.rank}] 为免打卡，无需重复打出。`);
       return;
     }
 
-    const confirmText = `确认已经打进 ${card.ballNumber} 号球，消去卡片 [${card.suit}${card.rank}] 吗？`;
-    if (await showConfirm(confirmText, '确认出牌')) {
+    const confirmText = `确认打进 ${card.ballNumber} 号球并打出手牌 [${card.suit}${card.rank}] 吗？`;
+    if (await showConfirm(confirmText, '出牌确认')) {
       if (room.value?.status !== 'playing') return;
       selectRecordingPlayer(userId.value);
       sendAction(CLIENT_TO_SERVER_EVENTS.pocketBall, { cardId: card.id });
@@ -590,11 +613,16 @@ export function useGameRoom(options: UseGameRoomOptions) {
 
   // 9. 离开房间
   const handleLeaveRoom = async () => {
-    if (await showConfirm('确认离开房间吗？', '离开确认')) {
+    if (await showConfirm('确定退出当前房间吗？', '退出确认')) {
       if (room.value) {
-        socket.value?.emit(CLIENT_TO_SERVER_EVENTS.leaveRoom, {
-          roomCode: room.value.code,
-        });
+        const payload = { roomCode: room.value.code };
+        if (isOfflineBleActive() && socket.value) {
+          socket.value.emit(CLIENT_TO_SERVER_EVENTS.leaveRoom, payload, (res: SocketCallbackResponse) => {
+            if (!res.success) showAlert(res.message || '退房未获房主确认，请让房主检查席位');
+          });
+        } else {
+          socket.value?.emit(CLIENT_TO_SERVER_EVENTS.leaveRoom, payload);
+        }
       }
       localStorage.removeItem('billiards_room_code');
       localStorage.removeItem('billiards_session_token');

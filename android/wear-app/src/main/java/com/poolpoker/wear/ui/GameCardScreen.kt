@@ -286,7 +286,7 @@ fun WearSettlementScreen(
                         .fillMaxWidth()
                         .padding(8.dp)
                 ) {
-                    // Header row: Avatar + Name + Winner Badge + Delta + Total
+                    // Header row: Name + Winner Badge + Delta + Total
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -296,7 +296,7 @@ fun WearSettlementScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Text("${player.avatar} ${player.name}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            Text(player.name, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
                             if (isWinner) {
                                 Text(
                                     text = stringResource(R.string.winner_badge),

@@ -7,7 +7,7 @@ struct SettlementView: View {
             Text(WatchStrings.gameOverTitle).font(.headline).foregroundStyle(.yellow)
             ForEach(room.players, id: \.userId) { player in
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("\(player.avatar) \(player.name)\(player.isWinner ? WatchStrings.winnerSuffix : "")").font(.headline)
+                    Text("\(player.name)\(player.isWinner ? WatchStrings.winnerSuffix : "")").font(.headline)
                     let delta = room.lastRoundScores.first { $0.userId == player.userId }?.delta
                     if let delta { Text(WatchStrings.roundScoreDeltaTotal(delta: delta, total: player.totalScore)).font(.caption) }
                     else { Text(WatchStrings.totalScoreOnly(total: player.totalScore)).font(.caption) }

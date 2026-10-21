@@ -58,9 +58,9 @@ function onKey(event: KeyboardEvent) {
       class="drawer-overlay fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex justify-end"
       @click.self="emit('close')"
     >
-      <div ref="panel" role="dialog" aria-modal="true" aria-label="对局菜单" tabindex="-1" @keydown="onKey" class="drawer-content w-full max-w-sm h-full bg-[#0d1f17] border-l border-emerald-500/30 flex flex-col shadow-2xl p-4 overflow-y-auto">
-        <!-- 抽屉顶栏 -->
-        <div class="flex items-center justify-between pb-3 border-b border-white/10">
+      <div ref="panel" role="dialog" aria-modal="true" aria-label="对局菜单" tabindex="-1" @keydown="onKey" class="drawer-content w-full max-w-sm h-full bg-[#0d1f17] border-l border-emerald-500/30 flex flex-col shadow-2xl overflow-hidden">
+        <!-- 抽屉顶栏 (固定在顶部，安全区自适应) -->
+        <div class="flex items-center justify-between pb-3 border-b border-white/10 shrink-0">
           <div class="flex items-center gap-2">
             <span class="text-emerald-400 font-black text-sm">对局菜单</span>
             <span class="text-[10px] text-gray-400 font-mono">房间 #{{ room.code }}</span>
@@ -73,7 +73,7 @@ function onKey(event: KeyboardEvent) {
           </button>
         </div>
 
-        <div class="space-y-4 my-4 flex-1">
+        <div class="space-y-4 my-3 flex-1 overflow-y-auto pr-0.5">
           <!-- 1. 核心快捷操作 -->
           <div class="space-y-2">
             <div class="text-[11px] font-bold text-gray-400">操作控制</div>
@@ -145,8 +145,8 @@ function onKey(event: KeyboardEvent) {
           </button>
         </div>
 
-        <!-- 底部危险操作区 -->
-        <div class="pt-3 border-t border-white/10 space-y-2">
+        <!-- 底部危险操作区 (固定在底部，避开底部手势指示条) -->
+        <div class="pt-3 border-t border-white/10 space-y-2 shrink-0">
           <button
             v-if="isHost"
             @click="emit('request-restart')"
@@ -167,6 +167,13 @@ function onKey(event: KeyboardEvent) {
 </template>
 
 <style scoped>
+.drawer-content {
+  padding-top: max(1rem, calc(0.75rem + var(--sat)));
+  padding-bottom: max(1rem, calc(0.75rem + var(--sab)));
+  padding-left: max(1rem, calc(1rem + var(--sal)));
+  padding-right: max(1rem, calc(1rem + var(--sar)));
+}
+
 .drawer-enter-active,
 .drawer-leave-active {
   transition: opacity 0.25s ease;

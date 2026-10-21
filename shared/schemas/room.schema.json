@@ -41,12 +41,11 @@
       "type": "object",
       "properties": {
         "name": { "type": "string" },
-        "avatar": { "type": "string" },
         "id": { "type": "string" },
         "userId": { "type": "string" },
         "wins": { "type": "integer" }
       },
-      "required": ["name", "avatar", "id", "userId", "wins"],
+      "required": ["name", "id", "userId", "wins"],
       "additionalProperties": false
     },
     "Player": {
@@ -56,7 +55,6 @@
         "userId": { "type": "string" },
         "sessionToken": { "type": "string" },
         "name": { "type": "string" },
-        "avatar": { "type": "string" },
         "isHost": { "type": "boolean" },
         "online": { "type": "boolean" },
         "cardCount": { "type": "integer" },
@@ -76,7 +74,6 @@
         "id",
         "userId",
         "name",
-        "avatar",
         "isHost",
         "online",
         "cardCount",

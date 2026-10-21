@@ -28,9 +28,9 @@ const emit = defineEmits<{
     <div class="glass-panel rounded-2xl p-4 shadow-2xl relative overflow-hidden border border-emerald-500/30">
       <div class="flex items-center justify-between mb-3">
         <div class="flex items-center space-x-2">
-          <span class="text-xs font-bold text-amber-300">我的手上扑克手牌</span>
+          <span class="text-xs font-bold text-amber-300">我的手牌</span>
           <span class="text-[10px] bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-700/50">
-            手上剩余 {{ myInfo?.cards ? myInfo.cards.length : 0 }} 张
+            剩余 {{ myInfo?.cards ? myInfo.cards.length : 0 }} 张
           </span>
         </div>
         <button
@@ -57,11 +57,11 @@ const emit = defineEmits<{
 
       <div v-else class="text-center py-6 text-emerald-300 space-y-1">
         <span class="text-4xl">🎉</span>
-        <p class="font-bold text-sm">你的扑克牌已全部消除完！</p>
+        <p class="font-bold text-sm">手牌已全部清空！</p>
       </div>
 
       <div class="mt-3 pt-2 border-t border-white/10 flex justify-between items-center text-xs">
-        <span class="text-gray-400 text-[10px] shrink-0 mr-2">打进球后点击<br>对应扑克卡片销牌</span>
+        <span class="text-gray-400 text-[10px] shrink-0 mr-2">打进球后点击<br>对应卡片即可消牌</span>
 
         <div class="flex items-center space-x-2">
           <button

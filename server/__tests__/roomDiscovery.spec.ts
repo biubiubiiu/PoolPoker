@@ -19,7 +19,6 @@ function room(code = '1234'): ServerRoom {
         cards: [],
         pocketedCards: [],
         cardCount: 0,
-        avatar: '🎱',
         isHost: true,
         wins: 0,
         isWinner: false,

@@ -187,7 +187,7 @@ struct RecordFoulView: View {
         ScrollView {
             VStack {
                 ForEach(store.room?.players ?? [], id: \.userId) { player in
-                    Button("\(player.avatar) \(player.name)") {
+                    Button(player.name) {
                         store.action("referee_draw_penalty", fields: ["targetUserId": player.userId]); dismiss()
                     }.disabled(!store.ready || store.pending)
                 }

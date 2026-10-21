@@ -1,0 +1,9 @@
+//
+// Local.xcconfig.template
+// 本地个人开发者证书与团队配置模板
+//
+// 使用方式：
+// 复制当前文件为 Local.xcconfig 并填入你的 Apple Developer Team ID：
+// DEVELOPMENT_TEAM = 867TFWN4GF
+//
+DEVELOPMENT_TEAM = 

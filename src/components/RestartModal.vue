@@ -18,7 +18,7 @@ const emit = defineEmits<{
       <div>
         <h3 class="text-base font-black text-white">确认重开本局？</h3>
         <p class="text-xs text-gray-300 mt-2 leading-relaxed">
-          重新开始将重置当前对局所有摸牌与打牌进度，此操作无法撤销。
+          重新开始将重置当前对局的发牌与进球进度，此操作无法撤销。
         </p>
       </div>
       <div class="flex space-x-3 pt-2">

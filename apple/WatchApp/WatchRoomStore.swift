@@ -91,7 +91,7 @@ final class WatchRoomStore: ObservableObject {
                 if let saved = self.credential {
                     event = "rejoin_room"; payload["sessionToken"] = saved.sessionToken
                 } else {
-                    event = "join_room"; payload["name"] = self.playerName; payload["avatar"] = "⌚"
+                    event = "join_room"; payload["name"] = self.playerName
                     if self.nearbyPosition != nil { payload["discoverySource"] = "geolocation" }
                 }
                 socket.emit(event, payload) { [weak self, weak socket] response in

@@ -7,6 +7,9 @@ fileGroups: [../src]
 configs:
   debug: debug
   release: release
+configFiles:
+  debug: Config.xcconfig
+  release: Config.xcconfig
 settingGroups:
   app:
     base:
@@ -40,7 +43,8 @@ targets:
       path: poolpoker_iOS/Info.plist
       properties:
         LSRequiresIPhoneOS: true
-        UILaunchScreen: {}
+        UILaunchScreen:
+          UIColorName: LaunchBackgroundColor
         UIRequiredDeviceCapabilities: [arm64, metal]
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
@@ -54,11 +58,20 @@ targets:
         CFBundleShortVersionString: 1.0.0
         CFBundleVersion: "1.0.0"
         NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
           NSAllowsLocalNetworking: true
           NSAllowsArbitraryLoadsInWebContent: true
         NSLocalNetworkUsageDescription: PoolPoker 需要访问局域网以连接开发服务器与游戏房间。
+        NSBluetoothAlwaysUsageDescription: PoolPoker 需要使用蓝牙进行面对面离线卡牌对局与桌台扫描联机。
+        NSBluetoothPeripheralUsageDescription: PoolPoker 需要使用蓝牙作为房主外设发起离线面对面对决。
         NSBonjourServices:
           - _http._tcp.
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
+          UISceneConfigurations:
+            UIWindowSceneSessionRoleApplication:
+              - UISceneConfigurationName: TaoScene
+                UISceneDelegateClassName: TaoSceneDelegate
     entitlements:
       path: poolpoker_iOS/poolpoker_iOS.entitlements
     scheme:
@@ -72,7 +85,7 @@ targets:
         ARCHS: [arm64]
         VALID_ARCHS: arm64 
         LIBRARY_SEARCH_PATHS[arch=x86_64]: $(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)
-        LIBRARY_SEARCH_PATHS[arch=arm64]: $(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)
+        LIBRARY_SEARCH_PATHS[arch=arm64]: $(inherited) $(PROJECT_DIR)/Externals/$(PLATFORM_NAME)/$(CONFIGURATION) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)
         ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES: true
         EXCLUDED_ARCHS[sdk=iphoneos*]: x86_64
       groups: [app]
@@ -90,18 +103,53 @@ targets:
       - sdk: WebKit.framework
     preBuildScripts:
       - script: |
-          export PATH="$PATH:/opt/homebrew/bin:/usr/local/bin:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node 2>/dev/null | tail -n 1)/bin:$HOME/.local/share/pnpm:$HOME/.cargo/bin"
-          if [ -f "$HOME/.zshrc" ]; then source "$HOME/.zshrc" 2>/dev/null || true; fi
-          pnpm tauri ios xcode-script -v --platform "${PLATFORM_DISPLAY_NAME:?}" --sdk-root "${SDKROOT:?}" --framework-search-paths "${FRAMEWORK_SEARCH_PATHS:?}" --header-search-paths "${HEADER_SEARCH_PATHS:?}" --gcc-preprocessor-definitions "${GCC_PREPROCESSOR_DEFINITIONS:-}" --configuration "${CONFIGURATION:?}" ${FORCE_COLOR} ${ARCHS:?} || {
-            if [ -f "$SRCROOT/Externals/arm64/${CONFIGURATION}/libapp.a" ] || [ -f "$SRCROOT/Externals/x86_64/${CONFIGURATION}/libapp.a" ]; then
-              echo "warning: Tauri CLI dev server is not running (Connection refused). Falling back to existing libapp.a static library."
-              echo "warning: Run 'pnpm exec tauri ios dev' in terminal for full live reload support."
-              exit 0
-            else
-              echo "error: Tauri CLI dev server is not running and libapp.a missing. Please run 'pnpm exec tauri ios dev' in terminal first."
-              exit 1
+          NVMRC_VER=$(tr -d '[:space:]' < "$SRCROOT/../.nvmrc" 2>/dev/null || true)
+          if [ -n "$NVMRC_VER" ] && [ -d "$HOME/.nvm/versions/node/v${NVMRC_VER#v}/bin" ]; then
+            NVM_BIN="$HOME/.nvm/versions/node/v${NVMRC_VER#v}/bin"
+          else
+            NVM_BIN="$HOME/.nvm/versions/node/$(ls "$HOME/.nvm/versions/node" 2>/dev/null | tail -n 1)/bin"
+          fi
+          export PATH="$NVM_BIN:$HOME/Library/pnpm/bin:$HOME/.local/share/pnpm:$HOME/.cargo/bin:$PATH:/opt/homebrew/bin:/usr/local/bin"
+
+          if [[ "${SDKROOT:-}" == *Simulator* ]] || [ "${PLATFORM_NAME:-}" = "iphonesimulator" ]; then
+            RUST_TARGET="aarch64-apple-ios-sim"
+          else
+            RUST_TARGET="aarch64-apple-ios"
+          fi
+
+          TARGET_DIR="$SRCROOT/Externals/${PLATFORM_NAME}/${CONFIGURATION}"
+          mkdir -p "$TARGET_DIR"
+
+          if [ "${POOLPOKER_OFFLINE:-1}" = "0" ]; then
+            echo "=== [PoolPoker] Mode: Live Dev Server (localhost:5173, target: $RUST_TARGET) ==="
+            pnpm tauri ios xcode-script -v --platform "${PLATFORM_DISPLAY_NAME:?}" --sdk-root "${SDKROOT:?}" --framework-search-paths "${FRAMEWORK_SEARCH_PATHS:?}" --header-search-paths "${HEADER_SEARCH_PATHS:?}" --gcc-preprocessor-definitions "${GCC_PREPROCESSOR_DEFINITIONS:-}" --configuration "${CONFIGURATION:?}" ${FORCE_COLOR} ${ARCHS:?} || {
+              if [ -f "$TARGET_DIR/libapp.a" ] || [ -f "$SRCROOT/Externals/arm64/${CONFIGURATION}/libapp.a" ]; then
+                echo "warning: Tauri CLI dev server is not running. Falling back to existing libapp.a static library."
+                exit 0
+              else
+                echo "error: Tauri CLI dev server is not running and libapp.a missing. Please run 'pnpm exec tauri ios dev' first."
+                exit 1
+              fi
+            }
+          else
+            echo "=== [PoolPoker] Mode: Offline Standalone (Embedded dist, target: $RUST_TARGET) ==="
+            if [ ! -d "$SRCROOT/../dist" ] || [ "$SRCROOT/../src" -nt "$SRCROOT/../dist" ]; then
+              echo "Building web frontend dist..."
+              pnpm run build
             fi
-          }
+            TARGET_LIB="$TARGET_DIR/libapp.a"
+            CARGO_LIB="$SRCROOT/../src-tauri/target/${RUST_TARGET}/debug/libpoolpoker_lib.a"
+            if [ ! -f "$TARGET_LIB" ] || [ "$SRCROOT/../src-tauri/src" -nt "$TARGET_LIB" ]; then
+              echo "Compiling offline Rust staticlib with custom-protocol for $RUST_TARGET..."
+              cargo build --package poolpoker --manifest-path "$SRCROOT/../src-tauri/Cargo.toml" --target "$RUST_TARGET" --features tauri/custom-protocol
+              cp "$CARGO_LIB" "$TARGET_LIB"
+              if [ "$RUST_TARGET" = "aarch64-apple-ios" ]; then
+                mkdir -p "$SRCROOT/Externals/arm64/${CONFIGURATION}"
+                cp "$CARGO_LIB" "$SRCROOT/Externals/arm64/${CONFIGURATION}/libapp.a"
+              fi
+            fi
+            echo "Offline libapp.a is ready at $TARGET_LIB"
+          fi
         name: Build Rust Code
         basedOnDependencyAnalysis: false
         outputFiles:
@@ -136,5 +184,6 @@ targets:
         SWIFT_VERSION: 5.0
         CODE_SIGN_STYLE: Automatic
         CODE_SIGN_ENTITLEMENTS[sdk=watchsimulator*]: Shared/Simulator.entitlements
+        SUPPORTED_PLATFORMS: [watchos, watchsimulator]
         SKIP_INSTALL: true
     scheme: {}

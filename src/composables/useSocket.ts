@@ -1,5 +1,6 @@
 import { io, type Socket } from 'socket.io-client';
 import { onMounted, onUnmounted, ref, shallowRef } from 'vue';
+import { BleTransport, clearStoredDeviceId } from '@/services/bleTransport';
 
 export interface ServerUrlConfig {
   id: string;
@@ -11,6 +12,7 @@ export function useSocket() {
   const socket = shallowRef<Socket | null>(null);
   const socketId = ref<string>('');
   const serverUrl = ref<string>(localStorage.getItem('poolpoker_server_url') || '');
+  const isBleOfflineMode = ref<boolean>(localStorage.getItem('poolpoker_offline_ble') === 'true');
 
   const loadSavedServerUrls = (): ServerUrlConfig[] => {
     try {
@@ -53,7 +55,24 @@ export function useSocket() {
     }
   }
 
+  const connectBle = (userId?: string) => {
+    if (socket.value) {
+      socket.value.disconnect();
+      socket.value = null;
+    }
+    const currentUserId = userId || localStorage.getItem('billiards_user_id') || `user_${Date.now()}`;
+    const savedName = localStorage.getItem('billiards_player_name') || '我';
+    const ble = new BleTransport(currentUserId, savedName);
+    ble.init();
+    socket.value = ble as any;
+    socketId.value = `ble_${currentUserId}`;
+  };
+
   const connectSocket = () => {
+    if (isBleOfflineMode.value) {
+      connectBle();
+      return;
+    }
     if (socket.value) {
       socket.value.disconnect();
       socket.value = null;
@@ -163,11 +182,28 @@ export function useSocket() {
     }
   };
 
+  const toggleBleOfflineMode = (enable: boolean, userId?: string) => {
+    if (isBleOfflineMode.value !== enable) {
+      localStorage.removeItem('billiards_room_code');
+      localStorage.removeItem('billiards_session_token');
+      clearStoredDeviceId();
+    }
+    isBleOfflineMode.value = enable;
+    localStorage.setItem('poolpoker_offline_ble', enable ? 'true' : 'false');
+    if (enable) {
+      connectBle(userId);
+    } else {
+      connectSocket();
+    }
+  };
+
   return {
     socket,
     socketId,
     serverUrl,
     savedServerUrls,
+    isBleOfflineMode,
+    toggleBleOfflineMode,
     updateServerUrl,
     addServerUrl,
     removeServerUrl,

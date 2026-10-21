@@ -46,7 +46,6 @@ describe('roomLifecycleService', () => {
         payload: {
           userId: 'user-host',
           name: 'Host',
-          avatar: '🎯',
         },
       },
       createDeps(['2468'], ['session-host'])
@@ -79,7 +78,7 @@ describe('roomLifecycleService', () => {
       {
         type: 'create_room',
         socketId: 'socket-host',
-        payload: { userId: 'user-host', name: 'Host', avatar: '🎱' },
+        payload: { userId: 'user-host', name: 'Host' },
       },
       createDeps(['1357'], ['session-host'])
     );
@@ -96,7 +95,6 @@ describe('roomLifecycleService', () => {
           roomCode: '1357',
           userId: 'user-guest',
           name: 'Guest',
-          avatar: '🔥',
         },
       },
       createDeps([], ['session-guest'])
@@ -114,7 +112,7 @@ describe('roomLifecycleService', () => {
       {
         type: 'create_room',
         socketId: 'socket-host',
-        payload: { userId: 'user-host', name: 'Host', avatar: '🎱' },
+        payload: { userId: 'user-host', name: 'Host' },
       },
       createDeps(['8642'], ['session-host'])
     );
@@ -145,7 +143,7 @@ describe('roomLifecycleService', () => {
       {
         type: 'create_room',
         socketId: 'socket-host',
-        payload: { userId: 'user-host', name: 'Host', avatar: '🎱' },
+        payload: { userId: 'user-host', name: 'Host' },
       },
       createDeps(['1234'], ['session-host'])
     );
@@ -153,7 +151,7 @@ describe('roomLifecycleService', () => {
       {
         type: 'join_room',
         socketId: 'socket-guest',
-        payload: { roomCode: '1234', userId: 'watch', name: 'Watch', avatar: '⌚' },
+        payload: { roomCode: '1234', userId: 'watch', name: 'Watch' },
       },
       createDeps([], ['session-watch'])
     );
@@ -172,7 +170,7 @@ describe('roomLifecycleService', () => {
     const wrongFlow = applyRoomLifecycleCommand({
       type: 'join_room',
       socketId: 'socket-b',
-      payload: { roomCode: '1234', userId: 'watch', name: 'Watch', avatar: '⌚' },
+      payload: { roomCode: '1234', userId: 'watch', name: 'Watch' },
     });
     expect(wrongFlow.response?.success).toBe(false);
     expect(getSocketSession('socket-b')).toBeUndefined();
@@ -197,7 +195,7 @@ describe('roomLifecycleService', () => {
       {
         type: 'create_room',
         socketId: 'socket-host',
-        payload: { userId: 'user-host', name: 'Host', avatar: '🎱' },
+        payload: { userId: 'user-host', name: 'Host' },
       },
       createDeps(['4321'], ['session-host'])
     );
@@ -205,7 +203,7 @@ describe('roomLifecycleService', () => {
       {
         type: 'join_room',
         socketId: 'socket-guest',
-        payload: { roomCode: '4321', userId: 'user-guest', name: 'Guest', avatar: '🔥' },
+        payload: { roomCode: '4321', userId: 'user-guest', name: 'Guest' },
       },
       createDeps([], ['session-guest'])
     );
@@ -231,7 +229,7 @@ describe('roomLifecycleService', () => {
       {
         type: 'create_room',
         socketId: 'socket-host',
-        payload: { userId: 'user-host', name: 'Host', avatar: '🎱' },
+        payload: { userId: 'user-host', name: 'Host' },
       },
       createDeps(['5555'], ['session-host'])
     );
@@ -241,7 +239,7 @@ describe('roomLifecycleService', () => {
       {
         type: 'join_room',
         socketId: 'socket-attacker',
-        payload: { roomCode: '5555', userId: 'user-host', name: 'Attacker', avatar: '😈' },
+        payload: { roomCode: '5555', userId: 'user-host', name: 'Attacker' },
       },
       createDeps([], ['session-attacker'])
     );
@@ -267,7 +265,7 @@ describe('roomLifecycleService', () => {
       {
         type: 'create_room',
         socketId: 'socket-host',
-        payload: { userId: 'user-host', name: 'Host', avatar: '🎱' },
+        payload: { userId: 'user-host', name: 'Host' },
       },
       createDeps(['1111'], ['session-host'])
     );
@@ -275,14 +273,14 @@ describe('roomLifecycleService', () => {
     const noUser = applyRoomLifecycleCommand({
       type: 'join_room',
       socketId: 'socket-guest',
-      payload: { roomCode: '1111', userId: '', name: 'Guest', avatar: '🎯' },
+      payload: { roomCode: '1111', userId: '', name: 'Guest' },
     });
     expect(noUser.response).toEqual({ success: false, message: '用户信息不完整' });
 
     const noName = applyRoomLifecycleCommand({
       type: 'join_room',
       socketId: 'socket-guest',
-      payload: { roomCode: '1111', userId: 'guest-1', name: '', avatar: '🎯' },
+      payload: { roomCode: '1111', userId: 'guest-1', name: '' },
     });
     expect(noName.response).toEqual({ success: false, message: '用户信息不完整' });
   });
@@ -293,7 +291,7 @@ describe('roomLifecycleService', () => {
       {
         type: 'create_room',
         socketId: 'socket-a',
-        payload: { userId: 'user-host', name: 'Host', avatar: '🎱' },
+        payload: { userId: 'user-host', name: 'Host' },
       },
       createDeps(['6789'], ['session-host'])
     );
@@ -325,7 +323,6 @@ describe('host-only player removal', () => {
         payload: {
           userId: 'user-host',
           name: 'Host',
-          avatar: '🎱',
         },
       },
       createDeps(['1234'], ['host-token'])
@@ -338,7 +335,6 @@ describe('host-only player removal', () => {
           roomCode: '1234',
           userId: 'user-guest',
           name: 'Guest',
-          avatar: '🎱',
         },
       },
       createDeps([], ['guest-token'])
@@ -427,7 +423,6 @@ describe('host-only player removal', () => {
         payload: {
           userId: 'user-host',
           name: 'Other',
-          avatar: '🎱',
         },
       },
       createDeps(['5678'])

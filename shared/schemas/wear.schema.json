@@ -33,7 +33,6 @@
       "properties": {
         "userId": { "type": "string" },
         "name": { "type": "string" },
-        "avatar": { "type": "string" },
         "cardCount": { "type": "integer" },
         "cards": {
           "type": "array",
@@ -47,7 +46,7 @@
         "totalScore": { "type": "integer" },
         "scoreDelta": { "type": ["integer", "null"] }
       },
-      "required": ["userId", "name", "avatar", "cardCount", "cards", "pocketedCards", "isWinner", "totalScore"],
+      "required": ["userId", "name", "cardCount", "cards", "pocketedCards", "isWinner", "totalScore"],
       "additionalProperties": false
     },
     "WearSyncRoomPayload": {

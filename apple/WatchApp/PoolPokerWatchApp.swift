@@ -39,7 +39,7 @@ struct WatchRootView: View {
                             case .waiting, .lobby:
                                 Text(store.me?.name ?? "").font(.caption)
                                 Text(WatchStrings.waitingForHost).foregroundStyle(.yellow)
-                                ForEach(room.players, id: \.userId) { Text("\($0.avatar) \($0.name)") }
+                                ForEach(room.players, id: \.userId) { Text($0.name) }
                             case .ended, .finished: SettlementView(room: room)
                             case .playing: WatchGameView(room: room)
                             }

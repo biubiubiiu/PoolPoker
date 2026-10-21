@@ -1,11 +1,11 @@
-import crypto from 'node:crypto';
 import type { Card } from '../shared/types/game';
+import { getRandomInt } from '../shared/utils/crypto';
 
-// 洗牌算法 (Fisher-Yates，基于 node:crypto CSPRNG 安全随机数发生器)
+// 洗牌算法 (Fisher-Yates，基于 CSPRNG 安全随机数发生器)
 export function shuffle<T>(array: T[]): T[] {
   const arr = [...array];
   for (let i = arr.length - 1; i > 0; i--) {
-    const j = crypto.randomInt(0, i + 1);
+    const j = getRandomInt(0, i + 1);
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;

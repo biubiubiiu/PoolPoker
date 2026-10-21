@@ -17,8 +17,17 @@ import { useUiPreferences } from '@/composables/useUiPreferences';
 import { preloadTableModel } from '@/utils/tableModelLoader';
 
 const { useNewUi } = useUiPreferences();
-const { userId, playerName, avatars, selectedAvatar, getFinalPlayerName } = usePlayerProfile();
-const { socket, serverUrl, savedServerUrls, updateServerUrl, addServerUrl, removeServerUrl } = useSocket();
+const { userId, playerName, getFinalPlayerName } = usePlayerProfile();
+const {
+  socket,
+  serverUrl,
+  savedServerUrls,
+  isBleOfflineMode,
+  toggleBleOfflineMode,
+  updateServerUrl,
+  addServerUrl,
+  removeServerUrl,
+} = useSocket();
 
 const {
   room,
@@ -69,9 +78,9 @@ const {
   socket,
   userId,
   playerName,
-  selectedAvatar,
   getFinalPlayerName,
   serverUrl,
+  isBleOfflineMode,
 });
 
 provideBallAppearance();
@@ -112,7 +121,7 @@ onMounted(() => {
                 :room="room"
                 :isHost="isHost"
                 @request-restart="showControlDrawer = false; showRestartConfirm = true"
-                @leave-room="handleLeaveRoom" />
+                @leave-room="showControlDrawer = false; handleLeaveRoom()" />
 
     <!-- 登录大厅 / 房间等待视图 -->
     <RoomLobby v-if="!room || room.status === 'waiting' || room.status === 'lobby'"
@@ -128,10 +137,10 @@ onMounted(() => {
                :isHost="isHost"
                :serverUrl="serverUrl"
                :savedServerUrls="savedServerUrls"
+               :isBleOfflineMode="isBleOfflineMode"
+               @toggle-ble-mode="(enabled: boolean) => toggleBleOfflineMode(enabled, userId)"
                v-model:useNewUi="useNewUi"
                v-model:playerName="playerName"
-               v-model:selectedAvatar="selectedAvatar"
-               :avatars="avatars"
                @update:serverUrl="updateServerUrl"
                @add-server-url="addServerUrl"
                @remove-server-url="removeServerUrl"
@@ -174,7 +183,7 @@ onMounted(() => {
       @open-referee-pocket="showControlDrawer = false; openRefereePocket()"
       @open-rules="showControlDrawer = false; showRulesModal = true"
       @request-restart="showControlDrawer = false; showRestartConfirm = true"
-      @leave-room="handleLeaveRoom"
+      @leave-room="showControlDrawer = false; handleLeaveRoom()"
     />
 
     <!-- v1 旧版经典对局界面 -->

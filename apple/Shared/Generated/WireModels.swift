@@ -113,7 +113,6 @@ struct GameLog: Codable {
 
 // MARK: - Player
 struct Player: Codable {
-    var avatar: String
     var cardCount: Int
     var cards: [Card]
     var id: String
@@ -128,7 +127,6 @@ struct Player: Codable {
     var wins: Int
 
     enum CodingKeys: String, CodingKey {
-        case avatar = "avatar"
         case cardCount = "cardCount"
         case cards = "cards"
         case id = "id"
@@ -222,14 +220,12 @@ enum RoomStatus: String, Codable {
 
 // MARK: - WinnerInfo
 struct WinnerInfo: Codable {
-    var avatar: String
     var id: String
     var name: String
     var userId: String
     var wins: Int
 
     enum CodingKeys: String, CodingKey {
-        case avatar = "avatar"
         case id = "id"
         case name = "name"
         case userId = "userId"
@@ -304,7 +300,6 @@ struct WearSyncRoomPayload: Codable {
 
 // MARK: - WearPlayerSummary
 struct WearPlayerSummary: Codable {
-    var avatar: String
     var cardCount: Int
     var cards: [Card]
     var isWinner: Bool
@@ -315,7 +310,6 @@ struct WearPlayerSummary: Codable {
     var userId: String
 
     enum CodingKeys: String, CodingKey {
-        case avatar = "avatar"
         case cardCount = "cardCount"
         case cards = "cards"
         case isWinner = "isWinner"

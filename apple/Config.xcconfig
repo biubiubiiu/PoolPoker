@@ -1,0 +1,10 @@
+//
+// Config.xcconfig
+// PoolPoker 基础编译与签名统一配置
+//
+
+// 可选引入本地未提交的个人开发签名配置（通过 .gitignore 隔离）
+#include? "Local.xcconfig"
+
+// 默认回退（若 Local.xcconfig 未配置，则继承自系统/环境变量）
+DEVELOPMENT_TEAM = $(inherited)

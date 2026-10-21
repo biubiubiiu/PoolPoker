@@ -137,7 +137,6 @@ export function getClientRoomState(roomCode: string, targetUserId?: string): Roo
         id: p.id,
         userId: p.userId,
         name: p.name,
-        avatar: p.avatar,
         isHost: p.userId === room.hostUserId,
         online: p.online !== false,
         cardCount: p.cards.length,

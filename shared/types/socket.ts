@@ -5,7 +5,6 @@ import { CLIENT_TO_SERVER_EVENTS, SERVER_TO_CLIENT_EVENTS } from './protocol';
 export interface CreateRoomPayload {
   userId: string;
   name: string;
-  avatar: string;
 }
 
 export interface JoinRoomPayload {
@@ -13,7 +12,6 @@ export interface JoinRoomPayload {
   roomCode: string;
   userId: string;
   name: string;
-  avatar: string;
 }
 
 export interface RejoinRoomPayload {
@@ -103,7 +101,7 @@ export interface SocketCallbackResponse {
 // 客户端接收的事件 (Server -> Client)
 export interface ServerToClientEvents {
   [SERVER_TO_CLIENT_EVENTS.nearbyRooms]: (rooms: NearbyRoom[]) => void;
-  [SERVER_TO_CLIENT_EVENTS.roomKicked]: (payload: { roomCode: string }) => void;
+  [SERVER_TO_CLIENT_EVENTS.roomKicked]: (payload: { roomCode: string; reason?: string }) => void;
   [SERVER_TO_CLIENT_EVENTS.roomCreated]: (payload: { roomCode: string }) => void;
   [SERVER_TO_CLIENT_EVENTS.roomUpdated]: (room: Room) => void;
   [SERVER_TO_CLIENT_EVENTS.errorMessage]: (msg: string) => void;

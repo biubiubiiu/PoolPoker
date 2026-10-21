@@ -91,8 +91,10 @@ These are non-obvious and must be preserved when editing:
 ## Docs
 
 - `docs/overview.md` is the authoritative deep-dive: full data-flow diagram, per-file responsibilities, and implementation history.
+- `docs/ble_offline_architecture.md` covers the serverless BLE face-to-face offline multiplayer architecture, `LocalHostEngine`, GATT UUIDs, compact binary protocol & dynamic MTU chunking, and Android/iOS native BLE bridges.
 - `docs/apple_watch_architecture.md` covers the native Apple Watch architecture, Engine.IO long polling, WatchConnectivity session bridge, String Catalog localization, and simulator/hardware validation.
 - `docs/wear_app_architecture.md` covers the native Wear OS app architecture, `com.poolpoker.wear.ui` module breakdown, and swipe-to-dismiss gesture navigation rules.
 - `docs/android_tauri_architecture.md` covers the Android Gradle multi-module architecture, Tauri v2 Android APK packaging, and native Wear OS DataLayer sync.
 - `docs/implement_log.md` records round-by-round implementation decisions. Consult these before making architectural changes; keep them in sync for substantive work.
 - `docs/table_asset_pipeline.md` covers the Blender source, GLB export settings, pocket anchors, and asset verification flow.
+

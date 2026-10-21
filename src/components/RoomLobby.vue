@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import type { DiscoverySource, NearbyRoom } from '@shared/types/discovery';
 import type { Room } from '@shared/types/game';
-import { computed, ref } from 'vue';
+import { computed, onUnmounted, ref, watch } from 'vue';
 import NearbyRooms from '@/components/NearbyRooms.vue';
 import type { ServerUrlConfig } from '@/composables/useSocket';
+import { BleScanner } from '@/services/bleScanner';
 import { showAlert, showConfirm } from '@/utils/dialog';
 
 const props = defineProps<{
@@ -16,18 +17,17 @@ const props = defineProps<{
   userId: string;
   isHost: boolean;
   playerName: string;
-  selectedAvatar?: string;
-  avatars?: string[];
   serverUrl?: string;
   savedServerUrls?: ServerUrlConfig[];
   useNewUi?: boolean;
+  isBleOfflineMode?: boolean;
 }>();
 
 const emit = defineEmits<{
   (e: 'update:playerName', name: string): void;
-  (e: 'update:selectedAvatar', avatar: string): void;
   (e: 'update:serverUrl', url: string): void;
   (e: 'update:useNewUi', value: boolean): void;
+  (e: 'toggle-ble-mode', enabled: boolean): void;
   (e: 'add-server-url', payload: { url: string; name?: string }): void;
   (e: 'remove-server-url', id: string): void;
   (e: 'join-room', code: string, source?: DiscoverySource): void;
@@ -71,12 +71,35 @@ const onRemoveServer = async (item: ServerUrlConfig) => {
   }
 };
 
-const onJoin = async () => {
-  if (!joinCode.value.trim()) {
-    await showAlert('请输入4位房间码', '提示');
+const bleScanner = BleScanner.getInstance();
+const discoveredBleRooms = bleScanner.discoveredRooms;
+const isBleScanning = bleScanner.isScanning;
+
+watch(
+  () => [props.isBleOfflineMode, tab.value],
+  ([isBle, currentTab]) => {
+    if (isBle && currentTab === 'join') {
+      bleScanner.start();
+    } else {
+      bleScanner.stop();
+    }
+  },
+  { immediate: true }
+);
+
+onUnmounted(() => {
+  bleScanner.stop();
+});
+
+const onJoin = async (customCode?: string, deviceId?: string) => {
+  const code = (customCode || joinCode.value).trim();
+  if (!code) {
+    await showAlert('请输入 4 位数字房间码', '提示');
     return;
   }
-  emit('join-room', joinCode.value.trim());
+  const resolvedDeviceId = deviceId || (props.isBleOfflineMode ? bleScanner.findByRoomCode(code)?.deviceId : undefined);
+  const extraSource = resolvedDeviceId ? ({ type: 'ble', deviceId: resolvedDeviceId } as any) : undefined;
+  emit('join-room', code, extraSource);
 };
 </script>
 
@@ -92,14 +115,14 @@ const onJoin = async () => {
       </button>
       <h2 class="text-sm font-extrabold text-amber-300 flex items-center gap-1.5">
         <i class="fa-solid fa-gear text-amber-400"></i>
-        <span>后端服务地址设置</span>
+        <span>服务器地址设置</span>
       </h2>
       <div class="w-16"></div>
     </div>
 
     <!-- 当前生效服务提示 -->
     <div class="glass-panel rounded-2xl p-3 shadow-xl text-xs text-gray-300 flex items-center justify-between">
-      <span class="text-gray-400">当前使用服务地址:</span>
+      <span class="text-gray-400">当前服务器:</span>
       <span class="font-mono text-amber-300 font-bold truncate max-w-[200px]">
         {{ props.serverUrl ? props.serverUrl : '默认同源' }}
       </span>
@@ -110,7 +133,7 @@ const onJoin = async () => {
       <div class="flex items-center justify-between border-b border-white/10 pb-2">
         <h3 class="text-xs font-bold text-gray-200 flex items-center gap-1.5">
           <i class="fa-solid fa-server text-emerald-400"></i>
-          <span>快捷切换服务器</span>
+          <span>快速切换服务器</span>
         </h3>
         <span class="text-[10px] text-gray-400">点击不同选项即可切换</span>
       </div>
@@ -128,8 +151,8 @@ const onJoin = async () => {
               <i v-if="!props.serverUrl" class="fa-solid fa-check text-[10px]"></i>
             </div>
             <div>
-              <div class="font-bold text-xs text-white">默认同源 (Same Origin)</div>
-              <div class="text-[10px] text-gray-400">自动使用网页自带默认后端服务</div>
+              <div class="font-bold text-xs text-white">默认服务器 (同源推荐)</div>
+              <div class="text-[10px] text-gray-400">连接当前网页所在服务器</div>
             </div>
           </div>
           <span v-if="!props.serverUrl" class="text-[10px] bg-amber-400 text-black font-black px-2 py-0.5 rounded-full shrink-0">
@@ -203,9 +226,18 @@ const onJoin = async () => {
   </div>
 
   <!-- View 1: 登录/创建与加入 (未在房间中) -->
-  <div v-else-if="!room" class="flex-1 flex flex-col justify-center my-auto py-2 relative">
+  <div v-else-if="!room" class="flex-1 flex flex-col justify-start w-full relative">
     <!-- 右上角工具栏 (新界面 switch 开关 & 设置服务地址) -->
-    <div class="flex items-center justify-end gap-2 mb-2">
+    <header class="shrink-0 w-full flex items-center justify-end gap-2 pt-1 pb-2.5 z-10">
+      <!-- 离线模式切换 (Tauri 环境) -->
+      <button v-if="isTauriEnv"
+              @click="emit('toggle-ble-mode', !props.isBleOfflineMode)"
+              class="px-2.5 py-1.5 border rounded-xl text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-lg"
+              :class="props.isBleOfflineMode ? 'bg-amber-500/25 border-amber-400 text-amber-300' : 'bg-black/40 border-white/10 text-gray-400 hover:text-white'">
+        <i class="fa-brands fa-bluetooth-b" :class="props.isBleOfflineMode ? 'text-amber-400 animate-pulse' : ''"></i>
+        <span>{{ props.isBleOfflineMode ? '离线模式' : '在线模式' }}</span>
+      </button>
+
       <!-- 切换至新界面的switch开关 -->
       <label class="inline-flex items-center gap-2 cursor-pointer select-none px-2.5 py-1.5 bg-black/40 hover:bg-black/60 border border-white/10 hover:border-emerald-500/40 rounded-xl text-xs text-gray-300 hover:text-emerald-300 font-semibold shadow-lg transition active:scale-95">
         <span class="text-[11px]">新版界面</span>
@@ -238,9 +270,10 @@ const onJoin = async () => {
         <i class="fa-solid fa-gear text-amber-400"></i>
         <span>设置服务地址</span>
       </button>
-    </div>
+    </header>
 
-    <div class="text-center mb-6">
+    <div class="flex-1 flex flex-col justify-start w-full max-w-md mx-auto pt-2 sm:pt-4 pb-4">
+      <div class="text-center mb-5 shrink-0">
       <div class="inline-block p-4 rounded-full bg-emerald-950/80 border border-emerald-500/30 mb-3 shadow-2xl gold-glow">
         <span class="text-5xl">🃏</span>
       </div>
@@ -250,7 +283,7 @@ const onJoin = async () => {
       <p class="text-xs text-emerald-400/80 mt-1">朋友台球聚会 · 54张扑克卡牌对战</p>
     </div>
 
-    <!-- 个人昵称与头像 -->
+    <!-- 个人昵称设置 -->
     <div class="glass-panel rounded-2xl p-5 shadow-2xl mb-5 space-y-4">
       <div>
         <label class="block text-xs text-gray-300 mb-1 font-semibold">你的游戏昵称</label>
@@ -258,19 +291,6 @@ const onJoin = async () => {
                @input="emit('update:playerName', ($event.target as HTMLInputElement).value)"
                type="text" placeholder="请输入你的大名/外号" maxlength="10" 
                class="w-full bg-black/40 border border-emerald-600/40 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-400">
-      </div>
-
-      <div v-if="avatars && avatars.length">
-        <label class="block text-xs text-gray-300 mb-1.5 font-semibold">选择球桌代号头像</label>
-        <div class="flex justify-between gap-2">
-          <button v-for="av in avatars" :key="av" 
-                  type="button"
-                  @click="emit('update:selectedAvatar', av)"
-                  :class="['w-10 h-10 rounded-xl text-xl flex items-center justify-center transition-all', 
-                           selectedAvatar === av ? 'bg-amber-400 scale-110 shadow-lg text-black' : 'bg-black/40 border border-white/10 hover:bg-white/10']">
-            {{ av }}
-          </button>
-        </div>
       </div>
     </div>
 
@@ -285,18 +305,60 @@ const onJoin = async () => {
         </button>
       </div>
 
-      <NearbyRooms
+      <NearbyRooms v-if="!props.isBleOfflineMode"
         :rooms="nearbyRooms" :status="nearbyStatus" :enabled="nearbyEnabled" :joining="joiningRoom" :retrying="props.nearbyRetrying"
         @update:enabled="emit('update:nearbyEnabled', $event)" @retry="emit('retry-nearby')"
         @join="(room) => emit('join-room', room.roomCode, room.source)" />
 
       <!-- TAB A: 输入 4 位数字房间码加入 -->
       <div v-if="tab === 'join'" class="space-y-4">
+        <!-- 离线模式附近房间面板 -->
+        <div v-if="props.isBleOfflineMode" class="p-3 bg-black/40 border border-emerald-500/30 rounded-xl space-y-2.5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5 text-xs font-bold text-emerald-200">
+              <i class="fa-solid fa-tower-broadcast text-amber-400 text-xs animate-pulse"></i>
+              <span>附近房间 (离线)</span>
+            </div>
+            <span class="text-[11px] font-medium" :class="discoveredBleRooms.length > 0 ? 'text-amber-300 font-bold' : 'text-gray-400'">
+              {{ discoveredBleRooms.length > 0 ? `发现 ${discoveredBleRooms.length} 桌` : '正在搜索…' }}
+            </span>
+          </div>
+
+          <!-- 扫描到的附近桌台列表 -->
+          <div v-if="discoveredBleRooms.length > 0" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+            <div v-for="table in discoveredBleRooms" :key="table.deviceId"
+                 class="p-2.5 bg-black/60 hover:bg-black/80 border border-emerald-500/40 rounded-xl flex items-center justify-between transition shadow-md">
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 rounded-lg bg-emerald-950/80 border border-emerald-500/40 flex items-center justify-center text-xs">
+                  🎱
+                </div>
+                <div>
+                  <div class="font-bold text-xs text-amber-300 flex items-center gap-1.5">
+                    <span>{{ table.roomCode }} 桌</span>
+                    <span class="text-[10px] px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-normal">{{ table.name }}</span>
+                  </div>
+                  <div class="text-[10px] text-gray-400 flex items-center gap-1">
+                    <i class="fa-solid fa-signal text-[9px]" :class="table.rssi > -65 ? 'text-emerald-400' : 'text-amber-400'"></i>
+                    <span>{{ table.rssi }} dBm</span>
+                  </div>
+                </div>
+              </div>
+              <button @click="onJoin(table.roomCode, table.deviceId)" :disabled="joiningRoom"
+                      class="px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-black font-extrabold text-xs rounded-xl shadow transition active:scale-95 cursor-pointer disabled:opacity-50">
+                一键加入
+              </button>
+            </div>
+          </div>
+          <div v-else class="py-2.5 px-3 rounded-lg bg-black/30 border border-white/5 text-center text-xs text-gray-400">
+            <span>正在搜索附近球局，等待房主建房…</span>
+          </div>
+        </div>
+
         <div>
           <input v-model="joinCode" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="输入 4 位数字房间码 (如 6824)" maxlength="4"
                  class="w-full bg-black/50 border-2 border-emerald-500/50 text-center font-mono text-2xl font-black tracking-widest py-3 rounded-xl text-amber-300 placeholder:font-sans placeholder:text-sm placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-500 focus:outline-none focus:border-amber-400">
         </div>
-        <button @click="onJoin" :disabled="!joinCode || joiningRoom"
+        <button @click="() => onJoin()" :disabled="!joinCode || joiningRoom"
                 class="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-black font-extrabold rounded-xl shadow-lg transition active:scale-98 disabled:opacity-50 cursor-pointer">
           进入球局 <i class="fa-solid fa-arrow-right ml-1"></i>
         </button>
@@ -306,15 +368,16 @@ const onJoin = async () => {
       <div v-if="tab === 'create'" class="space-y-4">
         <button @click="emit('create-room')" 
                 class="w-full py-3.5 bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-black font-extrabold rounded-xl shadow-lg transition active:scale-98 cursor-pointer">
-          一键创建数字房间 <i class="fa-solid fa-plus-circle ml-1"></i>
+          创建对局房间 <i class="fa-solid fa-plus-circle ml-1"></i>
         </button>
       </div>
+    </div>
     </div>
   </div>
 
   <!-- View 2: 房间等待大厅 -->
   <div v-else-if="room && (room.status === 'waiting' || room.status === 'lobby')" class="flex-1 flex flex-col justify-between py-2 space-y-4">
-    <NearbyRooms v-if="isHost"
+    <NearbyRooms v-if="isHost && !props.isBleOfflineMode"
       :rooms="[]" :status="nearbyStatus" :enabled="nearbyEnabled" :advertising="true" :joining="false" :retrying="props.nearbyRetrying"
       @update:enabled="emit('update:nearbyEnabled', $event)" @retry="emit('retry-nearby')" />
     <!-- 成员列表 -->
@@ -345,7 +408,7 @@ const onJoin = async () => {
             <i class="fa-solid fa-gear text-amber-400"></i>
           </button>
           <span class="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-600/40 px-2 py-0.5 rounded-full">
-            等待房主开局
+            等待开局
           </span>
         </div>
       </div>
@@ -354,7 +417,6 @@ const onJoin = async () => {
         <div v-for="p in room.players" :key="p.userId" 
              class="flex items-center justify-between bg-black/40 border border-white/5 px-3 py-2.5 rounded-xl">
           <div class="flex items-center space-x-3">
-            <span v-if="p.avatar" class="text-2xl">{{ p.avatar }}</span>
             <div>
               <div class="flex items-center space-x-1.5">
                 <span class="font-bold text-sm text-gray-100">{{ p.name }}</span>
@@ -403,10 +465,10 @@ const onJoin = async () => {
     <div>
       <button v-if="isHost" @click="emit('start-game')" 
               class="w-full py-3.5 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:to-yellow-300 text-black font-black text-base rounded-xl shadow-xl transition active:scale-98 gold-glow cursor-pointer">
-        <i class="fa-solid fa-play mr-1.5"></i> 开始扑克发牌
+        <i class="fa-solid fa-play mr-1.5"></i> 发牌开局
       </button>
       <div v-else class="text-center py-2 text-xs text-amber-300/80 animate-pulse">
-        <i class="fa-solid fa-spinner fa-spin mr-1"></i> 等待房主开始游戏...
+        <i class="fa-solid fa-spinner fa-spin mr-1"></i> 等待房主开始对局...
       </div>
     </div>
   </div>

@@ -28,7 +28,7 @@ Wear OS 的常亮窗口策略不移植至 watchOS；手表遵循系统显示/前
 
 - 文案资源采用 Apple 官方推荐的 String Catalog 标准，集中管理于 `apple/WatchApp/Localizable.xcstrings`，覆盖 `en`、`zh-Hans` 和 `zh-Hant`。
 - `apple/WatchApp/Localization.swift` 提供强类型的 `WatchStrings` API，底层自动委托给 `bundle.localizedString(forKey:value:table:)`，享有系统级语言回退与设备偏好；同时内置代码级默认英文兜底，避免任何极端环境出现空串。
-- `Localizable.xcstrings` 分别在 `apple/poolpoker.xcodeproj/project.pbxproj`（`PBXResourcesBuildPhase`）与 `apple/Package.swift`（`resources: [.process(...)]`）中注册，支持 Xcode 完整打包和 SwiftPM 跨平台单元测试。
+- `Localizable.xcstrings` 分别在 `apple/poolpoker.xcodeproj/project.pbxproj`（`PBXResourcesBuildPhase`）与 `apple/WatchTests/Package.swift`（`resources: [.process(...)]`）中注册，支持 Xcode 完整打包和 SwiftPM 跨平台单元测试。
 
 ## 数据和连接
 

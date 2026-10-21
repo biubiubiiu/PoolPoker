@@ -58,7 +58,7 @@ const emit = defineEmits<{
   <div class="glass-panel rounded-2xl p-4 shadow-xl">
     <h3 class="text-xs font-bold text-amber-300 mb-2 flex items-center justify-between">
       <span><i class="fa-solid fa-list-ol mr-1 text-emerald-400"></i> 全局赛况</span>
-      <span class="text-[10px] text-gray-400" v-if="room.deckCount !== undefined">牌库剩余 {{ room.deckCount }} 张扑克</span>
+      <span class="text-[10px] text-gray-400" v-if="room.deckCount !== undefined">牌库剩余 {{ room.deckCount }} 张</span>
     </h3>
 
     <!-- 本局击球顺序展示 -->
@@ -70,7 +70,6 @@ const emit = defineEmits<{
         <template v-for="(p, idx) in turnOrderPlayers" :key="p.userId">
           <span :class="['px-2 py-1 rounded-lg font-bold flex items-center gap-1 transition-all',
                          idx === 0 ? 'bg-amber-400 text-black shadow-md ring-1 ring-amber-300' : 'bg-black/40 text-gray-200 border border-white/10']">
-            <span v-if="p.avatar">{{ p.avatar }}</span>
             <span>{{ p.name }}</span>
             <span v-if="idx === 0" class="text-[9px] bg-black/20 text-black px-1 rounded font-black">首发</span>
           </span>
@@ -83,7 +82,7 @@ const emit = defineEmits<{
     <div class="mb-3 bg-black/40 p-2.5 rounded-xl border border-white/5">
       <div class="flex items-center justify-between text-[11px] mb-1.5">
         <span class="text-gray-300 font-bold flex items-center gap-1">
-          <i class="fa-solid fa-circle-check text-emerald-400"></i> 已打进球号
+          <i class="fa-solid fa-circle-check text-emerald-400"></i> 已进球号
         </span>
       </div>
 
@@ -95,7 +94,7 @@ const emit = defineEmits<{
         </span>
       </div>
       <div v-else class="text-[10px] text-gray-500 italic">
-        暂无打进的球
+        暂无进球
       </div>
     </div>
 
@@ -106,7 +105,6 @@ const emit = defineEmits<{
                     p.userId === userId ? 'bg-emerald-950/60 border-emerald-500/50' : 'bg-black/30 border-white/5']">
         
         <div class="flex items-center space-x-2.5">
-          <span v-if="p.avatar" class="text-xl">{{ p.avatar }}</span>
           <div>
             <div class="flex items-center space-x-1">
               <span class="font-bold text-xs text-gray-100">{{ p.name }}</span>
@@ -114,7 +112,7 @@ const emit = defineEmits<{
               <span class="text-[9px] bg-amber-950/80 text-amber-300 border border-amber-600/40 px-1 rounded font-bold">
                 {{ p.wins }}胜
               </span>
-              <span v-if="p.online === false" class="text-[9px] bg-red-950 text-red-300 border border-red-700/50 px-1 rounded animate-pulse">暂离中</span>
+              <span v-if="p.online === false" class="text-[9px] bg-red-950 text-red-300 border border-red-700/50 px-1 rounded animate-pulse">暂离</span>
             </div>
             <div class="w-24 bg-gray-800 h-1.5 rounded-full mt-1 overflow-hidden">
               <div class="bg-amber-400 h-full transition-all duration-300"
@@ -126,7 +124,7 @@ const emit = defineEmits<{
         <div class="text-right flex flex-col items-end">
           <div class="flex items-center space-x-1.5">
             <span :class="['font-mono font-black text-sm', isPlayerWinner(p) ? 'text-emerald-400 animate-bounce' : 'text-amber-300']">
-              {{ isPlayerWinner(p) ? '🏆 胜出' : `还剩 ${p.cardCount !== undefined ? p.cardCount : (p.cards ? p.cards.length : 0)} 张` }}
+              {{ isPlayerWinner(p) ? '🏆 胜出' : `剩余 ${p.cardCount !== undefined ? p.cardCount : (p.cards ? p.cards.length : 0)} 张` }}
             </span>
 
             <!-- 记录快捷入口按钮 -->

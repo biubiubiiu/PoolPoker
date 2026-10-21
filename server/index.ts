@@ -6,11 +6,19 @@ import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '../shared/types/socket';
 import { appConfig, rootDir } from './config';
 import { startDiscoveryBroadcast } from './discoveryBroadcast';
+import { setRoundFinishedNotifier } from './gameEngine';
 import { logSocketConnect } from './logger';
 import { getRobotWebhookUrl, setRobotWebhookUrl } from './robotConfig';
 import { getClientRoomState } from './roomManager';
 import { registerSocketHandlers } from './socketHandlers';
-import { isWecomPushDisabled, sendCrashReportToWecom, setWecomPushDisabled } from './wecomWebhook';
+import {
+  isWecomPushDisabled,
+  sendCrashReportToWecom,
+  sendRoundResultToWecom,
+  setWecomPushDisabled,
+} from './wecomWebhook';
+
+setRoundFinishedNotifier(sendRoundResultToWecom);
 
 const app = express();
 const server = http.createServer(app);

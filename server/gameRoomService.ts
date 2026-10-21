@@ -1,19 +1,22 @@
-import crypto from 'node:crypto';
+import { cardToIndex } from '../shared/types/bleProtocol';
 import type { ServerRoom } from '../shared/types/game';
+import { getRandomUUID } from '../shared/utils/crypto';
 import { addLog, checkGameWinners, computeTurnOrder, getPocketedBallNumbers, handleGameFinished } from './gameEngine';
 import { recordGameStep, undoGameStep } from './gameState';
 import { create54PokerDeck, shuffle } from './pokerDeck';
 
 export type GameRoomCommand =
   | { type: 'start_game'; actorUserId: string }
-  | { type: 'pocket_ball'; actorUserId: string; cardId: string }
+  | { type: 'pocket_ball'; actorUserId: string; cardId: string; ballNumber?: number; cardIndex?: number }
   | { type: 'draw_penalty'; actorUserId: string }
   | { type: 'accidental_pocket'; ballNumber: number }
   | { type: 'break_pocket'; ballNumber: number }
   | { type: 'retract_ball'; expectedRevision?: number }
-  | { type: 'referee_pocket_ball'; actorSocketId: string; targetUserId: string; ballNumber: number }
+  | { type: 'referee_pocket_ball'; actorSocketId?: string; targetUserId: string; ballNumber: number }
   | { type: 'referee_draw_penalty'; targetUserId: string }
   | { type: 'restart_game'; actorUserId: string }
+  | { type: 'update_settings'; actorUserId: string; cardsPerPlayer?: number }
+  | { type: 'kick_player'; actorUserId: string; targetUserId: string }
   | { type: 'request_restart' };
 
 export interface GameRoomCommandResult {
@@ -45,7 +48,7 @@ export function applyGameRoomCommand(room: ServerRoom, command: GameRoomCommand)
   if (result.changed) {
     room.revision = (room.revision ?? 0) + 1;
     room.sceneEvent = {
-      id: crypto.randomUUID(),
+      id: getRandomUUID(),
       kind: command.type,
       revision: room.revision,
       targetUserId,
@@ -60,7 +63,7 @@ function executeGameRoomCommand(room: ServerRoom, command: GameRoomCommand): Gam
     case 'start_game':
       return startGame(room, command.actorUserId);
     case 'pocket_ball':
-      return pocketBall(room, command.actorUserId, command.cardId);
+      return pocketBall(room, command.actorUserId, command.cardId, command.cardIndex, command.ballNumber);
     case 'draw_penalty':
       return drawPenalty(room, command.actorUserId);
     case 'accidental_pocket':
@@ -70,11 +73,29 @@ function executeGameRoomCommand(room: ServerRoom, command: GameRoomCommand): Gam
     case 'retract_ball':
       return retractLastStep(room);
     case 'referee_pocket_ball':
-      return refereePocketBall(room, command.actorSocketId, command.targetUserId, command.ballNumber);
+      return refereePocketBall(room, command.actorSocketId || '', command.targetUserId, command.ballNumber);
     case 'referee_draw_penalty':
       return refereeDrawPenalty(room, command.targetUserId);
     case 'restart_game':
       return restartGame(room, command.actorUserId);
+    case 'update_settings':
+      if (command.actorUserId !== room.hostUserId) return NO_BROADCAST;
+      if (command.cardsPerPlayer && command.cardsPerPlayer >= 1 && command.cardsPerPlayer <= 10) {
+        room.settings.cardsPerPlayer = command.cardsPerPlayer;
+        addLog(room, `⚙️ 房主修改了每人手牌数为 ${command.cardsPerPlayer} 张`);
+        return CHANGED;
+      }
+      return NO_BROADCAST;
+    case 'kick_player': {
+      if (command.actorUserId !== room.hostUserId || room.status !== 'waiting') return NO_BROADCAST;
+      const kickIdx = room.players.findIndex((p) => p.userId === command.targetUserId);
+      if (kickIdx !== -1 && room.players[kickIdx].userId !== room.hostUserId) {
+        const [kicked] = room.players.splice(kickIdx, 1);
+        addLog(room, `🚪 房主将玩家 ${kicked.name} 移出房间`);
+        return CHANGED;
+      }
+      return NO_BROADCAST;
+    }
     case 'request_restart':
       addLog(room, '🔄 房主发起了重新开始本局对决');
       return CHANGED;
@@ -116,13 +137,29 @@ function startGame(room: ServerRoom, actorUserId: string): GameRoomCommandResult
   return CHANGED;
 }
 
-function pocketBall(room: ServerRoom, actorUserId: string, cardId: string): GameRoomCommandResult {
+function pocketBall(
+  room: ServerRoom,
+  actorUserId: string,
+  cardId: string,
+  cmdCardIndex?: number,
+  cmdBallNumber?: number
+): GameRoomCommandResult {
   if (room.status !== 'playing') return NO_BROADCAST;
 
   const player = room.players.find((p) => p.userId === actorUserId);
   if (!player) return NO_BROADCAST;
 
-  const cardIndex = player.cards.findIndex((c) => c.id === cardId);
+  let cardIndex = -1;
+  if (cardId) {
+    cardIndex = player.cards.findIndex((c) => c.id === cardId);
+  }
+  if (cardIndex === -1 && cmdCardIndex !== undefined) {
+    cardIndex = player.cards.findIndex((c) => cardToIndex(c) === cmdCardIndex);
+  }
+  if (cardIndex === -1 && cmdBallNumber !== undefined) {
+    cardIndex = player.cards.findIndex((c) => c.ballNumber === cmdBallNumber);
+  }
+
   if (cardIndex === -1 || getPocketedBallNumbers(room).includes(player.cards[cardIndex].ballNumber))
     return NO_BROADCAST;
 
@@ -207,7 +244,9 @@ function refereePocketBall(
   if (cardIndex !== -1) {
     const [pocketedCard] = targetPlayer.cards.splice(cardIndex, 1);
     targetPlayer.pocketedCards.push(pocketedCard);
-    const refereePlayer = room.players.find((p) => p.id === actorSocketId);
+    const refereePlayer = room.players.find(
+      (p) => p.id === actorSocketId || p.userId === actorSocketId.replace(/^ble_(host_)?/, '')
+    );
     const isSelfAction = refereePlayer && refereePlayer.userId === targetPlayer.userId;
     const actionText = isSelfAction
       ? `🎯 ${targetPlayer.name} 打进 ${pocketedCard.ballNumber}号球，消去卡牌 [${pocketedCard.suit}${pocketedCard.rank}]`

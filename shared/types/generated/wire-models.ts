@@ -52,7 +52,6 @@ export interface GameLog {
 }
 
 export interface Player {
-  avatar: string;
   cardCount: number;
   cards: Card[];
   id: string;
@@ -106,7 +105,6 @@ export interface RoomSettings {
 export type RoomStatus = 'waiting' | 'playing' | 'ended' | 'finished' | 'lobby';
 
 export interface WinnerInfo {
-  avatar: string;
   id: string;
   name: string;
   userId: string;
@@ -152,7 +150,6 @@ export interface WearSyncRoomPayload {
 }
 
 export interface WearPlayerSummary {
-  avatar: string;
   cardCount: number;
   cards: Card[];
   isWinner: boolean;

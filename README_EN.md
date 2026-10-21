@@ -1,17 +1,19 @@
 # 🎱 PoolPoker
 
-> Real-time multiplayer card combat & pool night companion app — mapping 54 poker cards to pool ball numbers across Web, Mobile & Wear OS.
+> Real-time multiplayer card combat & pool night companion app — mapping 54 poker cards to pool ball numbers across Web, iOS, Android, Wear OS & Apple Watch, with both Online Server and Serverless Bluetooth LE Face-to-Face modes.
 
 🌐 **Language**: [简体中文](README.md) | **English**
 
 [![Node.js](https://img.shields.io/badge/Node.js-v24-brightgreen?logo=nodedotjs)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-v12-orange?logo=pnpm)](https://pnpm.io/)
-[![Vue.js](https://img.shields.io/badge/Vue.js-v3.0-emerald?logo=vuedotjs)](https://vuejs.org/)
+[![Vue.js](https://img.shields.io/badge/Vue.js-v3.5-emerald?logo=vuedotjs)](https://vuejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-v5.8-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![Tauri](https://img.shields.io/badge/Tauri-v2.0-blue?logo=tauri)](https://tauri.app/)
 [![Android](https://img.shields.io/badge/Android-App-green?logo=android)](https://developer.android.com/)
 [![iOS](https://img.shields.io/badge/iOS-App-black?logo=apple)](https://developer.apple.com/)
 [![Wear OS](https://img.shields.io/badge/Wear%20OS-Compose-green?logo=wearos)](https://developer.android.com/wear)
+[![watchOS](https://img.shields.io/badge/watchOS-SwiftUI-black?logo=apple)](https://developer.apple.com/watchos/)
+[![BLE Mesh](https://img.shields.io/badge/Offline-BLE%20Multiplayer-0082FC?logo=bluetooth)](docs/ble_offline_architecture.md)
 
 ---
 
@@ -19,227 +21,165 @@
 
 - [Overview](#overview)
 - [Key Features](#key-features)
-- [Architecture](#architecture)
-- [Prerequisites](#prerequisites)
+- [Architecture & Tech Stack](#architecture--tech-stack)
 - [Getting Started](#getting-started)
-  - [1. Quick Launch Script](#1-quick-launch-script)
-  - [2. Local Development](#2-local-development)
-  - [3. Production Build & Server](#3-production-build--server)
-  - [4. Mobile & Wear OS Builds](#4-mobile--wear-os-builds)
-- [3D Table Asset](#3d-table-asset)
+  - [Prerequisites](#prerequisites)
+  - [Local Development & Server](#local-development--server)
+  - [Mobile & Smartwatch Builds](#mobile--smartwatch-builds)
 - [Testing & Quality Assurance](#testing--quality-assurance)
-- [Configuration](#configuration)
-- [Documentation](#documentation)
+- [Configuration & 3D Assets](#configuration--3d-assets)
+- [Documentation Index](#documentation-index)
 
 ---
 
 ## Overview
 
-**PoolPoker** is a real-time multiplayer web & mobile application designed for offline pool nights.
+**PoolPoker** is a cross-platform multiplayer card & scoring companion app designed for offline pool nights with friends.
 
-The game mechanics map a standard 54-card poker deck to pool ball numbers: A–K map to balls 1–13, small joker to 14, and big joker to 15 (always including the 8-ball). Players create or join a room using a simple 4-digit code and pocket balls by playing matching cards. The first player to clear all valid cards wins.
+It maps a standard **54-card poker deck** to **pool balls 1–15**:
+- **A – K** map to **Balls 1 – 13** (always including the 8-ball)
+- **Small Joker** maps to **Ball 14**, and **Big Joker** maps to **Ball 15**
 
-The application features full real-time synchronization across Web browsers, iOS/Android mobile apps, and Wear OS smartwatches.
+Each player is dealt a hand of cards at the start of a round (5 by default). Whenever a ball is pocketed on the physical pool table, players holding the matching rank tap the card to clear it; cards whose corresponding ball has already been pocketed are automatically dimmed as "no need to play". **The first player to clear all valid cards in their hand wins**, and round scores are settled automatically with rank-combo multipliers.
 
 ---
 
 ## Key Features
 
-- 🃏 **Poker Deck & Ball Mapping**: 54 cards (52 standard + 2 jokers) mapped to pool balls 1–15 including the 8-ball.
-- 🔢 **4-Digit Quick Rooms**: Simple room code system for instant creation and join via numeric keypad.
-- ⚡ **Low-Latency Real-Time Sync**: Real-time card clearing, penalties, and game state updates via Socket.IO.
-- 📱⌚ **Cross-Platform Support**: Web browser, iOS & Android apps (Tauri v2), and native Wear OS smartwatch app (Jetpack Compose).
-- 🔒 **Seamless Reconnection**: Persistent player identity tokens restore hands automatically after app restart or page refresh.
-- 🎱 **Immersive 3D Table**: A Blender-authored six-pocket table rendered with Three.js, including leather pockets, net baskets, PBR materials, and responsive ball hit targets.
+- 🃏 **Complete Pool-Poker Rule Engine**: Supports dealing, pocketing cards, auto-dimming pocketed numbers, foul penalty draws, break-shot pockets, accidental pockets, referee proxy recording, full-step state snapshot undo, and combo-multiplier score settlement.
+- 📡 **Dual Connectivity (Online Server & Serverless BLE Offline)**:
+  - **Online Server Mode**: Create or join rooms via a 4-digit code or 300m geolocation nearby discovery, synchronized in real time over Socket.IO.
+  - **Serverless BLE Face-to-Face Mode**: Play in basement pool halls with zero internet access. Phones connect directly over Bluetooth Low Energy (GATT star topology) while the host phone runs the authoritative TypeScript domain engine (`LocalHostEngine`) in-memory.
+- 🎱 **Immersive 3D Arena & Classic 2D Views**:
+  - **v2 Immersive 3D View**: Three.js six-pocket billiards table rendered from a Blender GLB model with pocket animations, projected ball hit targets, and a 3D fan hand deck.
+  - **v1 Classic 2D View**: Compact dashboard with live action logs, switchable anytime.
+- 📱⌚ **Full Cross-Platform Coverage**:
+  - **Web & Mobile Apps**: Responsive Vue 3 SPA packaged into native Android & iOS apps via Tauri v2.
+  - **Wear OS & Apple Watch**: Standalone native smartwatch apps built with Jetpack Compose (`:wear-app`) and SwiftUI (`poolpoker_watchOS`).
+- 🔒 **JSON Schema SSOT & Session Security**: Draft-07 JSON Schemas generate TypeScript, Kotlin, and Swift wire models; persistent `userId` and `sessionToken` credentials restore private hands seamlessly on reconnect.
 
 ---
 
-## Architecture
-
-PoolPoker uses a centralized backend domain engine serving multi-platform clients:
+## Architecture & Tech Stack
 
 ```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│                              Clients                                    │
-│  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐  ┌───────────┐  │
-│  │ Vue 3 Web    │   │ iOS App      │   │ Android App  │  │ Wear OS   │  │
-│  │ (Browser)    │   │ (Tauri v2)   │   │ (Tauri v2)   │  │ App       │  │
-│  └──────┬───────┘   └──────┬───────┘   └──────┬───────┘  └─────┬─────┘  │
-└─────────┼──────────────────┼──────────────────┼────────────────┼────────┘
-          │                  │                  │                │
-          └──────────────────┴────────┬─────────┴────────────────┘
-                                      │ WebSocket / DataLayer
-                                      ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                            Backend Server                               │
-│                     server/socketHandlers.ts                            │
-│                                     │                                   │
-│           ┌─────────────────────────┼─────────────────────────┐         │
-│           ▼                         ▼                         ▼         │
-│   gameEngine.ts               pokerDeck.ts              roomManager.ts  │
-│ (Domain Rules & Win Cond)    (Shuffle & Deal)       (Room & State Sync) │
-└─────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                            Multi-Platform Clients                             │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌───────────────────┐  │
+│  │ Web Browser  │  │ Android App  │  │   iOS App    │  │ Wear OS / watchOS │  │
+│  │ (Vue 3 SPA)  │  │  (Tauri v2)  │  │  (Tauri v2)  │  │ Native Watch Apps │  │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘  └─────────┬─────────┘  │
+└─────────┼─────────────────┼─────────────────┼────────────────────┼────────────┘
+          │                 │                 │                    │
+          ▼                 ▼                 ▼                    ▼
+  [Mode A: Online Server Mode (WebSocket / HTTP Long-Polling / Watch Companion)]
+          │
+          ▼
+┌───────────────────────────────────────────────────────────────────────────────┐
+│ Node.js Authoritative Server (server/)                                        │
+│  socketHandlers.ts ──► gameRoomService.ts ──► gameEngine / gameState / deck   │
+│  roomManager.ts (clips private hands per userId + multi-socket broadcast)     │
+└───────────────────────────────────────────────────────────────────────────────┘
+
+  [Mode B: Serverless BLE Face-to-Face Mode (Bluetooth Low Energy Mesh)]
+          │
+          ▼
+┌───────────────────────────────────────────────────────────────────────────────┐
+│ Virtual BLE Transport (src/services/bleTransport.ts)                          │
+│  ├─ Host Phone (Peripheral): LocalHostEngine (Pure TS Engine) + GATT Server   │
+│  └─ Guest Phone (Central):   Compact Binary Codec + Dynamic MTU Reassembler   │
+└───────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Tech Stack
 
-| Module | Technology | Description |
+| Layer | Technology | Role |
 | :--- | :--- | :--- |
-| **Web Frontend** | Vue 3 + TypeScript + Vite + Tailwind CSS | Component-based responsive UI |
-| **Mobile Container** | Tauri v2 | Packaging iOS & Android native apps |
-| **Wear OS App** | Kotlin + Jetpack Compose for Wear OS | Standalone native smartwatch app |
-| **Backend Server** | Node.js + Express + Socket.IO | In-memory room management & domain engine |
-| **Quality Assurance** | Vitest + Playwright + Biome | Unit testing, E2E integration tests & linting |
-
----
-
-## Prerequisites
-
-Before building or running the project, ensure your environment meets the following requirements:
-
-- **Node.js**: `>= 24.0.0` (Recommended: use `nvm`)
-- **pnpm**: `>= 10.0.0` (Install via `corepack enable` or `npm i -g pnpm`)
-- **Android SDK & JDK 17+ (Optional)**: For building `:app` and `:wear-app`
-- **macOS & Xcode 15+ (Optional)**: For building iOS App
-- **Rust Toolchain (Optional)**: Cargo & Rust for Tauri CLI native compilation
-- **Blender & Git LFS (Optional, for table asset maintenance)**: Blender edits `assets/models/billiards_table.blend`; Git LFS versions that source file.
+| **Web Frontend & 3D** | Vue 3 + TypeScript + Vite + Tailwind CSS + Three.js | Reactive UI, v1/v2 views, 3D table arena, and composables |
+| **Mobile Runtime** | Tauri v2 + Rust (`src-tauri/`) | Native Android/iOS packaging, JNI & Swift C-ABI bridges |
+| **Android & Wear OS** | Kotlin + Jetpack Compose for Wear OS (`android/`) | `:app`, `:wear-app`, `:phone-companion`, `:shared-models` |
+| **iOS & Apple Watch** | Swift + SwiftUI + CoreBluetooth (`apple/`) | iOS host bridge and native `poolpoker_watchOS` companion |
+| **Online Backend** | Node.js + Express + Socket.IO (`server/`) | In-memory room lifecycle, CSPRNG deck, undo snapshots, WeCom bot |
+| **SSOT & QA** | JSON Schema (`quicktype`) + Vitest + Playwright + Biome | Cross-language model codegen, unit/E2E tests, and linting |
 
 ---
 
 ## Getting Started
 
-### 1. Quick Launch Script
+### Prerequisites
 
-Run `run.sh` at the project root to install dependencies, build the frontend, and start the server:
+- **Node.js**: `>= 24.0.0` (use `nvm use` with the root `.nvmrc`)
+- **pnpm**: `>= 12.6.0`
+- **Optional Native Toolchains**:
+  - **Rust**: `cargo` & `rustup` (for `src-tauri`)
+  - **Android / Wear OS**: JDK 17+, Android SDK & NDK
+  - **iOS / watchOS**: macOS + Xcode 15+
 
-```bash
-chmod +x run.sh
-./run.sh
-```
-
-Open `http://localhost:3000` in your browser.
-
-### 2. Local Development
-
-Run the backend server (port `3000`) and Vite dev server (port `5173`) concurrently with HMR:
+### Local Development & Server
 
 ```bash
-# Switch Node.js version and install dependencies
+# 1. Switch Node version and install dependencies
 nvm use
 pnpm install
 
-# Start backend + frontend dev mode
+# 2. Start backend (:3000) + frontend Vite dev server (:5173) concurrently
 pnpm run dev
 ```
 
-To run services individually:
-- Backend only: `pnpm run dev:backend`
-- Frontend only: `pnpm run dev:frontend`
+Other common commands:
+- Backend only (watch mode): `pnpm run dev:backend`
+- Frontend only (Vite HMR): `pnpm run dev:frontend`
+- Production build & start: `pnpm start` (`pnpm run build && tsx server/index.ts`)
+- Quick one-step launch script: `./run.sh`
 
-### 3. Production Build & Server
-
-Build static frontend assets and launch Express/Socket.IO server in production mode:
+### Mobile & Smartwatch Builds
 
 ```bash
-# Build frontend (Vue 3 + TypeScript)
-pnpm run build
-
-# Start production server
-pnpm start
-```
-
-### 4. Mobile & Wear OS Builds
-
-The project uses Tauri v2 to package the web frontend into Android and iOS mobile applications:
-
-#### Android Build (`android/`)
-```bash
-# Build Debug APK
+# Android Debug / Release APK
 pnpm pipeline android-debug --full
-
-# Build Release APK (with R8 obfuscation and signing)
 pnpm pipeline android-release --full
-```
-> 💡 Generated Release APK is located at `android/app/build/outputs/apk/release/app-release.apk`. You can also open `android/` directly in Android Studio for multi-module debugging.
 
-#### iOS Build & Debug (`apple/`)
-```bash
-# Launch iOS simulator / dev mode
+# iOS Simulator live dev & Debug / Release builds
 pnpm exec tauri ios dev
-
-# Build iOS Debug bundle
 pnpm pipeline ios-debug --full
-
-# Build iOS production bundle
 pnpm pipeline ios-release --full
 ```
 
----
-
-## 3D Table Asset
-
-The web runtime loads `public/models/billiards_table.glb`; its editable source is `assets/models/billiards_table.blend`. The Blender source is managed with Git LFS. Run this once when first maintaining the model in a clone:
-
-```bash
-git lfs install --local --skip-repo
-git lfs ls-files
-```
-
-Keep the six `PocketTarget_*` empty objects when exporting: they provide the targets for the web pocket animation. Preview renders and Blender backup files are local-only. See [Table Asset Pipeline](docs/table_asset_pipeline.md) for export settings and verification.
+> See [Mobile Build Pipeline](docs/mobile_build_pipeline.md) for `--dry-run` inspection and concurrency slot details.
 
 ---
 
 ## Testing & Quality Assurance
 
-### Unit Tests (Vitest)
-Run unit tests for domain logic, room management, and scoring rules:
 ```bash
-pnpm run test:unit         # Run all unit tests
-pnpm run test:unit:watch   # Watch mode for development
-```
-
-### Automated E2E Integration Tests (Playwright)
-Run end-to-end tests for multi-player room interactions:
-```bash
-pnpm run test:e2e
-```
-
-### Code Style & Linting (Biome)
-```bash
-pnpm run lint              # Check code style and type errors
-pnpm run format            # Format code
+pnpm run codegen:models   # Generate TS / Kotlin / Swift wire models from shared/schemas/
+pnpm run codegen:check    # Verify generated wire models match JSON schemas
+pnpm run test:unit        # Run Vitest unit tests (domain engine, BLE binary protocol, LocalHostEngine)
+pnpm run test:e2e         # Run Playwright end-to-end tests
+pnpm run lint             # Run Biome lint & type checks
+pnpm run format           # Format codebase with Biome
 ```
 
 ---
 
-## Configuration
+## Configuration & 3D Assets
 
-### `config.yaml`
-Server runtime configuration:
-```yaml
-app_name: "PoolPoker · 球霸扑克"
-port: 3000                  # Server port
-
-room:
-  default_cards_per_player: 5 # Cards per player
-  max_players: 8             # Max room capacity
-  disconnect_timeout_ms: 3600000 # Disconnect cleanup timeout (ms)
-```
-
-
-### `android/gradle.properties.local`
-Local environment variables for Android / Wear OS (git-ignored):
-```properties
-POOLPOKER_SERVER_URL=http://192.168.1.100:3000
-POOLPOKER_WATCH_PLAYER_NAME=WatchPlayer
-```
+1. **Server Runtime (`config.yaml`)**: Configures `port` (`3000`), `room.default_cards_per_player` (`5`), `room.max_players` (`8`), and `room.disconnect_timeout_ms` (`3600000`).
+2. **Android / Wear OS Local Properties (`android/gradle.properties.local`)**: Git-ignored file for injecting `POOLPOKER_SERVER_URL` and `POOLPOKER_WATCH_PLAYER_NAME` into `BuildConfig`.
+3. **3D Billiards Table (`assets/models/billiards_table.blend` → `public/models/billiards_table.glb`)**: Tracked via Git LFS (`git lfs install --local --skip-repo`). Preserve the six `PocketTarget_*` anchor objects when exporting. See [Table Asset Pipeline](docs/table_asset_pipeline.md).
 
 ---
 
-## Documentation
+## Documentation Index
 
-- 📖 **[System Design & Architecture](docs/overview.md)**: Data flow diagram, domain model contract, and state transitions.
-- 📱 **[Android & Tauri Architecture](docs/android_tauri_architecture.md)**: Android Gradle setup, Wearable DataLayer sync, and Tauri v2 integration.
-- ⌚ **[Wear OS Native App Architecture](docs/wear_app_architecture.md)**: Jetpack Compose for Wear OS UI layout and swipe-to-dismiss navigation.
-- 📝 **[Implementation Log](docs/implement_log.md)**: Historical design decisions and changelog.
-- 🎱 **[Table Asset Pipeline](docs/table_asset_pipeline.md)**: Blender source, GLB export, pocket anchors, and Git LFS maintenance workflow.
+| Document | Description |
+| :--- | :--- |
+| 📖 **[System Architecture Overview (`docs/overview.md`)](docs/overview.md)** | Core rules, dual-mode data flow, module responsibilities, hand clipping, and undo stack |
+| 蓝牙 **[BLE Offline Architecture (`docs/ble_offline_architecture.md`)](docs/ble_offline_architecture.md)** | Serverless BLE star topology, `LocalHostEngine`, GATT UUIDs, binary frame spec & dynamic MTU chunking |
+| 📍 **[Nearby Room Discovery (`docs/nearby_room_discovery.md`)](docs/nearby_room_discovery.md)** | Geolocation-based nearby room discovery, accuracy convergence, and privacy model |
+| 📱 **[Android & Tauri Architecture (`docs/android_tauri_architecture.md`)](docs/android_tauri_architecture.md)** | Android multi-module Gradle setup, Tauri v2 integration, and Wear OS DataLayer sync |
+| ⌚ **[Wear OS Native Architecture (`docs/wear_app_architecture.md`)](docs/wear_app_architecture.md)** | Jetpack Compose for Wear OS modules, session recovery, and swipe-to-dismiss navigation |
+| 🍎 **[Apple Watch Architecture (`docs/apple_watch_architecture.md`)](docs/apple_watch_architecture.md)** | watchOS 10+ SwiftUI app, Engine.IO long polling, WCSession bridge, and String Catalog localization |
+| 🛠️ **[Mobile Build Pipeline (`docs/mobile_build_pipeline.md`)](docs/mobile_build_pipeline.md)** | Android / iOS build orchestration, preflight checks, and concurrency locks |
+| 🎱 **[Table Asset Pipeline (`docs/table_asset_pipeline.md`)](docs/table_asset_pipeline.md)** | Blender source conventions, GLB export settings, and pocket target verification |
+| 📝 **[Implementation Log (`docs/implement_log.md`)](docs/implement_log.md)** | Round-by-round engineering decisions, reviews, and changelog |

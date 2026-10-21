@@ -50,7 +50,6 @@ function createDummyRoom(): ServerRoom {
         id: 'p1',
         userId: 'user-1',
         name: 'Player 1',
-        avatar: '',
         isHost: true,
         online: true,
         cards: [card1, card2],

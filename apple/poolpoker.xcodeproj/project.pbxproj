@@ -8,54 +8,150 @@
 
 /* Begin PBXBuildFile section */
 		0FFB030A4D813CB431E0F9ED /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C75A90F0308C3FDD7B701C1 /* CoreGraphics.framework */; };
+		13D6DFB72AE45DBAA8AC3753 /* SettlementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DCEC5D81A249D39CBA647C2 /* SettlementView.swift */; };
+		1ADF5FC81C97A481E3565103 /* PoolPokerWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = B26BA4D586A4EF23DB1570C4 /* PoolPokerWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1B96EAD42A3A1BACA3DB3540 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = 48D3AAC67060EACAD8F3434D /* main.mm */; };
+		23CD303BFC6652C5F8E11D87 /* WatchConnectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71D12AB32CD09A9C43D6A59B /* WatchConnectView.swift */; };
 		3356170A50ED9236C1FA2C47 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 22F75D582AED0A711AE69CBD /* Security.framework */; };
 		491716A0A2A5BBA2D3070179 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FD1449EA6F211B59E739C9E0 /* Assets.xcassets */; };
 		53BA7B79108509B4C5A88EEB /* libapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D41D9D37F8BEFCD21370C442 /* libapp.a */; };
+		54F4444EF7E92B1CDD608384 /* WatchConnectivityReceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBCE58B7913980157EA5CF1C /* WatchConnectivityReceiver.swift */; };
+		59D486E3C396B0AA443546B0 /* RoomCredential.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20066BF475245FA0A3043176 /* RoomCredential.swift */; };
+		5C2FBAFE6761E16BCD5E7984 /* PoolPokerWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5F90FAD5546AFD4304FF299 /* PoolPokerWatchApp.swift */; };
+		6736D65561076ACF5B7F0A7E /* WatchSessionBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EF581F01C749FC30A57CDA0 /* WatchSessionBridge.swift */; };
+		7219BD008E9E0095B88C7383 /* SocketTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD61AC49C55349938F58710B /* SocketTransport.swift */; };
 		7BAE149A70266CDADBC510F7 /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CA56DA66FD94A99318CA4B92 /* WebKit.framework */; };
+		7C9207771D67C6DE38FDCAB8 /* WireModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCC5862F150C7658D2F8FB49 /* WireModels.swift */; };
+		99068B13253067A3EB93EDEF /* WatchRoomStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63049E31685C9C6953D788BA /* WatchRoomStore.swift */; };
 		9E500DA384FC1FC4AE4F96C9 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4867ED4AC496203BF31258BE /* UIKit.framework */; };
 		9ED4290527422DCD860D69C0 /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 43B843AA3809A46755EFA922 /* MetalKit.framework */; };
 		A0F6F65CCF9F91310B827CA4 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 089ACCD440E1A6B2B32EEA3B /* QuartzCore.framework */; };
+		C567579B314E3CC2372ED7C4 /* WatchGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B73D70411748352A60459F8 /* WatchGameView.swift */; };
 		C63C0BC5432F93F5AFDB9244 /* libapp.a in Resources */ = {isa = PBXBuildFile; fileRef = A3400366B982B211CD19C140 /* libapp.a */; };
+		CC4D50E2304A824D4C0438EA /* BleMeshBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98ECD05368FFFF5249FE4468 /* BleMeshBridge.swift */; };
 		CF2E61D23F03BC62493F1911 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = B1D950B32ABE36124496A632 /* assets */; };
 		CFD956F26E4B8CF6A5AC6F08 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BE64EC480980599D01421337 /* Metal.framework */; };
+		D24FF2EB92561B1A7BDBDD8A /* NearbyRoomsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90F76C5435AFCEC046C8942 /* NearbyRoomsStore.swift */; };
 		DD813E33CBBBE082FAE5339D /* LaunchScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C81EBECE8421318ABA804B13 /* LaunchScreenView.swift */; };
+		E229C1417785AD823690EC60 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 7743E6F0095E38896A9F7A7B /* Localizable.xcstrings */; };
+		E5F296E62B91ED7C672D6DDD /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31D421CA5F80FC4E814BBDDA /* Localization.swift */; };
+		E688C3AD2570A2FDC1C02CC7 /* RoomCredential.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20066BF475245FA0A3043176 /* RoomCredential.swift */; };
+		F27360C8CB569250D7584FE9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1BB8B3CEA9FA8596157746BC /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		B6CBEEC116E82DC57A799805 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E2D1319648EC0563DB8BE051 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DB2F95D2D4FFF271AAAF82FF;
+			remoteInfo = poolpoker_watchOS;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		D194717D4FE53155D9EFCE5A /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				1ADF5FC81C97A481E3565103 /* PoolPokerWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		E3C0F19A2D789B1000000001 /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
 		089ACCD440E1A6B2B32EEA3B /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
+		0A550A436784BA73C88B6B74 /* HandDeckFan.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = HandDeckFan.vue; sourceTree = "<group>"; };
+		0B73D70411748352A60459F8 /* WatchGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchGameView.swift; sourceTree = "<group>"; };
+		0C95ADBFEF7EE1F5D0D193B8 /* geolocationProvider.spec.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = geolocationProvider.spec.ts; sourceTree = "<group>"; };
 		0DC035413E90DD3092EA62D7 /* useGameRoom.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = useGameRoom.ts; sourceTree = "<group>"; };
 		11169BFD1843766FE2399720 /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
 		114CB9FE8ED57163CA958871 /* RestartModal.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = RestartModal.vue; sourceTree = "<group>"; };
+		133F88B4AB838E32C6A8AC1E /* useNearbyRooms.spec.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = useNearbyRooms.spec.ts; sourceTree = "<group>"; };
+		17E865ACCBBDCD2A878DA191 /* ballLayout.spec.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = ballLayout.spec.ts; sourceTree = "<group>"; };
 		1A7D4AF79AF704551627F1B5 /* GameHeader.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = GameHeader.vue; sourceTree = "<group>"; };
-		1EDE7C6C5AF6092920B45E31 /* PokerCard.vue */ = {isa = PBXFileReference; lastKnownFileType = file; path = PokerCard.vue; sourceTree = "<group>"; };
+		1BB8B3CEA9FA8596157746BC /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		1D37D6C02898045449B2438E /* ballTexture.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = ballTexture.ts; sourceTree = "<group>"; };
+		20066BF475245FA0A3043176 /* RoomCredential.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomCredential.swift; sourceTree = "<group>"; };
 		22F75D582AED0A711AE69CBD /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
-		265229D3208BABF2471F8B1C /* GameLogs.vue */ = {isa = PBXFileReference; lastKnownFileType = file; path = GameLogs.vue; sourceTree = "<group>"; };
+		241C43ED1342C1307A29E62A /* ballLayout.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = ballLayout.ts; sourceTree = "<group>"; };
 		2BCD7009D4DDF2C4EC6CE275 /* dialog.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = dialog.ts; sourceTree = "<group>"; };
+		2E6D9AD94E42CEF4560728D1 /* geolocationTimestamp.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = geolocationTimestamp.ts; sourceTree = "<group>"; };
+		30DE8E9970AD91FFBAF2DDA8 /* NearbyRooms.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = NearbyRooms.vue; sourceTree = "<group>"; };
+		31D421CA5F80FC4E814BBDDA /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
 		334A80F55889756065870C16 /* RefereePocketModal.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = RefereePocketModal.vue; sourceTree = "<group>"; };
 		388D79B9F7F48850BE166419 /* RoomLobby.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = RoomLobby.vue; sourceTree = "<group>"; };
+		39A34060610AB67110690F62 /* GameMinimalHud.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = GameMinimalHud.vue; sourceTree = "<group>"; };
+		43357A8D18D03156B4C09948 /* PermissionGuideModal.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = PermissionGuideModal.vue; sourceTree = "<group>"; };
 		43B843AA3809A46755EFA922 /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
 		4867ED4AC496203BF31258BE /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
 		48D3AAC67060EACAD8F3434D /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
-		4ED9B4A454EF1495E3CB5361 /* BilliardsTable.vue */ = {isa = PBXFileReference; lastKnownFileType = file; path = BilliardsTable.vue; sourceTree = "<group>"; };
+		491EDEFD438F3C4CE3F81E0C /* GameView.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = GameView.vue; sourceTree = "<group>"; };
+		4949CBABCB283F361815B7C2 /* localHostEngine.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = localHostEngine.ts; sourceTree = "<group>"; };
+		4C31ED3267471B6A8B28DBFE /* BallAssignSheet.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = BallAssignSheet.vue; sourceTree = "<group>"; };
+		4EF581F01C749FC30A57CDA0 /* WatchSessionBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchSessionBridge.swift; sourceTree = "<group>"; };
 		558E802AFB6505312AA9395B /* main.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = main.css; sourceTree = "<group>"; };
 		5C75A90F0308C3FDD7B701C1 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
+		61AC1D3B51D9F77AC8244A21 /* RecordingPlayerDropdown.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = RecordingPlayerDropdown.vue; sourceTree = "<group>"; };
+		63049E31685C9C6953D788BA /* WatchRoomStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRoomStore.swift; sourceTree = "<group>"; };
+		693F6533D623832799624968 /* Simulator.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Simulator.entitlements; sourceTree = "<group>"; };
+		703C9A3BE34A24457247A69D /* PokerCardProp.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = PokerCardProp.vue; sourceTree = "<group>"; };
+		71D12AB32CD09A9C43D6A59B /* WatchConnectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectView.swift; sourceTree = "<group>"; };
+		7252151EFA01AF1EACEC7B71 /* localHostEngine.spec.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = localHostEngine.spec.ts; sourceTree = "<group>"; };
 		73492674D5BC0E268174E775 /* useSocket.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = useSocket.ts; sourceTree = "<group>"; };
+		7743E6F0095E38896A9F7A7B /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		7919FAC7A6F41B18B9407443 /* bleTransport.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = bleTransport.ts; sourceTree = "<group>"; };
+		7ADF1C397CB74ADB2D79C76B /* bleTransport.spec.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = bleTransport.spec.ts; sourceTree = "<group>"; };
+		7C53DF27167C4C03ECF3859B /* provider.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = provider.ts; sourceTree = "<group>"; };
+		7CEA17C787D81B0BF05B1285 /* useBallAppearance.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = useBallAppearance.ts; sourceTree = "<group>"; };
+		87F9176902DFE5D135A30E27 /* bleScanner.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = bleScanner.ts; sourceTree = "<group>"; };
+		8DCEC5D81A249D39CBA647C2 /* SettlementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettlementView.swift; sourceTree = "<group>"; };
+		98ECD05368FFFF5249FE4468 /* BleMeshBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BleMeshBridge.swift; sourceTree = "<group>"; };
 		9F6940AA0B5083AC9F55FFAD /* App.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = App.vue; sourceTree = "<group>"; };
+		A219B3C276FAA538B9880DF5 /* roomPresentation.spec.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = roomPresentation.spec.ts; sourceTree = "<group>"; };
+		A2DAB081487C418D33EF1509 /* uiPreferences.spec.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = uiPreferences.spec.ts; sourceTree = "<group>"; };
 		A3400366B982B211CD19C140 /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
+		A76CC1C960E1D7F60682E7A7 /* GameLogs.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = GameLogs.vue; sourceTree = "<group>"; };
+		AD61AC49C55349938F58710B /* SocketTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocketTransport.swift; sourceTree = "<group>"; };
 		B1D950B32ABE36124496A632 /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = SOURCE_ROOT; };
+		B26BA4D586A4EF23DB1570C4 /* PoolPokerWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PoolPokerWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B491DF3C209E8763DED5DC36 /* poolpoker_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = poolpoker_iOS.entitlements; sourceTree = "<group>"; };
+		B5F90FAD5546AFD4304FF299 /* PoolPokerWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoolPokerWatchApp.swift; sourceTree = "<group>"; };
+		B781AC172C55D66FB58B5C3C /* geolocationTimestamp.spec.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = geolocationTimestamp.spec.ts; sourceTree = "<group>"; };
+		B9F6E42D32CD21916369C187 /* useUiPreferences.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = useUiPreferences.ts; sourceTree = "<group>"; };
+		BA7A8AEA94B2B654EBD091F4 /* roomPresentation.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = roomPresentation.ts; sourceTree = "<group>"; };
 		BE64EC480980599D01421337 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		C02697BDA965D41BC5B32A68 /* usePlayerProfile.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = usePlayerProfile.ts; sourceTree = "<group>"; };
 		C81EBECE8421318ABA804B13 /* LaunchScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchScreenView.swift; sourceTree = "<group>"; };
+		C9F0CB84D352208E2C8F8713 /* useNearbyRooms.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = useNearbyRooms.ts; sourceTree = "<group>"; };
 		CA56DA66FD94A99318CA4B92 /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
+		CC1BEEA09D411448DA9309BD /* GameView.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = GameView.vue; sourceTree = "<group>"; };
 		D09CF97F97097F4E0D8B4ABB /* PoolPoker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PoolPoker.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D41D9D37F8BEFCD21370C442 /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
 		DA6165FCBFAC4FC46C74C536 /* main.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = main.ts; sourceTree = "<group>"; };
+		DAEAD3B6839F9EFF0E10972C /* useGameAudio.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = useGameAudio.ts; sourceTree = "<group>"; };
+		E224061E6CB903C6125D9275 /* GameLogTicker.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = GameLogTicker.vue; sourceTree = "<group>"; };
 		E34E7DFCF2391F0E79A78A3C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		E5DF4E5240C28A7FADB0A51B /* tableModelLoader.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = tableModelLoader.ts; sourceTree = "<group>"; };
+		EB3708264408AD18679DB445 /* BilliardsTable.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = BilliardsTable.vue; sourceTree = "<group>"; };
+		EC17709A554716967F497844 /* GameControlDrawer.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = GameControlDrawer.vue; sourceTree = "<group>"; };
+		ECE8189F2EA859FB69AB7185 /* PokerCard.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = PokerCard.vue; sourceTree = "<group>"; };
 		ECE94D94052D0EE3B7A686FA /* VictoryModal.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = VictoryModal.vue; sourceTree = "<group>"; };
+		ED1DF00FCB9B2F2A57ECB2F3 /* bleScanner.spec.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = bleScanner.spec.ts; sourceTree = "<group>"; };
+		F22D0FF4909D216D3890A9CD /* BallIcon.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = BallIcon.vue; sourceTree = "<group>"; };
+		F8B75224FC08A7127E15F526 /* ThreeBilliardsArena.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = ThreeBilliardsArena.vue; sourceTree = "<group>"; };
+		F90F76C5435AFCEC046C8942 /* NearbyRoomsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearbyRoomsStore.swift; sourceTree = "<group>"; };
+		FBCE58B7913980157EA5CF1C /* WatchConnectivityReceiver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityReceiver.swift; sourceTree = "<group>"; };
 		FC4D4149E53676586427EDE6 /* RefereeFoulModal.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = RefereeFoulModal.vue; sourceTree = "<group>"; };
+		FCC5862F150C7658D2F8FB49 /* WireModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WireModels.swift; sourceTree = "<group>"; };
 		FD1449EA6F211B59E739C9E0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		FD78424481D076B88BB6E586 /* geolocationProvider.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = geolocationProvider.ts; sourceTree = "<group>"; };
+		FF11A7C2707B1A5A39F850A0 /* TableOpponentSeats.vue */ = {isa = PBXFileReference; lastKnownFileType = text; path = TableOpponentSeats.vue; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -80,17 +176,37 @@
 		025F4D2B0ED39AA948AC38DE /* components */ = {
 			isa = PBXGroup;
 			children = (
-				4ED9B4A454EF1495E3CB5361 /* BilliardsTable.vue */,
+				F22D0FF4909D216D3890A9CD /* BallIcon.vue */,
 				1A7D4AF79AF704551627F1B5 /* GameHeader.vue */,
-				265229D3208BABF2471F8B1C /* GameLogs.vue */,
-				1EDE7C6C5AF6092920B45E31 /* PokerCard.vue */,
+				30DE8E9970AD91FFBAF2DDA8 /* NearbyRooms.vue */,
+				43357A8D18D03156B4C09948 /* PermissionGuideModal.vue */,
 				FC4D4149E53676586427EDE6 /* RefereeFoulModal.vue */,
 				334A80F55889756065870C16 /* RefereePocketModal.vue */,
 				114CB9FE8ED57163CA958871 /* RestartModal.vue */,
 				388D79B9F7F48850BE166419 /* RoomLobby.vue */,
 				ECE94D94052D0EE3B7A686FA /* VictoryModal.vue */,
+				54A41B1DD527A3B905E4E02F /* v1 */,
+				9E671D16417991EF6A2DF178 /* v2 */,
 			);
 			path = components;
+			sourceTree = "<group>";
+		};
+		13D95605A8931CCBAC5B5673 /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				FCC5862F150C7658D2F8FB49 /* WireModels.swift */,
+			);
+			path = Generated;
+			sourceTree = "<group>";
+		};
+		211AB23B41C227EAEB16A269 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				20066BF475245FA0A3043176 /* RoomCredential.swift */,
+				693F6533D623832799624968 /* Simulator.entitlements */,
+				13D95605A8931CCBAC5B5673 /* Generated */,
+			);
+			path = Shared;
 			sourceTree = "<group>";
 		};
 		2ADFA0F5999E4AB76DF928AF /* bindings */ = {
@@ -104,7 +220,11 @@
 		30F62D6A59B2D2C772C49DB8 /* utils */ = {
 			isa = PBXGroup;
 			children = (
+				241C43ED1342C1307A29E62A /* ballLayout.ts */,
+				1D37D6C02898045449B2438E /* ballTexture.ts */,
 				2BCD7009D4DDF2C4EC6CE275 /* dialog.ts */,
+				BA7A8AEA94B2B654EBD091F4 /* roomPresentation.ts */,
+				E5DF4E5240C28A7FADB0A51B /* tableModelLoader.ts */,
 			);
 			path = utils;
 			sourceTree = "<group>";
@@ -120,23 +240,36 @@
 		3CD0CCE7231864EDADC1608E = {
 			isa = PBXGroup;
 			children = (
+				E3C0F19A2D789B1000000001 /* Config.xcconfig */,
 				B1D950B32ABE36124496A632 /* assets */,
 				FD1449EA6F211B59E739C9E0 /* Assets.xcassets */,
 				98BFF0DB21FFACA71A152023 /* Externals */,
 				D005443C476036173227C865 /* poolpoker_iOS */,
+				211AB23B41C227EAEB16A269 /* Shared */,
 				DE027CED9592826557D3976A /* Sources */,
 				9F02D8E01A2775FEDC9AD823 /* src */,
+				F7495C900C9B198A83749810 /* WatchApp */,
 				D5E138217A337EEB0F4942E4 /* Frameworks */,
 				65CA7E90D63485281DC8E003 /* Products */,
-				20942848E9B9C03949C6710C,
 			);
+			sourceTree = "<group>";
+		};
+		54A41B1DD527A3B905E4E02F /* v1 */ = {
+			isa = PBXGroup;
+			children = (
+				EB3708264408AD18679DB445 /* BilliardsTable.vue */,
+				A76CC1C960E1D7F60682E7A7 /* GameLogs.vue */,
+				491EDEFD438F3C4CE3F81E0C /* GameView.vue */,
+				ECE8189F2EA859FB69AB7185 /* PokerCard.vue */,
+			);
+			path = v1;
 			sourceTree = "<group>";
 		};
 		65CA7E90D63485281DC8E003 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				D09CF97F97097F4E0D8B4ABB /* PoolPoker.app */,
-				455D7A0213C093D812096E00,
+				B26BA4D586A4EF23DB1570C4 /* PoolPokerWatch.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -144,11 +277,39 @@
 		7971D527849EEE32B3788D86 /* poolpoker */ = {
 			isa = PBXGroup;
 			children = (
+				98ECD05368FFFF5249FE4468 /* BleMeshBridge.swift */,
 				C81EBECE8421318ABA804B13 /* LaunchScreenView.swift */,
 				48D3AAC67060EACAD8F3434D /* main.mm */,
+				4EF581F01C749FC30A57CDA0 /* WatchSessionBridge.swift */,
 				2ADFA0F5999E4AB76DF928AF /* bindings */,
 			);
 			path = poolpoker;
+			sourceTree = "<group>";
+		};
+		82BB9027757DAF0CD030E4D5 /* __tests__ */ = {
+			isa = PBXGroup;
+			children = (
+				17E865ACCBBDCD2A878DA191 /* ballLayout.spec.ts */,
+				ED1DF00FCB9B2F2A57ECB2F3 /* bleScanner.spec.ts */,
+				7ADF1C397CB74ADB2D79C76B /* bleTransport.spec.ts */,
+				0C95ADBFEF7EE1F5D0D193B8 /* geolocationProvider.spec.ts */,
+				B781AC172C55D66FB58B5C3C /* geolocationTimestamp.spec.ts */,
+				7252151EFA01AF1EACEC7B71 /* localHostEngine.spec.ts */,
+				A219B3C276FAA538B9880DF5 /* roomPresentation.spec.ts */,
+				A2DAB081487C418D33EF1509 /* uiPreferences.spec.ts */,
+				133F88B4AB838E32C6A8AC1E /* useNearbyRooms.spec.ts */,
+			);
+			path = __tests__;
+			sourceTree = "<group>";
+		};
+		877E78D7C663B3DABB10C629 /* services */ = {
+			isa = PBXGroup;
+			children = (
+				87F9176902DFE5D135A30E27 /* bleScanner.ts */,
+				7919FAC7A6F41B18B9407443 /* bleTransport.ts */,
+				4949CBABCB283F361815B7C2 /* localHostEngine.ts */,
+			);
+			path = services;
 			sourceTree = "<group>";
 		};
 		8A3953F681E4D2AC3FE58385 /* styles */ = {
@@ -167,18 +328,48 @@
 			path = Externals;
 			sourceTree = "<group>";
 		};
+		9E671D16417991EF6A2DF178 /* v2 */ = {
+			isa = PBXGroup;
+			children = (
+				4C31ED3267471B6A8B28DBFE /* BallAssignSheet.vue */,
+				EC17709A554716967F497844 /* GameControlDrawer.vue */,
+				E224061E6CB903C6125D9275 /* GameLogTicker.vue */,
+				39A34060610AB67110690F62 /* GameMinimalHud.vue */,
+				CC1BEEA09D411448DA9309BD /* GameView.vue */,
+				0A550A436784BA73C88B6B74 /* HandDeckFan.vue */,
+				703C9A3BE34A24457247A69D /* PokerCardProp.vue */,
+				61AC1D3B51D9F77AC8244A21 /* RecordingPlayerDropdown.vue */,
+				FF11A7C2707B1A5A39F850A0 /* TableOpponentSeats.vue */,
+				F8B75224FC08A7127E15F526 /* ThreeBilliardsArena.vue */,
+			);
+			path = v2;
+			sourceTree = "<group>";
+		};
 		9F02D8E01A2775FEDC9AD823 /* src */ = {
 			isa = PBXGroup;
 			children = (
 				9F6940AA0B5083AC9F55FFAD /* App.vue */,
 				DA6165FCBFAC4FC46C74C536 /* main.ts */,
+				82BB9027757DAF0CD030E4D5 /* __tests__ */,
 				025F4D2B0ED39AA948AC38DE /* components */,
 				D0BD41A30108302861945ECD /* composables */,
+				ABFD1569CB4E3CA8A274E547 /* discovery */,
+				877E78D7C663B3DABB10C629 /* services */,
 				8A3953F681E4D2AC3FE58385 /* styles */,
 				30F62D6A59B2D2C772C49DB8 /* utils */,
 			);
 			name = src;
 			path = ../src;
+			sourceTree = "<group>";
+		};
+		ABFD1569CB4E3CA8A274E547 /* discovery */ = {
+			isa = PBXGroup;
+			children = (
+				FD78424481D076B88BB6E586 /* geolocationProvider.ts */,
+				2E6D9AD94E42CEF4560728D1 /* geolocationTimestamp.ts */,
+				7C53DF27167C4C03ECF3859B /* provider.ts */,
+			);
+			path = discovery;
 			sourceTree = "<group>";
 		};
 		D005443C476036173227C865 /* poolpoker_iOS */ = {
@@ -193,9 +384,13 @@
 		D0BD41A30108302861945ECD /* composables */ = {
 			isa = PBXGroup;
 			children = (
+				7CEA17C787D81B0BF05B1285 /* useBallAppearance.ts */,
+				DAEAD3B6839F9EFF0E10972C /* useGameAudio.ts */,
 				0DC035413E90DD3092EA62D7 /* useGameRoom.ts */,
+				C9F0CB84D352208E2C8F8713 /* useNearbyRooms.ts */,
 				C02697BDA965D41BC5B32A68 /* usePlayerProfile.ts */,
 				73492674D5BC0E268174E775 /* useSocket.ts */,
+				B9F6E42D32CD21916369C187 /* useUiPreferences.ts */,
 			);
 			path = composables;
 			sourceTree = "<group>";
@@ -231,9 +426,45 @@
 			path = Sources;
 			sourceTree = "<group>";
 		};
+		F7495C900C9B198A83749810 /* WatchApp */ = {
+			isa = PBXGroup;
+			children = (
+				1BB8B3CEA9FA8596157746BC /* Assets.xcassets */,
+				7743E6F0095E38896A9F7A7B /* Localizable.xcstrings */,
+				31D421CA5F80FC4E814BBDDA /* Localization.swift */,
+				F90F76C5435AFCEC046C8942 /* NearbyRoomsStore.swift */,
+				B5F90FAD5546AFD4304FF299 /* PoolPokerWatchApp.swift */,
+				8DCEC5D81A249D39CBA647C2 /* SettlementView.swift */,
+				AD61AC49C55349938F58710B /* SocketTransport.swift */,
+				FBCE58B7913980157EA5CF1C /* WatchConnectivityReceiver.swift */,
+				71D12AB32CD09A9C43D6A59B /* WatchConnectView.swift */,
+				0B73D70411748352A60459F8 /* WatchGameView.swift */,
+				63049E31685C9C6953D788BA /* WatchRoomStore.swift */,
+			);
+			path = WatchApp;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		DB2F95D2D4FFF271AAAF82FF /* poolpoker_watchOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D773CC069FF03980BC126229 /* Build configuration list for PBXNativeTarget "poolpoker_watchOS" */;
+			buildPhases = (
+				CA95C7F637024AAE19EA8F60 /* Sources */,
+				686A1607FFEE7F3AA70625AB /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = poolpoker_watchOS;
+			packageProductDependencies = (
+			);
+			productName = poolpoker_watchOS;
+			productReference = B26BA4D586A4EF23DB1570C4 /* PoolPokerWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
 		ECA8DF09E2A60979268E7DDC /* poolpoker_iOS */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 4E1E1949F77DCB139C68288C /* Build configuration list for PBXNativeTarget "poolpoker_iOS" */;
@@ -242,12 +473,12 @@
 				4A811471B1E939258CA84CD1 /* Sources */,
 				AF4166914FB475DD055A7374 /* Resources */,
 				B12473B44219B818EAFC861F /* Frameworks */,
-				D1E38A2010627A0D092364B7,
+				D194717D4FE53155D9EFCE5A /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				5B396A35662A9ECC37C2C2D7,
+				BE621015AC28783260553DDD /* PBXTargetDependency */,
 			);
 			name = poolpoker_iOS;
 			packageProductDependencies = (
@@ -263,7 +494,12 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 2700;
+				LastUpgradeCheck = 2710;
+				TargetAttributes = {
+					DB2F95D2D4FFF271AAAF82FF = {
+						ProvisioningStyle = Automatic;
+					};
+				};
 			};
 			buildConfigurationList = 6510634782A0C1AD43FF6D95 /* Build configuration list for PBXProject "poolpoker" */;
 			developmentRegion = en;
@@ -271,6 +507,8 @@
 			knownRegions = (
 				Base,
 				en,
+				"zh-Hans",
+				"zh-Hant",
 			);
 			mainGroup = 3CD0CCE7231864EDADC1608E;
 			minimizedProjectReferenceProxies = 1;
@@ -280,12 +518,21 @@
 			projectRoot = "";
 			targets = (
 				ECA8DF09E2A60979268E7DDC /* poolpoker_iOS */,
-				448A3466D35F3BE0E9CA1771,
+				DB2F95D2D4FFF271AAAF82FF /* poolpoker_watchOS */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		686A1607FFEE7F3AA70625AB /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F27360C8CB569250D7584FE9 /* Assets.xcassets in Resources */,
+				E229C1417785AD823690EC60 /* Localizable.xcstrings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AF4166914FB475DD055A7374 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -318,7 +565,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "export PATH=\"$PATH:/opt/homebrew/bin:/usr/local/bin:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node 2>/dev/null | tail -n 1)/bin:$HOME/.local/share/pnpm:$HOME/.cargo/bin\"\nif [ -f \"$HOME/.zshrc\" ]; then source \"$HOME/.zshrc\" 2>/dev/null || true; fi\npnpm tauri ios xcode-script -v --platform \"${PLATFORM_DISPLAY_NAME:?}\" --sdk-root \"${SDKROOT:?}\" --framework-search-paths \"${FRAMEWORK_SEARCH_PATHS:?}\" --header-search-paths \"${HEADER_SEARCH_PATHS:?}\" --gcc-preprocessor-definitions \"${GCC_PREPROCESSOR_DEFINITIONS:-}\" --configuration \"${CONFIGURATION:?}\" ${FORCE_COLOR} ${ARCHS:?} || {\n  if [ -f \"$SRCROOT/Externals/arm64/${CONFIGURATION}/libapp.a\" ] || [ -f \"$SRCROOT/Externals/x86_64/${CONFIGURATION}/libapp.a\" ]; then\n    echo \"warning: Tauri CLI dev server is not running (Connection refused). Falling back to existing libapp.a static library.\"\n    echo \"warning: Run 'pnpm exec tauri ios dev' in terminal for full live reload support.\"\n    exit 0\n  else\n    echo \"error: Tauri CLI dev server is not running and libapp.a missing. Please run 'pnpm exec tauri ios dev' in terminal first.\"\n    exit 1\n  fi\n}\n";
+			shellScript = "NVMRC_VER=$(tr -d '[:space:]' < \"$SRCROOT/../.nvmrc\" 2>/dev/null || true)\nif [ -n \"$NVMRC_VER\" ] && [ -d \"$HOME/.nvm/versions/node/v${NVMRC_VER#v}/bin\" ]; then\n  NVM_BIN=\"$HOME/.nvm/versions/node/v${NVMRC_VER#v}/bin\"\nelse\n  NVM_BIN=\"$HOME/.nvm/versions/node/$(ls \"$HOME/.nvm/versions/node\" 2>/dev/null | tail -n 1)/bin\"\nfi\nexport PATH=\"$NVM_BIN:$HOME/Library/pnpm/bin:$HOME/.local/share/pnpm:$HOME/.cargo/bin:$PATH:/opt/homebrew/bin:/usr/local/bin\"\n\nif [[ \"${SDKROOT:-}\" == *Simulator* ]] || [ \"${PLATFORM_NAME:-}\" = \"iphonesimulator\" ]; then\n  RUST_TARGET=\"aarch64-apple-ios-sim\"\nelse\n  RUST_TARGET=\"aarch64-apple-ios\"\nfi\n\nTARGET_DIR=\"$SRCROOT/Externals/${PLATFORM_NAME}/${CONFIGURATION}\"\nmkdir -p \"$TARGET_DIR\"\n\nif [ \"${POOLPOKER_OFFLINE:-1}\" = \"0\" ]; then\n  echo \"=== [PoolPoker] Mode: Live Dev Server (localhost:5173, target: $RUST_TARGET) ===\"\n  pnpm tauri ios xcode-script -v --platform \"${PLATFORM_DISPLAY_NAME:?}\" --sdk-root \"${SDKROOT:?}\" --framework-search-paths \"${FRAMEWORK_SEARCH_PATHS:?}\" --header-search-paths \"${HEADER_SEARCH_PATHS:?}\" --gcc-preprocessor-definitions \"${GCC_PREPROCESSOR_DEFINITIONS:-}\" --configuration \"${CONFIGURATION:?}\" ${FORCE_COLOR} ${ARCHS:?} || {\n    if [ -f \"$TARGET_DIR/libapp.a\" ] || [ -f \"$SRCROOT/Externals/arm64/${CONFIGURATION}/libapp.a\" ]; then\n      echo \"warning: Tauri CLI dev server is not running. Falling back to existing libapp.a static library.\"\n      exit 0\n    else\n      echo \"error: Tauri CLI dev server is not running and libapp.a missing. Please run 'pnpm exec tauri ios dev' first.\"\n      exit 1\n    fi\n  }\nelse\n  echo \"=== [PoolPoker] Mode: Offline Standalone (Embedded dist, target: $RUST_TARGET) ===\"\n  if [ ! -d \"$SRCROOT/../dist\" ] || [ \"$SRCROOT/../src\" -nt \"$SRCROOT/../dist\" ]; then\n    echo \"Building web frontend dist...\"\n    pnpm run build\n  fi\n  TARGET_LIB=\"$TARGET_DIR/libapp.a\"\n  CARGO_LIB=\"$SRCROOT/../src-tauri/target/${RUST_TARGET}/debug/libpoolpoker_lib.a\"\n  if [ ! -f \"$TARGET_LIB\" ] || [ \"$SRCROOT/../src-tauri/src\" -nt \"$TARGET_LIB\" ]; then\n    echo \"Compiling offline Rust staticlib with custom-protocol for $RUST_TARGET...\"\n    cargo build --package poolpoker --manifest-path \"$SRCROOT/../src-tauri/Cargo.toml\" --target \"$RUST_TARGET\" --features tauri/custom-protocol\n    cp \"$CARGO_LIB\" \"$TARGET_LIB\"\n    if [ \"$RUST_TARGET\" = \"aarch64-apple-ios\" ]; then\n      mkdir -p \"$SRCROOT/Externals/arm64/${CONFIGURATION}\"\n      cp \"$CARGO_LIB\" \"$SRCROOT/Externals/arm64/${CONFIGURATION}/libapp.a\"\n    fi\n  fi\n  echo \"Offline libapp.a is ready at $TARGET_LIB\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -327,20 +574,49 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CC4D50E2304A824D4C0438EA /* BleMeshBridge.swift in Sources */,
 				DD813E33CBBBE082FAE5339D /* LaunchScreenView.swift in Sources */,
+				59D486E3C396B0AA443546B0 /* RoomCredential.swift in Sources */,
+				6736D65561076ACF5B7F0A7E /* WatchSessionBridge.swift in Sources */,
 				1B96EAD42A3A1BACA3DB3540 /* main.mm in Sources */,
-				9B873D7A9403164436179997,
-				A98FCFD23838B7302DB45160,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CA95C7F637024AAE19EA8F60 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E5F296E62B91ED7C672D6DDD /* Localization.swift in Sources */,
+				D24FF2EB92561B1A7BDBDD8A /* NearbyRoomsStore.swift in Sources */,
+				5C2FBAFE6761E16BCD5E7984 /* PoolPokerWatchApp.swift in Sources */,
+				E688C3AD2570A2FDC1C02CC7 /* RoomCredential.swift in Sources */,
+				13D6DFB72AE45DBAA8AC3753 /* SettlementView.swift in Sources */,
+				7219BD008E9E0095B88C7383 /* SocketTransport.swift in Sources */,
+				23CD303BFC6652C5F8E11D87 /* WatchConnectView.swift in Sources */,
+				54F4444EF7E92B1CDD608384 /* WatchConnectivityReceiver.swift in Sources */,
+				C567579B314E3CC2372ED7C4 /* WatchGameView.swift in Sources */,
+				99068B13253067A3EB93EDEF /* WatchRoomStore.swift in Sources */,
+				7C9207771D67C6DE38FDCAB8 /* WireModels.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		BE621015AC28783260553DDD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DB2F95D2D4FFF271AAAF82FF /* poolpoker_watchOS */;
+			targetProxy = B6CBEEC116E82DC57A799805 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
 		00926CA1AA62FD31B49F45C0 /* release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = E3C0F19A2D789B1000000001 /* Config.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -371,10 +647,11 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -387,7 +664,6 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
@@ -395,8 +671,29 @@
 			};
 			name = release;
 		};
+		5AABBBDCD169B8A6D7A92C14 /* debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = E3C0F19A2D789B1000000001 /* Config.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				"CODE_SIGN_ENTITLEMENTS[sdk=watchsimulator*]" = Shared/Simulator.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = WatchApp/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.poolpoker.app.watchkitapp;
+				PRODUCT_NAME = PoolPokerWatch;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = debug;
+		};
 		853EC65F9179EE28ACD0A39A /* debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = E3C0F19A2D789B1000000001 /* Config.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = poolpoker_iOS/poolpoker_iOS.entitlements;
@@ -416,6 +713,7 @@
 				);
 				"LIBRARY_SEARCH_PATHS[arch=arm64]" = (
 					"$(inherited)",
+					"$(PROJECT_DIR)/Externals/$(PLATFORM_NAME)/$(CONFIGURATION)",
 					"$(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION)",
 					"$(SDKROOT)/usr/lib/swift",
 					"$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME)",
@@ -438,8 +736,10 @@
 		};
 		8C45A85C44309DAFEC6D1BD1 /* debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = E3C0F19A2D789B1000000001 /* Config.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -470,10 +770,11 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -493,7 +794,6 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -501,8 +801,29 @@
 			};
 			name = debug;
 		};
+		A10396A48DACD616E2682577 /* release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = E3C0F19A2D789B1000000001 /* Config.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				"CODE_SIGN_ENTITLEMENTS[sdk=watchsimulator*]" = Shared/Simulator.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = WatchApp/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.poolpoker.app.watchkitapp;
+				PRODUCT_NAME = PoolPokerWatch;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = release;
+		};
 		D6A18A22AECEA46C5FC8CC5F /* release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = E3C0F19A2D789B1000000001 /* Config.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = poolpoker_iOS/poolpoker_iOS.entitlements;
@@ -522,6 +843,7 @@
 				);
 				"LIBRARY_SEARCH_PATHS[arch=arm64]" = (
 					"$(inherited)",
+					"$(PROJECT_DIR)/Externals/$(PLATFORM_NAME)/$(CONFIGURATION)",
 					"$(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION)",
 					"$(SDKROOT)/usr/lib/swift",
 					"$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME)",
@@ -563,312 +885,16 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = debug;
 		};
-/* End XCConfigurationList section */
-/* Apple Watch app and shared session bridge */
-		A3F0B1C2D3E4F5A6B7C8D9E0 = {
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.swift;
-			path = WatchApp/Localization.swift;
-			sourceTree = SOURCE_ROOT;
-		};
-		A3F0B1C2D3E4F5A6B7C8D9E1 = {
-			isa = PBXBuildFile;
-			fileRef = A3F0B1C2D3E4F5A6B7C8D9E0;
-		};
-		B3F0B1C2D3E4F5A6B7C8D9E0 = {
-			isa = PBXFileReference;
-			lastKnownFileType = text.json.xcstrings;
-			path = WatchApp/Localizable.xcstrings;
-			sourceTree = SOURCE_ROOT;
-		};
-		B3F0B1C2D3E4F5A6B7C8D9E1 = {
-			isa = PBXBuildFile;
-			fileRef = B3F0B1C2D3E4F5A6B7C8D9E0;
-		};
-		00A2571ED9ABE1F748A9C548 = {
-			isa = PBXBuildFile;
-			fileRef = 03CBFA066652A0CD9DF6BD6F;
-		};
-		03CBFA066652A0CD9DF6BD6F = {
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.swift;
-			path = WatchApp/NearbyRoomsStore.swift;
-			sourceTree = SOURCE_ROOT;
-		};
-		05670F3787CC8FFBD51F6F0E = {
-			isa = XCBuildConfiguration;
-			name = release;
-			buildSettings = {
-				PRODUCT_NAME = PoolPokerWatch;
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				PRODUCT_BUNDLE_IDENTIFIER = com.poolpoker.app.watchkitapp;
-				SDKROOT = watchos;
-				SUPPORTED_PLATFORMS = "watchos watchsimulator";
-				WATCHOS_DEPLOYMENT_TARGET = 10.0;
-				"CODE_SIGN_ENTITLEMENTS[sdk=watchsimulator*]" = Shared/Simulator.entitlements;
-				TARGETED_DEVICE_FAMILY = 4;
-				SWIFT_VERSION = 5.0;
-				INFOPLIST_FILE = WatchApp/Info.plist;
-				GENERATE_INFOPLIST_FILE = NO;
-				CODE_SIGN_STYLE = Automatic;
-				SWIFT_OPTIMIZATION_LEVEL = "-O";
-				SKIP_INSTALL = YES;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				CURRENT_PROJECT_VERSION = 1.0.0;
-				MARKETING_VERSION = 1.0.0;
-			};
-		};
-		09B4BA8499C154340393FCAB = {
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.swift;
-			path = WatchApp/WatchRoomStore.swift;
-			sourceTree = SOURCE_ROOT;
-		};
-		0DC2B34EB857AE5900266D9E = {
-			isa = PBXBuildFile;
-			fileRef = 455D7A0213C093D812096E00;
-			settings = {
-				ATTRIBUTES = (
-					RemoveHeadersOnCopy,
-				);
-			};
-		};
-		1A539253B540F23021D83685 = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = WatchApp/Assets.xcassets; sourceTree = SOURCE_ROOT; };
-		20942848E9B9C03949C6710C = {
-			isa = PBXGroup;
-			name = "Apple Watch";
-			children = (
-				AB29EAF2F1F9BB3FFCDBF585,
-				F3F1F1BB102F3DB07350E141,
-				03CBFA066652A0CD9DF6BD6F,
-				E4FA30639344E8BCB43DAAEA,
-				8C7446AB3810F3DBB1E034E9,
-				EA2E3AAD062F8DF76CA529AD,
-				4BBAACD11A03F77195B500F9,
-				A2ED2CAE51DEF187F784BECF,
-				321C47996D2155E85574EF38,
-				09B4BA8499C154340393FCAB,
-				CC77784D657FBDB6CC2B7715,
-				A3F0B1C2D3E4F5A6B7C8D9E0,
-				B3F0B1C2D3E4F5A6B7C8D9E0,
-			);
-			sourceTree = "<group>";
-		};
-		2CF66BAE4F1B1166DB0CFE4C = {
-			isa = PBXBuildFile;
-			fileRef = E4FA30639344E8BCB43DAAEA;
-		};
-		2E460A5DCF01B4BD950F0994 = {
-			isa = XCBuildConfiguration;
-			name = debug;
-			buildSettings = {
-				PRODUCT_NAME = PoolPokerWatch;
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				PRODUCT_BUNDLE_IDENTIFIER = com.poolpoker.app.watchkitapp;
-				SDKROOT = watchos;
-				SUPPORTED_PLATFORMS = "watchos watchsimulator";
-				WATCHOS_DEPLOYMENT_TARGET = 10.0;
-				"CODE_SIGN_ENTITLEMENTS[sdk=watchsimulator*]" = Shared/Simulator.entitlements;
-				TARGETED_DEVICE_FAMILY = 4;
-				SWIFT_VERSION = 5.0;
-				INFOPLIST_FILE = WatchApp/Info.plist;
-				GENERATE_INFOPLIST_FILE = NO;
-				CODE_SIGN_STYLE = Automatic;
-				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SKIP_INSTALL = YES;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				CURRENT_PROJECT_VERSION = 1.0.0;
-				MARKETING_VERSION = 1.0.0;
-			};
-		};
-		321C47996D2155E85574EF38 = {
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.swift;
-			path = WatchApp/WatchGameView.swift;
-			sourceTree = SOURCE_ROOT;
-		};
-		325BF5E4D173CC050B12A269 = {
+		D773CC069FF03980BC126229 /* Build configuration list for PBXNativeTarget "poolpoker_watchOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				2E460A5DCF01B4BD950F0994,
-				05670F3787CC8FFBD51F6F0E,
+				5AABBBDCD169B8A6D7A92C14 /* debug */,
+				A10396A48DACD616E2682577 /* release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = debug;
 		};
-		34E8A52E896E2423FD1B4813 = {
-			isa = PBXBuildFile;
-			fileRef = A2ED2CAE51DEF187F784BECF;
-		};
-		3CC39ABEA96AC1E41CBC4C90 = {
-			isa = PBXBuildFile;
-			fileRef = 09B4BA8499C154340393FCAB;
-		};
-		448A3466D35F3BE0E9CA1771 = {
-			isa = PBXNativeTarget;
-			name = poolpoker_watchOS;
-			productName = PoolPokerWatch;
-			productType = "com.apple.product-type.application";
-			productReference = 455D7A0213C093D812096E00;
-			buildConfigurationList = 325BF5E4D173CC050B12A269;
-			buildPhases = (
-				74A5C3D796A5FEDFD4518C55,
-				A5B61CDE03D2B7CED91AF45F,
-				7E5FA55B98B78F6F96307EBD,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-		};
-		455D7A0213C093D812096E00 = {
-			isa = PBXFileReference;
-			explicitFileType = wrapper.application;
-			includeInIndex = 0;
-			path = PoolPokerWatch.app;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		49522228664C11BBBDB2C907 = {
-			isa = PBXBuildFile;
-			fileRef = EA2E3AAD062F8DF76CA529AD;
-		};
-		4B20A598C158916540B0B0DF = {
-			isa = PBXBuildFile;
-			fileRef = 4BBAACD11A03F77195B500F9;
-		};
-		4BBAACD11A03F77195B500F9 = {
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.swift;
-			path = WatchApp/WatchConnectView.swift;
-			sourceTree = SOURCE_ROOT;
-		};
-		5B396A35662A9ECC37C2C2D7 = {
-			isa = PBXTargetDependency;
-			target = 448A3466D35F3BE0E9CA1771;
-			targetProxy = 7614F929AECB4A27C580445D;
-		};
-		5B893F135CAD6FF49B2F8F0C = {
-			isa = PBXBuildFile;
-			fileRef = AB29EAF2F1F9BB3FFCDBF585;
-		};
-		74A5C3D796A5FEDFD4518C55 = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				5B893F135CAD6FF49B2F8F0C,
-				A98FCFD23838B7302DB45160,
-				00A2571ED9ABE1F748A9C548,
-				2CF66BAE4F1B1166DB0CFE4C,
-				CF61428F37120DA572D25B60,
-				49522228664C11BBBDB2C907,
-				4B20A598C158916540B0B0DF,
-				34E8A52E896E2423FD1B4813,
-				82AD48A89272553BFE34726F,
-				3CC39ABEA96AC1E41CBC4C90,
-				A3F0B1C2D3E4F5A6B7C8D9E1,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		7614F929AECB4A27C580445D = {
-			isa = PBXContainerItemProxy;
-			containerPortal = E2D1319648EC0563DB8BE051;
-			proxyType = 1;
-			remoteGlobalIDString = 448A3466D35F3BE0E9CA1771;
-			remoteInfo = poolpoker_watchOS;
-		};
-		7E5FA55B98B78F6F96307EBD = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		82AD48A89272553BFE34726F = {
-			isa = PBXBuildFile;
-			fileRef = 321C47996D2155E85574EF38;
-		};
-		8A08E0DB7159B2C1B695D1C6 = {isa = PBXBuildFile; fileRef = 1A539253B540F23021D83685; };
-		8C7446AB3810F3DBB1E034E9 = {
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.swift;
-			path = WatchApp/SettlementView.swift;
-			sourceTree = SOURCE_ROOT;
-		};
-		9B873D7A9403164436179997 = {
-			isa = PBXBuildFile;
-			fileRef = CC77784D657FBDB6CC2B7715;
-		};
-		A2ED2CAE51DEF187F784BECF = {
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.swift;
-			path = WatchApp/WatchConnectivityReceiver.swift;
-			sourceTree = SOURCE_ROOT;
-		};
-		A5B61CDE03D2B7CED91AF45F = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				8A08E0DB7159B2C1B695D1C6,
-				B3F0B1C2D3E4F5A6B7C8D9E1,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		A98FCFD23838B7302DB45160 = {
-			isa = PBXBuildFile;
-			fileRef = F3F1F1BB102F3DB07350E141;
-		};
-		AB29EAF2F1F9BB3FFCDBF585 = {
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.swift;
-			path = Shared/Generated/WireModels.swift;
-			sourceTree = SOURCE_ROOT;
-		};
-		CC77784D657FBDB6CC2B7715 = {
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.swift;
-			path = Sources/poolpoker/WatchSessionBridge.swift;
-			sourceTree = SOURCE_ROOT;
-		};
-		CF61428F37120DA572D25B60 = {
-			isa = PBXBuildFile;
-			fileRef = 8C7446AB3810F3DBB1E034E9;
-		};
-		D1E38A2010627A0D092364B7 = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
-			dstSubfolderSpec = 16;
-			files = (
-				0DC2B34EB857AE5900266D9E,
-			);
-			name = "Embed Watch Content";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		E4FA30639344E8BCB43DAAEA = {
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.swift;
-			path = WatchApp/PoolPokerWatchApp.swift;
-			sourceTree = SOURCE_ROOT;
-		};
-		EA2E3AAD062F8DF76CA529AD = {
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.swift;
-			path = WatchApp/SocketTransport.swift;
-			sourceTree = SOURCE_ROOT;
-		};
-		F3F1F1BB102F3DB07350E141 = {
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.swift;
-			path = Shared/RoomCredential.swift;
-			sourceTree = SOURCE_ROOT;
-		};
-
+/* End XCConfigurationList section */
 	};
 	rootObject = E2D1319648EC0563DB8BE051 /* Project object */;
 }
