@@ -70,6 +70,8 @@
   }
   .nav-btn:first-child { text-align: left; }
   .nav-btn:last-child { text-align: right; }
+  .nav-right { display: flex; gap: 4px; }
+  .nav-right .nav-btn { min-width: 0; padding: 8px 4px; }
   .nav-btn:disabled { color: var(--secondary); opacity: 0.5; cursor: default; }
 
   .btn {
@@ -220,6 +222,18 @@
   }
   .sheet-group button + button { border-top: 0.5px solid var(--separator); }
   .destructive { color: var(--red) !important; }
+  .rules-sheet { max-height: 85vh; display: flex; flex-direction: column; }
+  .rules-group { display: flex; flex-direction: column; min-height: 0; }
+  .rules-group .sheet-header { border-bottom: 0.5px solid var(--separator); }
+  .rules-body {
+    padding: 4px 16px 16px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: pre-line;
+    font-size: 15px;
+    line-height: 1.55;
+    text-align: left;
+  }
   .bold { font-weight: 600; }
 </style>
 </head>
@@ -230,7 +244,7 @@
   <div class="navbar">
     <button type="button" class="nav-btn" onclick="window.location.href='/'">‹ PoolPoker</button>
     <h1>记分板</h1>
-    <div style="min-width: 72px;"></div>
+    <button type="button" class="nav-btn" id="setupInfoBtn" aria-label="游戏规则">ⓘ</button>
   </div>
   <button type="button" class="btn btn-tinted" id="addPlayerBtn" style="margin-top: 16px;">＋ 增加玩家</button>
   <div class="section-header" id="playerHeader">玩家（0）</div>
@@ -250,7 +264,10 @@
   <div class="navbar">
     <button type="button" class="nav-btn" id="undoBtn">↩ 撤回</button>
     <h1>游戏中</h1>
-    <button type="button" class="nav-btn" id="endBtn">结束游戏</button>
+    <div class="nav-right">
+      <button type="button" class="nav-btn" id="gameInfoBtn" aria-label="游戏规则">ⓘ</button>
+      <button type="button" class="nav-btn" id="endBtn">结束游戏</button>
+    </div>
   </div>
   <div class="round-label" id="roundLabel"></div>
   <div class="row" id="orderRow"></div>
@@ -275,15 +292,20 @@ const RULE_TITLES = {
   normalWin: '普胜',
   smallGold: '小金',
   bigGold: '大金',
-  // 以下结束方式没有单独分值：黄金9、黑黄金9 按普胜分值，黑金按大金分值
+  // 以下结束方式没有单独分值：黄金9、黑普胜、黑黄金9 按普胜分值，黑小金按小金分值，黑大金按大金分值
+  blackNormalWin: '黑普胜',      // 白球摔袋：你赔上家
+  blackSmallGold: '黑小金',      // 白球摔袋：你赔上家
   goldenNine: '黄金9',           // 开球 9 进、白球安全：其他每家给你
   blackGoldenNine: '黑黄金9',    // 开球 9 进、白球摔袋：你赔其他每家
-  blackGold: '黑金',             // 打最后 9 号球、白球摔袋：你赔其他每家
+  blackGold: '黑大金',             // 打最后 9 号球、白球摔袋：你赔其他每家
 };
 const RULE_KEYS = ['foul', 'normalWin', 'smallGold', 'bigGold'];
-const WIN_KEYS = ['normalWin', 'smallGold', 'bigGold', 'goldenNine', 'blackGoldenNine', 'blackGold'];
-/** 黑黄金9、黑金是选中的玩家赔分 */
-const isPenaltyEndType = (key) => key === 'blackGoldenNine' || key === 'blackGold';
+// 先列非赔分的方式，再把黑的（赔分）集中放在后面
+const WIN_KEYS = ['normalWin', 'smallGold', 'bigGold', 'goldenNine', 'blackNormalWin', 'blackSmallGold', 'blackGoldenNine', 'blackGold'];
+/** 黑普胜、黑小金、黑黄金9、黑大金是选中的玩家赔分 */
+const isPenaltyEndType = (key) => key === 'blackNormalWin' || key === 'blackSmallGold' || key === 'blackGoldenNine' || key === 'blackGold';
+/** 黑普胜、黑小金赔上家，其余黑的赔每家 */
+const paysPreviousOnly = (key) => key === 'blackNormalWin' || key === 'blackSmallGold';
 
 const $ = (id) => document.getElementById(id);
 
@@ -599,6 +621,8 @@ const game = {
   },
 
   pointsForWinKey(key) {
+    if (key === 'blackNormalWin') return this.rules.normalWin;
+    if (key === 'blackSmallGold') return this.rules.smallGold;
     if (key === 'goldenNine' || key === 'blackGoldenNine') return this.rules.normalWin;
     if (key === 'blackGold') return this.rules.bigGold;
     return this.rules[key];
@@ -616,8 +640,12 @@ const game = {
   applyWin(winner, key) {
     this.history.push(this.snapshot());
     const points = this.pointsForWinKey(key);
-    if (isPenaltyEndType(key)) {
-      // 黑黄金9、黑金：选中的玩家赔其他每家
+    if (paysPreviousOnly(key)) {
+      // 黑普胜、黑小金：选中的玩家赔上家
+      this.addScore(points, this.previousPlayerOf(winner));
+      this.addScore(-points, winner);
+    } else if (isPenaltyEndType(key)) {
+      // 黑黄金9、黑大金：选中的玩家赔其他每家
       for (const name of this.order) {
         if (name !== winner) {
           this.addScore(points, name);
@@ -684,7 +712,7 @@ function renderGame() {
   orderRow.innerHTML = '';
   scoreRow.innerHTML = '';
   game.order.forEach((name, index) => {
-    // 上局胜者 👑 黄色；黑黄金9、黑金的赔分者 💀 灰色
+    // 上局胜者 👑 黄色；黑的赔分方式 💀 灰色
     const isLastEnder = name === game.lastWinner;
     const isPenalty = isLastEnder && isPenaltyEndType(game.lastEndType);
     const marker = isLastEnder ? (isPenalty ? '💀 ' : '👑 ') : '';
@@ -717,7 +745,7 @@ $('winBtn').addEventListener('click', () => {
       title: winner,
       message: '选择结束方式',
       options: WIN_KEYS.map((key) => {
-        const payer = isPenaltyEndType(key) ? '赔每家' : (key === 'normalWin' || key === 'smallGold' ? '上家给' : '每家给');
+        const payer = paysPreviousOnly(key) ? '赔上家' : isPenaltyEndType(key) ? '赔每家' : (key === 'normalWin' || key === 'smallGold' ? '上家给' : '每家给');
         return {
           title: `${RULE_TITLES[key]}（${payer} ${game.pointsForWinKey(key)} 分）`,
           destructive: isPenaltyEndType(key),
@@ -773,7 +801,7 @@ function signedScore(score) {
   return score >= 0 ? `+${score}` : `${score}`;
 }
 
-/** 大金、小金的炫耀横幅，黄金9 的狗屎运横幅，黑黄金9、黑金的悲剧横幅，普胜返回 null */
+/** 大金、小金的炫耀横幅，黄金9 的狗屎运横幅，黑黄金9、黑大金的悲剧横幅，普胜返回 null */
 function bannerForWinType(winType, winner) {
   switch (winType) {
     case '大金':
@@ -784,10 +812,10 @@ function bannerForWinType(winType, winner) {
         '🔥 球桌颤抖，对手沉默 🔥',
         '🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆',
       ].join('\n');
-    case '黑金':
+    case '黑大金':
       return [
         '⚫💀⚫💀⚫💀⚫💀⚫💀',
-        '🕳️ 黑 金 · 功 亏 一 篑 🕳️',
+        '🕳️ 黑 大 金 · 功 亏 一 篑 🕳️',
         `😭 ${winner} 打进 9 号，白球也一头扎进了袋！`,
         '💸 到嘴的大金飞了，还得倒贴全场',
         '🫡 其余人：谢谢老板！',
@@ -800,6 +828,22 @@ function bannerForWinType(winType, winner) {
         `🤦 ${winner} 开球进 9，白球跟着殉情！`,
         '🎁 本局变成给全场发红包',
         '💀💸💀💸💀💸💀💸',
+      ].join('\n');
+    case '黑普胜':
+      return [
+        '🩹💸🩹💸🩹💸',
+        '😵 黑 普 胜 · 到 手 的 胜 利 飞 了 😵',
+        `🤕 ${winner} 赢是赢了，白球摔袋，赔给上家`,
+        '🤝 上家：躺赢，谢谢老板',
+        '🩹💸🩹💸🩹💸',
+      ].join('\n');
+    case '黑小金':
+      return [
+        '🩸💸🩸💸🩸💸',
+        '💔 黑 小 金 · 手 滑 了 💔',
+        `🙃 ${winner} 白球摔袋，小金当场变负资产`,
+        '🤝 上家：这钱我收得心安理得',
+        '🩸💸🩸💸🩸💸',
       ].join('\n');
     case '黄金9':
       return [
@@ -865,6 +909,75 @@ async function sendToWecom(content, description) {
     console.warn(`⚠️ [WeCom] 推送${description}异常:`, err);
   }
 }
+
+/* ========== 游戏规则 ========== */
+
+/** 按当前分值生成规则文案；rules 为空时用默认值 */
+function rulesText(rules) {
+  const r = rules || {};
+  const value = (key, fallback) => (typeof r[key] === 'number' ? r[key] : fallback);
+  const foul = value('foul', 1);
+  const normalWin = value('normalWin', 4);
+  const smallGold = value('smallGold', 7);
+  const bigGold = value('bigGold', 10);
+  return `【顺序】
+• 开局时玩家顺序随机。
+• 每局结束后顺序整体反转，并把结束本局的玩家排在第一位（胜者 👑，赔分者 💀）。
+• 「上一个玩家」指当前顺序中排在他前面的人；排第一位的人，上一个是最后一位。
+
+【犯规】
+• 犯规玩家扣 ${foul} 分，其上一个玩家加 ${foul} 分。
+• 犯规不进入下一局。
+
+【结束本局】先选结束本局的玩家，再选方式：
+• 普胜：上一个玩家给 ${normalWin} 分
+• 小金：上一个玩家给 ${smallGold} 分
+• 大金：其他每家给 ${bigGold} 分
+• 黄金9（开球 9 进、白球安全）：其他每家给 ${normalWin} 分
+• 黑普胜（白球摔袋）：该玩家赔上一个玩家 ${normalWin} 分
+• 黑小金（白球摔袋）：该玩家赔上一个玩家 ${smallGold} 分
+• 黑黄金9（开球 9 进、白球摔袋）：该玩家赔其他每家 ${normalWin} 分
+• 黑大金（打最后 9 号球、白球摔袋）：该玩家赔其他每家 ${bigGold} 分
+
+【撤回】
+• 每次犯规或结束本局前都会保存快照，可连续撤回到开局。
+• 撤回一次结束本局时，会向群里推送一条撤回通知。
+
+【其他】
+• 每局结束后自动推送到企业微信机器人。
+• 记录保存在本机浏览器，下次打开自动继续。`;
+}
+
+function showRules(rules) {
+  const sheet = el('div', 'sheet rules-sheet');
+  const group = el('div', 'sheet-group rules-group');
+  const header = el('div', 'sheet-header');
+  header.appendChild(el('div', 't', '游戏规则'));
+  const body = el('div', 'rules-body', rulesText(rules));
+  group.append(header, body);
+  const cancelGroup = el('div', 'sheet-group');
+  const close = el('button', 'bold', '完成');
+  cancelGroup.appendChild(close);
+  sheet.append(group, cancelGroup);
+  const remove = showOverlay(sheet, () => remove());
+  close.addEventListener('click', () => remove());
+}
+
+$('setupInfoBtn').addEventListener('click', () => {
+  // 按首页当前填写的分值展示规则
+  const read = (id, fallback) => {
+    const n = parseInt($(id).value, 10);
+    return Number.isFinite(n) ? n : fallback;
+  };
+  showRules({
+    foul: read('foulInput', 1),
+    normalWin: read('normalWinInput', 4),
+    smallGold: read('smallGoldInput', 7),
+    bigGold: read('bigGoldInput', 10),
+  });
+});
+
+$('gameInfoBtn').addEventListener('click', () => showRules(game.rules));
 
 /* ========== 键盘避让 ========== */
 

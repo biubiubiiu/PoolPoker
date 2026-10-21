@@ -82,7 +82,7 @@ app.get('/enter_robot', (_req: Request, res: Response) => {
   }
 });
 
-// 大金玩法记分板页面（独立路由，独立于 SPA）
+// 追分 / 大金玩法记分板页面（独立路由，独立于 SPA）
 app.get(['/break_and_run', '/break_and_run.html'], (_req: Request, res: Response) => {
   const distBreakAndRun = path.join(rootDir, 'dist', 'break_and_run.html');
   const publicBreakAndRun = path.join(rootDir, 'public', 'break_and_run.html');
