@@ -528,6 +528,121 @@ html {
   color: #c5b890;
   font-size: 9px;
 }
+
+.turn-order-strip.game-status-strip {
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 16px 6px;
+  line-height: 1.3;
+  overflow: hidden;
+}
+
+.game-status-strip .strip-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow-x: auto;
+  scrollbar-width: none;
+  white-space: nowrap;
+}
+.game-status-strip .strip-left::-webkit-scrollbar {
+  display: none;
+}
+
+.game-status-strip .strip-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow-x: auto;
+  scrollbar-width: none;
+  white-space: nowrap;
+  justify-content: flex-end;
+}
+.game-status-strip .strip-right::-webkit-scrollbar {
+  display: none;
+}
+
+.game-status-strip .strip-label {
+  color: #728473;
+  font-size: 10px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.game-status-strip .turn-order-list {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.game-status-strip .turn-order-list::-webkit-scrollbar {
+  display: none;
+}
+
+.game-status-strip .turn-order-list li {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.game-status-strip .turn-arrow {
+  color: #556b57;
+  font-size: 10px;
+}
+
+.game-status-strip .turn-order-list small {
+  color: #c5b890;
+  font-size: 9px;
+  background: rgba(197, 184, 144, 0.15);
+  padding: 0 3px;
+  border-radius: 3px;
+}
+
+.game-status-strip .pocketed-list {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.game-status-strip .pocketed-player-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.game-status-strip .pocketed-player-name {
+  color: #8fa08d;
+  font-size: 10px;
+}
+
+.game-status-strip .pocketed-player-name.is-me {
+  color: #6ee7b7;
+  font-weight: bold;
+}
+
+.game-status-strip .pocketed-cards {
+  color: #ece9da;
+  font-variant-numeric: tabular-nums;
+}
+
+.game-status-strip .empty-pocketed {
+  color: #607262;
+  font-size: 10px;
+  white-space: nowrap;
+}
 @media (min-width: 600px) {
   .app-shell:has(.game-world) {
     max-width: 1080px;

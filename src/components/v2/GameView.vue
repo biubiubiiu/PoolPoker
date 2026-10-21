@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import type { Card, Player, Room } from '@shared/types/game';
-import { defineAsyncComponent, ref } from 'vue';
+import { computed, defineAsyncComponent, ref } from 'vue';
 import BallAssignSheet from './BallAssignSheet.vue';
 import GameControlDrawer from './GameControlDrawer.vue';
-import GameLogTicker from './GameLogTicker.vue';
 import GameMinimalHud from './GameMinimalHud.vue';
 import HandDeckFan from './HandDeckFan.vue';
-import TableOpponentSeats from './TableOpponentSeats.vue';
 
 const ThreeBilliardsArena = defineAsyncComponent(() => import('./ThreeBilliardsArena.vue'));
 
@@ -49,6 +47,10 @@ const emit = defineEmits<{
 
 const selectedBallForAssign = ref<number | null>(null);
 
+const pocketedPlayers = computed(() => {
+  return props.room.players.filter((p) => p.pocketedCards && p.pocketedCards.length > 0);
+});
+
 function onTableBallClick(ballNum: number) {
   if (props.busy || props.room.status !== 'playing' || props.room.pocketedBallNumbers.includes(ballNum)) {
     return;
@@ -68,22 +70,35 @@ function handleAssignBreak(ballNum: number) {
 <template>
   <main class="game-world">
     <GameMinimalHud :room="room" :isHost="isHost" @open-menu="emit('open-drawer')" />
-    <TableOpponentSeats
-      :players="room.players"
-      :myUserId="userId"
-      :currentShooterUserId="currentShooter?.userId"
-      :turnOrder="room.turnOrder"
-      @select-player="emit('select-recording-player', $event.userId)"
-    />
-    <div v-if="turnOrderPlayers.length" class="turn-order-strip" aria-label="本局击球顺序">
-      <span>击球顺序</span>
-      <ol>
-        <li v-for="(player, index) in turnOrderPlayers" :key="player.userId">
-          <span v-if="index" aria-hidden="true">→</span>
-          <span>{{ index + 1 }}. {{ player.name }}</span>
-          <small v-if="index === 0">首发</small>
-        </li>
-      </ol>
+    <div class="turn-order-strip game-status-strip" aria-label="本局击球顺序与已进球">
+      <div v-if="turnOrderPlayers.length" class="strip-left">
+        <span class="strip-label">击球顺序</span>
+        <ol class="turn-order-list">
+          <li
+            v-for="(player, index) in turnOrderPlayers"
+            :key="player.userId"
+            :class="{ 'current-shooter': currentShooter?.userId === player.userId }"
+          >
+            <span v-if="index" aria-hidden="true" class="turn-arrow">→</span>
+            <span>{{ index + 1 }}. {{ player.name }}</span>
+            <small v-if="index === 0">首发</small>
+          </li>
+        </ol>
+      </div>
+      <div class="strip-right">
+        <span class="strip-label">已打进</span>
+        <div v-if="pocketedPlayers.length" class="pocketed-list">
+          <span v-for="p in pocketedPlayers" :key="p.userId" class="pocketed-player-item">
+            <span class="pocketed-player-name" :class="{ 'is-me': p.userId === userId }">
+              {{ p.userId === userId ? '我' : p.name }}:
+            </span>
+            <span class="pocketed-cards">
+              {{ p.pocketedCards.map((card) => `${card.rank}${card.suit}`).join(' ') }}
+            </span>
+          </span>
+        </div>
+        <span v-else class="empty-pocketed">暂无</span>
+      </div>
     </div>
     <div class="table-stage">
       <ThreeBilliardsArena
@@ -95,8 +110,6 @@ function handleAssignBreak(ballNum: number) {
         @ball-click="onTableBallClick"
       />
     </div>
-    <div v-if="feedback" class="action-error" role="alert">{{ feedback }}</div>
-    <GameLogTicker :logs="room.logs || []" />
     <section class="hand-zone" aria-label="我的手牌">
       <HandDeckFan
         :key="sceneReset"

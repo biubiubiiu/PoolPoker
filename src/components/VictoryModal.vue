@@ -76,7 +76,7 @@ function getRemainingCardPenalties(player: Player): Map<string, number> {
         <h3 class="text-[10px] text-amber-300 font-bold uppercase tracking-widest">Victory</h3>
         <h2 class="text-lg font-black text-white mt-0.5">{{ winningNamesText }}</h2>
         <p class="text-xs text-emerald-300 mt-0.5" v-if="winningPlayers.length > 1">共同清空有效手牌，赢得本局胜利！</p>
-        <p class="text-xs text-emerald-300 mt-0.5" v-else>已清空有效手牌，保留的免打牌不影响获胜。</p>
+        <p class="text-xs text-emerald-300 mt-0.5" v-else>已清空有效手牌，赢得本局胜利！</p>
       </div>
 
       <!-- 图例说明 -->
