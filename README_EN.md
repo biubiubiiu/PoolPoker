@@ -108,12 +108,18 @@ Each player is dealt a hand of cards at the start of a round (5 by default). Whe
 
 ### Prerequisites
 
-- **Node.js**: `>= 24.0.0` (use `nvm use` with the root `.nvmrc`)
-- **pnpm**: `>= 12.6.0`
-- **Optional Native Toolchains**:
-  - **Rust**: `cargo` & `rustup` (for `src-tauri`)
-  - **Android / Wear OS**: JDK 17+, Android SDK & NDK
-  - **iOS / watchOS**: macOS + Xcode 15+
+- **Web & Server Environment**:
+  - **Node.js**: `>= 24.0.0` (use `nvm use` with root `.nvmrc`)
+  - **pnpm**: `>= 12.6.0`
+- **Mobile Native Build Environment (Required for iOS / Android app)**:
+  - **Rust**: `cargo` & `rustup` (compiles underlying `src-tauri` offline staticlib `libapp.a` / Android JNI libraries)
+    - Install Rust: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
+    - iOS target architectures: `rustup target add aarch64-apple-ios aarch64-apple-ios-sim`
+    - Android target architectures: `rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android`
+- **Platform Native Toolchains**:
+  - **iOS (iPhone)**: macOS + Xcode 15+ (building `poolpoker_iOS` requires Rust & iOS targets above)
+  - **Apple Watch (watchOS)**: macOS + Xcode 15+ (**No** Rust or Tauri required; pure SwiftUI native app, select `poolpoker_watchOS` directly in Xcode)
+  - **Android / Wear OS**: JDK 17+, Android SDK & NDK (Rust required for phone app; Wear OS is pure Jetpack Compose)
 
 ### Local Development & Server
 
@@ -143,6 +149,9 @@ pnpm pipeline android-release --full
 pnpm exec tauri ios dev
 pnpm pipeline ios-debug --full
 pnpm pipeline ios-release --full
+
+# Apple Watch independent build (no Rust required)
+pnpm pipeline watchos-debug --full
 ```
 
 > See [Mobile Build Pipeline](docs/mobile_build_pipeline.md) for `--dry-run` inspection and concurrency slot details.

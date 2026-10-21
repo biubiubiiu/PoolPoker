@@ -1,8 +1,8 @@
 # Apple Watch 客户端
 
 `apple/WatchApp` 是 watchOS 10+ 原生 SwiftUI 应用，目标名 / scheme 为
-`poolpoker_watchOS`，标识为 `com.poolpoker.app.watchkitapp`。iPhone 应用嵌入该目标，
-同时允许手表独立运行。`apple/project.yml` 和已提交的 Xcode 工程包含相同目标配置。
+`poolpoker_watchOS`，标识为 `com.poolpoker.app.watchkitapp`。已从 iOS 宿主工程中解耦为独立 target，
+允许手表客户端独立编译与运行（无需 Rust 或 Tauri 环境），降低手表端开发门槛。`apple/project.yml` 和已提交的 Xcode 工程包含相同目标配置。
 
 ## 功能对照
 

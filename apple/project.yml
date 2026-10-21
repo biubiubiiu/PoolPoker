@@ -101,16 +101,26 @@ targets:
       - sdk: WebKit.framework
     preBuildScripts:
       - script: |
+          if [ -f "$HOME/.cargo/env" ]; then
+            . "$HOME/.cargo/env"
+          fi
+
           NVMRC_VER=$(tr -d '[:space:]' < "$SRCROOT/../.nvmrc" 2>/dev/null || true)
           if [ -n "$NVMRC_VER" ] && [ -d "$HOME/.nvm/versions/node/v${NVMRC_VER#v}/bin" ]; then
             NVM_BIN="$HOME/.nvm/versions/node/v${NVMRC_VER#v}/bin"
-          else
+          elif [ -d "$HOME/.nvm/versions/node" ]; then
             NVM_BIN="$HOME/.nvm/versions/node/$(ls "$HOME/.nvm/versions/node" 2>/dev/null | tail -n 1)/bin"
+          else
+            NVM_BIN=""
           fi
-          export PATH="$NVM_BIN:$HOME/Library/pnpm/bin:$HOME/.local/share/pnpm:$HOME/.cargo/bin:$PATH:/opt/homebrew/bin:/usr/local/bin"
+          export PATH="$HOME/.cargo/bin:$NVM_BIN:$HOME/Library/pnpm/bin:$HOME/.local/share/pnpm:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
           if [[ "${SDKROOT:-}" == *Simulator* ]] || [ "${PLATFORM_NAME:-}" = "iphonesimulator" ]; then
-            RUST_TARGET="aarch64-apple-ios-sim"
+            if [ "${ARCHS:-}" = "x86_64" ] || [ "${CURRENT_ARCH:-}" = "x86_64" ]; then
+              RUST_TARGET="x86_64-apple-ios"
+            else
+              RUST_TARGET="aarch64-apple-ios-sim"
+            fi
           else
             RUST_TARGET="aarch64-apple-ios"
           fi
@@ -118,34 +128,81 @@ targets:
           TARGET_DIR="$SRCROOT/Externals/${PLATFORM_NAME}/${CONFIGURATION}"
           mkdir -p "$TARGET_DIR"
 
+          if ! command -v pnpm >/dev/null 2>&1; then
+            echo "error: [PoolPoker iOS] 未检测到 pnpm 工具。iOS 客户端构建依赖 Node.js (>=24) 及 pnpm (>=12.6)。请确保已安装并在 PATH 中配置（如执行 corepack enable 或 brew install pnpm）。" >&2
+            exit 1
+          fi
+
           if [ "${POOLPOKER_OFFLINE:-1}" = "0" ]; then
             echo "=== [PoolPoker] Mode: Live Dev Server (localhost:5173, target: $RUST_TARGET) ==="
-            pnpm tauri ios xcode-script -v --platform "${PLATFORM_DISPLAY_NAME:?}" --sdk-root "${SDKROOT:?}" --framework-search-paths "${FRAMEWORK_SEARCH_PATHS:?}" --header-search-paths "${HEADER_SEARCH_PATHS:?}" --gcc-preprocessor-definitions "${GCC_PREPROCESSOR_DEFINITIONS:-}" --configuration "${CONFIGURATION:?}" ${FORCE_COLOR} ${ARCHS:?} || {
+            if ! pnpm tauri ios xcode-script -v --platform "${PLATFORM_DISPLAY_NAME:?}" --sdk-root "${SDKROOT:?}" --framework-search-paths "${FRAMEWORK_SEARCH_PATHS:?}" --header-search-paths "${HEADER_SEARCH_PATHS:?}" --gcc-preprocessor-definitions "${GCC_PREPROCESSOR_DEFINITIONS:-}" --configuration "${CONFIGURATION:?}" ${FORCE_COLOR} ${ARCHS:?}; then
               if [ -f "$TARGET_DIR/libapp.a" ] || [ -f "$SRCROOT/Externals/arm64/${CONFIGURATION}/libapp.a" ]; then
-                echo "warning: Tauri CLI dev server is not running. Falling back to existing libapp.a static library."
+                echo "warning: [PoolPoker iOS] Tauri CLI dev server 未运行，回退使用已存在的 libapp.a 静态库。"
                 exit 0
               else
-                echo "error: Tauri CLI dev server is not running and libapp.a missing. Please run 'pnpm exec tauri ios dev' first."
+                echo "error: [PoolPoker iOS] Tauri CLI 开发服务未运行，且未找到现存 libapp.a 静态库。" >&2
+                echo "error: [PoolPoker iOS] 解决方案：" >&2
+                echo "error:   1. 在终端运行 'pnpm exec tauri ios dev' 启动开发服务；或" >&2
+                echo "error:   2. 采用默认离线单机模式编译（环境变量 POOLPOKER_OFFLINE=1）。" >&2
                 exit 1
               fi
-            }
+            fi
           else
             echo "=== [PoolPoker] Mode: Offline Standalone (Embedded dist, target: $RUST_TARGET) ==="
+
+            if ! command -v cargo >/dev/null 2>&1; then
+              echo "error: [PoolPoker iOS] 未检测到 Rust 工具链 (cargo 未安装或不在 PATH 中)。" >&2
+              echo "error: [PoolPoker iOS] iOS 宿主应用基于 Tauri v2 离线架构，必须使用 Rust 编译底层静态库 libapp.a。" >&2
+              echo "error: [PoolPoker iOS] 解决方案：" >&2
+              echo "error:   1. 安装 Rust 环境: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh" >&2
+              echo "error:   2. 添加 iOS 架构目标: rustup target add ${RUST_TARGET}" >&2
+              echo "error:   3. （提示）若您只想调试 Apple Watch 手表端，请在 Xcode 顶部 Scheme 切换为 'poolpoker_watchOS'，无需 Rust 环境即可直接编译运行。" >&2
+              exit 1
+            fi
+
+            if command -v rustup >/dev/null 2>&1; then
+              if ! rustup target list --installed | grep -q "^${RUST_TARGET}$"; then
+                echo "error: [PoolPoker iOS] Rust 未安装当前构建所需的编译目标: ${RUST_TARGET}。" >&2
+                echo "error: [PoolPoker iOS] 解决方案：在终端执行 'rustup target add ${RUST_TARGET}' 后重新编译。" >&2
+                exit 1
+              fi
+            fi
+
             if [ ! -d "$SRCROOT/../dist" ] || [ "$SRCROOT/../src" -nt "$SRCROOT/../dist" ]; then
               echo "Building web frontend dist..."
-              pnpm run build
+              if ! (cd "$SRCROOT/.." && pnpm run build); then
+                echo "error: [PoolPoker iOS] 前端打包失败 (pnpm run build)，无法生成嵌入式 web 资源。" >&2
+                exit 1
+              fi
             fi
+
             TARGET_LIB="$TARGET_DIR/libapp.a"
             CARGO_LIB="$SRCROOT/../src-tauri/target/${RUST_TARGET}/debug/libpoolpoker_lib.a"
+
             if [ ! -f "$TARGET_LIB" ] || [ "$SRCROOT/../src-tauri/src" -nt "$TARGET_LIB" ]; then
               echo "Compiling offline Rust staticlib with custom-protocol for $RUST_TARGET..."
-              cargo build --package poolpoker --manifest-path "$SRCROOT/../src-tauri/Cargo.toml" --target "$RUST_TARGET" --features tauri/custom-protocol
+              if ! cargo build --package poolpoker --manifest-path "$SRCROOT/../src-tauri/Cargo.toml" --target "$RUST_TARGET" --features tauri/custom-protocol; then
+                echo "error: [PoolPoker iOS] cargo build 编译 Rust 静态库失败 (target: ${RUST_TARGET})。请检查上方 Rust 报错日志。" >&2
+                exit 1
+              fi
+
+              if [ ! -f "$CARGO_LIB" ]; then
+                echo "error: [PoolPoker iOS] 编译未生成预期的静态库文件: $CARGO_LIB" >&2
+                exit 1
+              fi
+
               cp "$CARGO_LIB" "$TARGET_LIB"
               if [ "$RUST_TARGET" = "aarch64-apple-ios" ]; then
                 mkdir -p "$SRCROOT/Externals/arm64/${CONFIGURATION}"
                 cp "$CARGO_LIB" "$SRCROOT/Externals/arm64/${CONFIGURATION}/libapp.a"
               fi
             fi
+
+            if [ ! -f "$TARGET_LIB" ]; then
+              echo "error: [PoolPoker iOS] 未找到产物 $TARGET_LIB，编译异常中断。" >&2
+              exit 1
+            fi
+
             echo "Offline libapp.a is ready at $TARGET_LIB"
           fi
         name: Build Rust Code

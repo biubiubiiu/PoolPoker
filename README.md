@@ -128,12 +128,18 @@ PoolPoker/
 
 ### 环境要求
 
-- **Node.js**: `>= 24.0.0`（根目录含 `.nvmrc`，推荐使用 `nvm use`）
-- **pnpm**: `>= 12.6.0`（移动构建流水线依赖 pnpm 任务图特性）
-- **可选原生工具链**：
-  - **Rust**: `cargo` & `rustup`（用于编译 `src-tauri`）
-  - **Android / Wear OS**: JDK 17+、Android SDK & NDK
-  - **iOS / watchOS**: macOS + Xcode 15+
+- **Web 与服务端开发基础环境**：
+  - **Node.js**: `>= 24.0.0`（根目录含 `.nvmrc`，推荐使用 `nvm use`）
+  - **pnpm**: `>= 12.6.0`（移动构建流水线依赖 pnpm 任务图特性）
+- **移动端与离线原生宿主（编译 iOS App / Android App 必需）**：
+  - **Rust**: `cargo` & `rustup`（用于编译 `src-tauri` 底层离线静态库 `libapp.a` / Android JNI 库）
+    - 安装 Rust 工具链：`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
+    - iOS 构建目标架构：`rustup target add aarch64-apple-ios aarch64-apple-ios-sim`
+    - Android 构建目标架构：`rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android`
+- **平台专属原生工具链**：
+  - **iOS (iPhone) 客户端**：macOS + Xcode 15+（编译 iOS 宿主应用 `poolpoker_iOS` 依赖上述 Rust 及 iOS 目标架构）
+  - **Apple Watch (watchOS) 客户端**：macOS + Xcode 15+（**无需** Rust 环境，纯 SwiftUI 原生工程，可在 Xcode 中切换 `poolpoker_watchOS` 独立编译运行）
+  - **Android / Wear OS**：JDK 17+、Android SDK & NDK（手机端依赖 Rust 编译，手表端为原生 Jetpack Compose）
 
 ### 本地开发与服务端运行
 
@@ -161,10 +167,13 @@ pnpm run dev
 pnpm pipeline android-debug --full
 pnpm pipeline android-release --full
 
-# iOS Debug / Release 构建與模拟器实时调试
+# iOS Debug / Release 构建与模拟器实时调试
 pnpm exec tauri ios dev
 pnpm pipeline ios-debug --full
 pnpm pipeline ios-release --full
+
+# watchOS 手表端独立构建
+pnpm pipeline watchos-debug --full
 ```
 
 > 更多流水线参数（如 `--dry-run`）与并发锁说明请参阅 [移动端构建编排文档](docs/mobile_build_pipeline.md)。
