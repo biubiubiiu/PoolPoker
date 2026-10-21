@@ -99,18 +99,33 @@ pnpm start   # 等价于 pnpm run build && tsx server/index.ts (监听 http://lo
 
 #### iOS & Apple Watch（Xcode 直接 Run 或命令行构建）
 
-`poolpoker_iOS` 目标基于 **Tauri v2 + Rust** 构建。当你在 Xcode 中打开 `apple/poolpoker.xcodeproj` 并点击 **Run (⌘R)** 时，Xcode 的 `Build Rust Code` 前置脚本会自动调用 `pnpm` 与 `cargo` 将前端 `dist/` 与 `src-tauri` 编译为静态库 `libapp.a`。因此在首次使用 Xcode 编译或执行命令行打包前，**必须完成以下环境初始化**：
+`poolpoker_iOS` 目标基于 **Tauri v2 + Rust** 构建。当你在 Xcode 中打开 `apple/poolpoker.xcodeproj` 并点击 **Run (⌘R)** 时，Xcode 的 `Build Rust Code` 前置脚本会自动调用 `pnpm` 与 `cargo` 将前端 `dist/` 与 `src-tauri` 编译为静态库 `libapp.a`。
 
-```bash
-# 1. 安装 Rust 工具链 (rustup & cargo) 并添加 iOS 编译目标
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-rustup target add aarch64-apple-ios aarch64-apple-ios-sim
+在新设备上首次编译运行，**必须配置 Rust/Tauri 环境与 Xcode 开发者签名（Development Team）**：
 
-# 2. 在仓库根目录安装前端与 Tauri CLI 依赖，并生成跨端模型 (含 WireModels.swift)
-nvm use
-pnpm install
-pnpm run codegen:models
-```
+1. **安装 Rust 工具链与跨端依赖**：
+   ```bash
+   # 安装 Rust 并添加 iOS 真机与模拟器编译目标
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   rustup target add aarch64-apple-ios aarch64-apple-ios-sim
+
+   # 安装依赖并生成跨端模型 (含 WireModels.swift)
+   nvm use
+   pnpm install
+   pnpm run codegen:models
+   ```
+
+2. **配置 Xcode 开发者签名 (`Local.xcconfig`)**：
+   为避免在 Git 中提交个人证书信息或出现 `Signing for "poolpoker_iOS" requires a development team` 报错，工程采用 `Local.xcconfig` 隔离个人开发团队 ID：
+   ```bash
+   # 复制模板生成本地签名配置文件（已被 .gitignore 忽略）
+   cp apple/Local.xcconfig.template apple/Local.xcconfig
+   ```
+   打开 `apple/Local.xcconfig`，填入你的 Apple Developer Team ID（10 位团队标识符，可在 [Apple Developer 账户](https://developer.apple.com/account) 的 Membership 页面查看）：
+   ```xcconfig
+   DEVELOPMENT_TEAM = YOUR_TEAM_ID
+   ```
+   > 💡 也可以在 Xcode 打开工程后，直接在 Target (`poolpoker_iOS` / `poolpoker_watchOS`) 的 **Signing & Capabilities** 页面勾选 **Automatically manage signing** 并手动选择你的 Team。
 
 准备就绪后，你可以选择以下任一方式运行：
 - **在 Xcode 中直接点击 Run**：打开 `apple/poolpoker.xcodeproj`，选择 `poolpoker_iOS`（或手表端 `poolpoker_watchOS`）Target 点击 Run 即可自动构建并启动。

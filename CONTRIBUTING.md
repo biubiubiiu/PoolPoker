@@ -124,22 +124,34 @@ PoolPoker/
 
 ## 6. 移动端与智能手表构建
 
-### 6.1 iOS & Apple Watch（Xcode 直接 Run 前置要求）
+### 6.1 iOS & Apple Watch（Xcode 直接 Run 与签名配置）
 
 `apple/poolpoker.xcodeproj` 中的 `poolpoker_iOS` Target 依赖 **Tauri v2** 与 **Rust 静态库 (`libapp.a`)**。当你在 Xcode 中直接点击 **Run (⌘R)** 时，Xcode 的 `Build Rust Code` 脚本会自动执行前端 `pnpm run build` 与 `cargo build`。
 
-若未安装 Rust / Tauri 环境就直接在 Xcode 中点击 Run，编译会报错失败。首次在 Xcode 中运行前请先执行：
+若在新设备上未安装 Rust / Tauri 或未配置开发团队签名，Xcode 会提示 `Signing for "poolpoker_iOS" requires a development team` 或编译脚本报错。首次运行前需完成两步配置：
 
+#### 1. 安装 Rust 工具链与生成跨端模型
 ```bash
-# 1. 安装 Rust 并添加 iOS 真机与模拟器编译目标
+# 安装 Rust 并添加 iOS 真机与模拟器编译目标
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 rustup target add aarch64-apple-ios aarch64-apple-ios-sim
 
-# 2. 安装前端与 Tauri CLI 依赖并生成跨端模型 (含 WireModels.swift)
+# 安装前端与 Tauri CLI 依赖并生成跨端模型 (含 WireModels.swift)
 nvm use
 pnpm install
 pnpm run codegen:models
 ```
+
+#### 2. 配置本地个人开发者团队签名 (`Local.xcconfig`)
+为了防止个人 Team ID 提交污染仓库，项目通过 `apple/Local.xcconfig`（已被 `.gitignore` 忽略）管理本地签名：
+```bash
+cp apple/Local.xcconfig.template apple/Local.xcconfig
+```
+打开 `apple/Local.xcconfig`，填入你的 Apple Developer Team ID：
+```xcconfig
+DEVELOPMENT_TEAM = YOUR_TEAM_ID
+```
+*(也可以在 Xcode 的 Target `poolpoker_iOS` / `poolpoker_watchOS` -> **Signing & Capabilities** 中手动指定 Team)*。
 
 完成后即可在 Xcode 中打开 `apple/poolpoker.xcodeproj`，选择 `poolpoker_iOS` 或 `poolpoker_watchOS` 直接点击 **Run**。
 

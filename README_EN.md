@@ -99,18 +99,32 @@ The script automatically prints your LAN IP URL (e.g. `http://192.168.x.x:3000`)
 
 #### iOS & Apple Watch (Running in Xcode or via CLI)
 
-The `poolpoker_iOS` target is powered by **Tauri v2 + Rust**. When you open `apple/poolpoker.xcodeproj` in Xcode and click **Run (⌘R)**, Xcode's `Build Rust Code` pre-build script automatically invokes `pnpm` and `cargo` to compile the web frontend `dist/` and `src-tauri` into the static library `libapp.a`. Before running in Xcode or building via CLI for the first time, **you must initialize the Rust and Tauri environment**:
+The `poolpoker_iOS` target is powered by **Tauri v2 + Rust**. When you open `apple/poolpoker.xcodeproj` in Xcode and click **Run (⌘R)**, Xcode's `Build Rust Code` pre-build script automatically invokes `pnpm` and `cargo` to compile the web frontend `dist/` and `src-tauri` into the static library `libapp.a`.
 
-```bash
-# 1. Install Rust toolchain (rustup & cargo) and add iOS compilation targets
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-rustup target add aarch64-apple-ios aarch64-apple-ios-sim
+Before building on a new machine, **you must configure the Rust/Tauri toolchain and your Xcode Development Team**:
 
-# 2. Install frontend & Tauri CLI dependencies and generate cross-platform models (WireModels.swift)
-nvm use
-pnpm install
-pnpm run codegen:models
-```
+1. **Install Rust and Cross-Platform Dependencies**:
+   ```bash
+   # Install Rust and add iOS compilation targets
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   rustup target add aarch64-apple-ios aarch64-apple-ios-sim
+
+   # Install frontend & Tauri CLI dependencies and generate wire models (WireModels.swift)
+   nvm use
+   pnpm install
+   pnpm run codegen:models
+   ```
+
+2. **Configure Xcode Signing Team (`Local.xcconfig`)**:
+   To avoid committing personal developer team credentials or encountering `Signing for "poolpoker_iOS" requires a development team`, copy the local configuration template (git-ignored):
+   ```bash
+   cp apple/Local.xcconfig.template apple/Local.xcconfig
+   ```
+   Open `apple/Local.xcconfig` and enter your 10-character Apple Developer Team ID:
+   ```xcconfig
+   DEVELOPMENT_TEAM = YOUR_TEAM_ID
+   ```
+   > 💡 Alternatively, you can open Xcode, select the targets (`poolpoker_iOS` / `poolpoker_watchOS`), and choose your Team under **Signing & Capabilities** (with **Automatically manage signing** checked).
 
 Once initialized, you can either:
 - **Click Run directly in Xcode**: Open `apple/poolpoker.xcodeproj`, select the `poolpoker_iOS` (or `poolpoker_watchOS`) target, and press **Run (⌘R)**.
