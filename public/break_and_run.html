@@ -224,6 +224,8 @@
   .destructive { color: var(--red) !important; }
   .rules-sheet { max-height: 85vh; display: flex; flex-direction: column; }
   .rules-group { display: flex; flex-direction: column; min-height: 0; }
+  /* 完成按钮所在分组不参与收缩，只让规则正文滚动，否则按钮会被裁掉下半截 */
+  .rules-sheet > .sheet-group:not(.rules-group) { flex-shrink: 0; }
   .rules-group .sheet-header { border-bottom: 0.5px solid var(--separator); }
   .rules-body {
     padding: 4px 16px 16px;
@@ -306,6 +308,8 @@ const WIN_KEYS = ['normalWin', 'smallGold', 'bigGold', 'goldenNine', 'blackNorma
 const isPenaltyEndType = (key) => key === 'blackNormalWin' || key === 'blackSmallGold' || key === 'blackGoldenNine' || key === 'blackGold';
 /** 黑普胜、黑小金赔上家，其余黑的赔每家 */
 const paysPreviousOnly = (key) => key === 'blackNormalWin' || key === 'blackSmallGold';
+/** 普胜、小金、黑普胜、黑小金只和上家结算，可以是让杆获胜（改为和下家结算） */
+const settlesWithPrevious = (key) => key === 'normalWin' || key === 'smallGold' || paysPreviousOnly(key);
 
 const $ = (id) => document.getElementById(id);
 
@@ -370,7 +374,7 @@ function el(tag, className, text) {
   return node;
 }
 
-/** actions: [{ title, style: 'cancel' | 'destructive' | 'default', handler }] */
+/** actions: [{ title, style: 'cancel' | 'destructive' | 'default', preferred, handler }] */
 function showAlert({ title, message, input, actions }) {
   const alert = el('div', 'alert');
   const body = el('div', 'alert-body');
@@ -389,7 +393,9 @@ function showAlert({ title, message, input, actions }) {
   for (const action of actions) {
     const button = el('button', '', action.title);
     if (action.style === 'destructive') button.classList.add('destructive');
-    if (action.style !== 'cancel' && actions.length > 1) button.classList.add('bold');
+    // 指定了 preferred 时只加粗该按钮，否则加粗所有非取消按钮
+    const hasPreferred = actions.some((a) => a.preferred);
+    if (hasPreferred ? action.preferred : action.style !== 'cancel' && actions.length > 1) button.classList.add('bold');
     button.addEventListener('click', () => {
       close();
       if (action.handler) action.handler(field ? field.value : undefined);
@@ -616,6 +622,12 @@ const game = {
     return this.order[(index + this.order.length - 1) % this.order.length];
   },
 
+  /** 当前顺序中排在该玩家后面的人（最后一位的下一个是第一位） */
+  nextPlayerOf(name) {
+    const index = this.order.indexOf(name);
+    return this.order[(index + 1) % this.order.length];
+  },
+
   addScore(delta, name) {
     this.scores[name] += delta;
   },
@@ -628,21 +640,36 @@ const game = {
     return this.rules[key];
   },
 
-  applyFoul(name) {
+  /** type: 'normal' 普通犯规赔上家犯规分；'break' 开局犯规赔其他每家 1 分；'push' 让杆犯规赔下家 1 分 */
+  applyFoul(name, type) {
     this.history.push(this.snapshot());
-    const foul = this.rules.foul;
-    this.addScore(-foul, name);
-    this.addScore(foul, this.previousPlayerOf(name));
+    if (type === 'break') {
+      for (const other of this.order) {
+        if (other !== name) {
+          this.addScore(1, other);
+          this.addScore(-1, name);
+        }
+      }
+    } else if (type === 'push') {
+      this.addScore(-1, name);
+      this.addScore(1, this.nextPlayerOf(name));
+    } else {
+      const foul = this.rules.foul;
+      this.addScore(-foul, name);
+      this.addScore(foul, this.previousPlayerOf(name));
+    }
     this.save();
     renderGame();
   },
 
-  applyWin(winner, key) {
+  /** isPush：让杆获胜，原本和上家结算的改为和下家结算 */
+  applyWin(winner, key, isPush = false) {
     this.history.push(this.snapshot());
     const points = this.pointsForWinKey(key);
+    const opponent = isPush ? this.nextPlayerOf(winner) : this.previousPlayerOf(winner);
     if (paysPreviousOnly(key)) {
-      // 黑普胜、黑小金：选中的玩家赔上家
-      this.addScore(points, this.previousPlayerOf(winner));
+      // 黑普胜、黑小金：选中的玩家赔上家（让杆则赔下家）
+      this.addScore(points, opponent);
       this.addScore(-points, winner);
     } else if (isPenaltyEndType(key)) {
       // 黑黄金9、黑大金：选中的玩家赔其他每家
@@ -661,7 +688,8 @@ const game = {
         }
       }
     } else {
-      this.addScore(-points, this.previousPlayerOf(winner));
+      // 普胜、小金：上家给（让杆则下家给）
+      this.addScore(-points, opponent);
       this.addScore(points, winner);
     }
 
@@ -736,7 +764,18 @@ function showPlayerSheet(title, handler) {
 }
 
 $('foulBtn').addEventListener('click', () => {
-  showPlayerSheet('选择犯规玩家', (name) => game.applyFoul(name));
+  const foulTypes = [
+    { type: 'normal', title: `普通犯规（赔上家 ${game.rules.foul} 分）` },
+    { type: 'break', title: '开局犯规（赔其他每家 1 分）' },
+    { type: 'push', title: '让杆犯规（赔下家 1 分）' },
+  ];
+  showActionSheet({
+    title: '选择犯规类型',
+    options: foulTypes.map(({ type, title }) => ({
+      title,
+      handler: () => showPlayerSheet('选择犯规玩家', (name) => game.applyFoul(name, type)),
+    })),
+  });
 });
 
 $('winBtn').addEventListener('click', () => {
@@ -749,7 +788,20 @@ $('winBtn').addEventListener('click', () => {
         return {
           title: `${RULE_TITLES[key]}（${payer} ${game.pointsForWinKey(key)} 分）`,
           destructive: isPenaltyEndType(key),
-          handler: () => game.applyWin(winner, key),
+          handler: () => {
+            if (!settlesWithPrevious(key)) {
+              game.applyWin(winner, key);
+              return;
+            }
+            showAlert({
+              title: '是否让杆获胜？',
+              message: `让杆获胜时，${RULE_TITLES[key]} ${game.pointsForWinKey(key)} 分改为${isPenaltyEndType(key) ? '赔下家' : '由下家给'}`,
+              actions: [
+                { title: '是', handler: () => game.applyWin(winner, key, true) },
+                { title: '否', preferred: true, handler: () => game.applyWin(winner, key, false) },
+              ],
+            });
+          },
         };
       }),
     });
@@ -892,7 +944,8 @@ async function sendToWecom(content, description) {
   const body = JSON.stringify(message);
   try {
     // 优先 sendBeacon：不受 CORS 限制，页面关闭也会发出，部分内置浏览器里比 fetch 更可靠
-    if (navigator.sendBeacon?.(WECOM_WEBHOOK_URL, new Blob([body], { type: 'text/plain;charset=UTF-8' }))) {
+    // biome-ignore lint/complexity/useOptionalChain: 兼容不支持可选链函数调用的旧内置浏览器
+    if (navigator.sendBeacon && navigator.sendBeacon(WECOM_WEBHOOK_URL, new Blob([body], { type: 'text/plain;charset=UTF-8' }))) {
       return;
     }
   } catch {
@@ -924,9 +977,12 @@ function rulesText(rules) {
 • 开局时玩家顺序随机。
 • 每局结束后顺序整体反转，并把结束本局的玩家排在第一位（胜者 👑，赔分者 💀）。
 • 「上一个玩家」指当前顺序中排在他前面的人；排第一位的人，上一个是最后一位。
+• 「下一个玩家」指当前顺序中排在他后面的人；排最后一位的人，下一个是第一位。
 
 【犯规】
-• 犯规玩家扣 ${foul} 分，其上一个玩家加 ${foul} 分。
+• 普通犯规：犯规玩家扣 ${foul} 分，其上一个玩家加 ${foul} 分。
+• 开局犯规：犯规玩家赔其他每家 1 分。
+• 让杆犯规：犯规玩家赔下一个玩家 1 分。
 • 犯规不进入下一局。
 
 【结束本局】先选结束本局的玩家，再选方式：
@@ -938,6 +994,7 @@ function rulesText(rules) {
 • 黑小金（白球摔袋）：该玩家赔上一个玩家 ${smallGold} 分
 • 黑黄金9（开球 9 进、白球摔袋）：该玩家赔其他每家 ${normalWin} 分
 • 黑大金（打最后 9 号球、白球摔袋）：该玩家赔其他每家 ${bigGold} 分
+• 选普胜、小金、黑普胜、黑小金后会询问是否让杆获胜；是的话，改为和下一个玩家结算。
 
 【撤回】
 • 每次犯规或结束本局前都会保存快照，可连续撤回到开局。
