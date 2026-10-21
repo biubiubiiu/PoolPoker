@@ -85,7 +85,8 @@ const {
 
 provideBallAppearance();
 
-const nearby = useNearbyRooms(socket, room, isHost);
+const onlineSocket = computed(() => (isBleOfflineMode.value ? null : socket.value));
+const nearby = useNearbyRooms(onlineSocket, room, isHost);
 
 const busy = computed(() => pendingAction.value || isPresenting.value);
 const activeCards = computed(() => sortedMyCards.value.filter((c) => !isCardDimmed(c)).length);

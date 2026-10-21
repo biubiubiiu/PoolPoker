@@ -799,3 +799,11 @@ iPhone 实际 Tauri 模拟器包在原有 Build Rust Code 阶段失败；关闭�
      - iOS (`BleMeshBridge.swift`) 实现 `peripheral(_:didUpdateNotificationStateFor:error:)` 确保订阅就绪后再通知连接成功，增加 `canSendWriteWithoutResponse` + `peripheralIsReady(toSendWriteWithoutResponse:)` 写流控防止多片 `CLIENT_JOIN` 握手丢包，并开启 `CBCentralManagerScanOptionAllowDuplicatesKey: true` 配合 1.5s 节流支持动态 RSSI 与房间号刷新。
 4. **架构文档沉淀**：
    - 新增 [`docs/ble_offline_architecture.md`](file:///Users/raymond/Desktop/Workspace/dev/PoolPoker/docs/ble_offline_architecture.md) 完整记录离线 BLE 架构、GATT UUID、二进制帧格式、分片重组及状态机，并在 `AGENTS.md` 中建立索引。
+
+
+## 2026-10-22：Android release 离线模式权限循环退出修复
+
+- 真机系统日志显示定位权限 Activity 反复启动，系统记录 `rapidActivityLaunch`，对应应用退出记录为 `EXIT_SELF`、status 0。
+- BLE 虚拟 Socket 被在线附近发现当作在线连接，导致离线模式仍申请定位。`App.vue` 使用计算属性 `onlineSocket`，BLE 模式传入 `null`，复用 `useNearbyRooms` 已有的空 Socket 判断和清理流程；恢复在线后自动重新发现。
+- 改动仅隔离调用入口，保留原有重试行为和 composable 接口。Manifest 移除精确定位的 API 30 上限并补齐粗略定位，支持现代 Android 上的在线附近发现；声明权限本身不触发授权弹窗。
+- 回归覆盖无在线 Socket 时不启动、在线/离线切换清理与恢复、离线 Socket 更新。尚未重新打包安装 release APK 做修复后真机验证。

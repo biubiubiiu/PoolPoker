@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { nextTick, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 import { useNearbyRooms } from '@/composables/useNearbyRooms';
 import type { RoomDiscoveryProvider } from '@/discovery/provider';
 
@@ -109,6 +109,31 @@ describe('useNearbyRooms composable', () => {
     await nextTick();
 
     expect(composable.retrying.value).toBe(true);
+  });
+
+  it('stops discovery when the online socket is unavailable and resumes when it returns', async () => {
+    const offline = ref(false);
+    const onlineSocket = computed(() => (offline.value ? null : mockSocket.value));
+    const stop = vi.fn();
+    providerStartMock.mockReturnValue(stop);
+    useNearbyRooms(onlineSocket, mockRoom, isHost, () => mockProvider);
+    expect(providerStartMock).toHaveBeenCalledTimes(1);
+
+    offline.value = true;
+    await nextTick();
+    expect(stop).toHaveBeenCalledWith({ retainAdvertisement: false });
+    mockSocket.value = { connected: true };
+    await nextTick();
+    expect(providerStartMock).toHaveBeenCalledTimes(1);
+
+    offline.value = false;
+    await nextTick();
+    expect(providerStartMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not start discovery without an online socket', () => {
+    useNearbyRooms(ref(null), mockRoom, isHost, () => mockProvider);
+    expect(providerStartMock).not.toHaveBeenCalled();
   });
 
   it('updates localStorage and state when setEnabled is called', async () => {
