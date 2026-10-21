@@ -222,6 +222,16 @@ const onJoin = async () => {
         </div>
       </label>
 
+      <!-- 大金玩法记分板入口 -->
+      <a
+        href="/break_and_run.html"
+        title="打开中式台球大金玩法记分板"
+        class="px-2.5 py-1.5 bg-black/40 hover:bg-black/60 border border-white/10 hover:border-amber-400/50 rounded-xl text-xs text-gray-300 hover:text-amber-300 font-semibold flex items-center gap-1.5 transition active:scale-95 shadow-lg"
+      >
+        <i class="fa-solid fa-calculator text-amber-400"></i>
+        <span>大金记分器</span>
+      </a>
+
       <!-- 右上角设置按钮 (仅在 Tauri 环境或已有自定义配置时显示) -->
       <button v-if="isTauriEnv || props.serverUrl" @click="currentView = 'settings'" 
               class="px-3 py-1.5 bg-black/40 hover:bg-black/60 border border-white/10 hover:border-amber-400/50 rounded-xl text-xs text-gray-300 hover:text-amber-300 font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-lg">

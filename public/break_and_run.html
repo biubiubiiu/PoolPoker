@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<title>记分板</title>
+<style>
+  :root {
+    --bg: #f2f2f7;
+    --card: #ffffff;
+    --text: #000000;
+    --secondary: #8e8e93;
+    --separator: #d1d1d6;
+    --accent: #007aff;
+    --red: #ff3b30;
+    --green: #34c759;
+    --gold: rgba(255, 204, 0, 0.3);
+    --overlay: rgba(0, 0, 0, 0.4);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --card: #1c1c1e;
+      --text: #ffffff;
+      --secondary: #8e8e93;
+      --separator: #38383a;
+      --accent: #0a84ff;
+      --red: #ff453a;
+      --green: #30d158;
+      --gold: rgba(255, 214, 10, 0.3);
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .page {
+    display: none;
+    flex-direction: column;
+    max-width: 640px;
+    margin: 0 auto;
+    min-height: 100%;
+    padding: 0 16px calc(16px + env(safe-area-inset-bottom) + var(--keyboard-height, 0px));
+  }
+  .page.active { display: flex; }
+
+  .navbar {
+    position: sticky;
+    top: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 52px;
+    padding-top: env(safe-area-inset-top);
+    background: var(--bg);
+    z-index: 1;
+  }
+  .navbar h1 { flex: 1; margin: 0; font-size: 17px; font-weight: 600; text-align: center; }
+  .nav-btn {
+    min-width: 72px;
+    border: none;
+    background: none;
+    color: var(--accent);
+    font-size: 17px;
+    padding: 8px 0;
+    cursor: pointer;
+  }
+  .nav-btn:first-child { text-align: left; }
+  .nav-btn:last-child { text-align: right; }
+  .nav-btn:disabled { color: var(--secondary); opacity: 0.5; cursor: default; }
+
+  .btn {
+    border: none;
+    border-radius: 12px;
+    font-size: 17px;
+    font-weight: 600;
+    padding: 14px;
+    cursor: pointer;
+    width: 100%;
+  }
+  .btn:active { opacity: 0.7; }
+  .btn-filled { background: var(--accent); color: #fff; }
+  .btn-tinted { background: rgba(0, 122, 255, 0.15); }
+  .btn-red { background: rgba(255, 59, 48, 0.15); }
+  .btn-tinted { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
+  .btn-red { background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red); }
+
+  /* 首页 */
+  .section-header { margin: 20px 4px 8px; font-size: 13px; color: var(--secondary); }
+  .list { background: var(--card); border-radius: 12px; overflow: hidden; }
+  .list-empty { padding: 14px 16px; color: var(--secondary); }
+  .player-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 0.5px solid var(--separator);
+  }
+  .player-row:last-child { border-bottom: none; }
+  .player-row .name { flex: 1; }
+  .player-row .delete {
+    border: none;
+    background: none;
+    color: var(--red);
+    font-size: 15px;
+    cursor: pointer;
+  }
+  .settings { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; }
+  .setting-row { display: flex; align-items: center; gap: 12px; }
+  .setting-row label { width: 60px; font-size: 17px; }
+  .setting-row input {
+    flex: 1;
+    height: 40px;
+    border: 0.5px solid var(--separator);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--text);
+    font-size: 17px;
+    text-align: center;
+  }
+  .spacer { flex: 1; min-height: 20px; }
+
+  /* 游戏页 */
+  .round-label { margin: 20px 0 8px; font-size: 17px; font-weight: 600; color: var(--secondary); }
+  .row { display: flex; gap: 8px; margin-bottom: 20px; }
+  .cell {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    border-radius: 10px;
+    background: var(--card);
+    text-align: center;
+    word-break: break-all;
+  }
+  .cell.winner { background: var(--gold); }
+  .cell.penalty { background: rgba(142, 142, 147, 0.35); }
+  .cell.score { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .cell.score.pos { color: var(--green); }
+  .cell.score.neg { color: var(--red); }
+  .button-row { display: flex; gap: 16px; }
+
+  /* 弹窗 */
+  .overlay {
+    position: fixed;
+    left: 0;
+    right: 0;
+    /* 只覆盖键盘以上的可见区域（由 visualViewport 计算），避免输入框被键盘挡住 */
+    top: var(--viewport-top, 0px);
+    height: var(--viewport-height, 100%);
+    background: var(--overlay);
+    display: flex;
+    z-index: 10;
+    animation: fade 0.2s;
+  }
+  @keyframes fade { from { opacity: 0; } }
+  @keyframes rise { from { transform: translateY(100%); } }
+  @keyframes pop { from { transform: scale(1.1); opacity: 0; } }
+  .alert {
+    margin: auto;
+    width: 280px;
+    border-radius: 14px;
+    background: var(--card);
+    overflow: hidden;
+    text-align: center;
+    animation: pop 0.2s;
+  }
+  .alert-body { padding: 20px 16px 16px; }
+  .alert-title { font-size: 17px; font-weight: 600; }
+  .alert-message { margin-top: 4px; font-size: 13px; line-height: 1.4; }
+  .alert input {
+    width: 100%;
+    margin-top: 14px;
+    padding: 8px;
+    border: 0.5px solid var(--separator);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+  }
+  .alert-actions { display: flex; border-top: 0.5px solid var(--separator); }
+  .alert-actions button {
+    flex: 1;
+    border: none;
+    background: none;
+    padding: 12px;
+    font-size: 17px;
+    color: var(--accent);
+    cursor: pointer;
+  }
+  .alert-actions button + button { border-left: 0.5px solid var(--separator); }
+  .sheet {
+    margin-top: auto;
+    width: 100%;
+    max-width: 640px;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0 8px calc(8px + env(safe-area-inset-bottom));
+    animation: rise 0.25s;
+  }
+  .sheet-group { background: var(--card); border-radius: 14px; overflow: hidden; margin-bottom: 8px; }
+  .sheet-header { padding: 14px 16px; text-align: center; color: var(--secondary); border-bottom: 0.5px solid var(--separator); }
+  .sheet-header .t { font-size: 13px; font-weight: 600; }
+  .sheet-header .m { font-size: 13px; margin-top: 2px; }
+  .sheet button {
+    display: block;
+    width: 100%;
+    border: none;
+    background: none;
+    padding: 16px;
+    font-size: 20px;
+    color: var(--accent);
+    cursor: pointer;
+  }
+  .sheet-group button + button { border-top: 0.5px solid var(--separator); }
+  .destructive { color: var(--red) !important; }
+  .bold { font-weight: 600; }
+</style>
+</head>
+<body>
+
+<!-- 首页 -->
+<div class="page" id="setupPage">
+  <div class="navbar">
+    <button type="button" class="nav-btn" onclick="window.location.href='/'">‹ PoolPoker</button>
+    <h1>记分板</h1>
+    <div style="min-width: 72px;"></div>
+  </div>
+  <button type="button" class="btn btn-tinted" id="addPlayerBtn" style="margin-top: 16px;">＋ 增加玩家</button>
+  <div class="section-header" id="playerHeader">玩家（0）</div>
+  <div class="list" id="playerList"></div>
+  <div class="settings">
+    <div class="setting-row"><label for="foulInput">犯规</label><input id="foulInput" type="number" inputmode="numeric" min="0" value="1"></div>
+    <div class="setting-row"><label for="normalWinInput">普胜</label><input id="normalWinInput" type="number" inputmode="numeric" min="0" value="4"></div>
+    <div class="setting-row"><label for="smallGoldInput">小金</label><input id="smallGoldInput" type="number" inputmode="numeric" min="0" value="7"></div>
+    <div class="setting-row"><label for="bigGoldInput">大金</label><input id="bigGoldInput" type="number" inputmode="numeric" min="0" value="10"></div>
+  </div>
+  <div class="spacer"></div>
+  <button type="button" class="btn btn-filled" id="startBtn">开始游戏</button>
+</div>
+
+<!-- 游戏页 -->
+<div class="page" id="gamePage">
+  <div class="navbar">
+    <button type="button" class="nav-btn" id="undoBtn">↩ 撤回</button>
+    <h1>游戏中</h1>
+    <button type="button" class="nav-btn" id="endBtn">结束游戏</button>
+  </div>
+  <div class="round-label" id="roundLabel"></div>
+  <div class="row" id="orderRow"></div>
+  <div class="row" id="scoreRow"></div>
+  <div class="button-row">
+    <button type="button" class="btn btn-red" id="foulBtn">犯规</button>
+    <button type="button" class="btn btn-filled" id="winBtn">结束本局</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const GAME_STATE_KEY = 'ScoreBoard.GameState';
+const LAST_PLAYERS_KEY = 'ScoreBoard.LastPlayers';
+const WECOM_WEBHOOK_URL = 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=7110add4-d59b-4624-aaf5-a71cc8bd6a31';
+// 固定提及成员
+const WECOM_MENTIONED_LIST = ['shyren'];
+
+const RULE_TITLES = {
+  foul: '犯规',
+  normalWin: '普胜',
+  smallGold: '小金',
+  bigGold: '大金',
+  // 以下结束方式没有单独分值：黄金9、黑黄金9 按普胜分值，黑金按大金分值
+  goldenNine: '黄金9',           // 开球 9 进、白球安全：其他每家给你
+  blackGoldenNine: '黑黄金9',    // 开球 9 进、白球摔袋：你赔其他每家
+  blackGold: '黑金',             // 打最后 9 号球、白球摔袋：你赔其他每家
+};
+const RULE_KEYS = ['foul', 'normalWin', 'smallGold', 'bigGold'];
+const WIN_KEYS = ['normalWin', 'smallGold', 'bigGold', 'goldenNine', 'blackGoldenNine', 'blackGold'];
+/** 黑黄金9、黑金是选中的玩家赔分 */
+const isPenaltyEndType = (key) => key === 'blackGoldenNine' || key === 'blackGold';
+
+const $ = (id) => document.getElementById(id);
+
+/* ========== 本地存储（容错） ========== */
+
+// 部分环境（企业微信/微信内置浏览器、file:// 打开、无痕模式）会禁止 localStorage，
+// 直接调用会抛异常导致按钮无反应，这里统一兜底：不可用时退回内存，并提示一次
+const memoryStorage = {};
+let storageWarned = false;
+
+function warnStorageUnavailable() {
+  if (storageWarned) return;
+  storageWarned = true;
+  showMessage('当前浏览器禁止了本地存储，记录只保存在本页面，刷新或关闭后会丢失。建议用 Safari / Chrome 直接打开。');
+}
+
+const storage = {
+  get(key) {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return key in memoryStorage ? memoryStorage[key] : null;
+    }
+  },
+  set(key, value) {
+    memoryStorage[key] = value;
+    try {
+      localStorage.setItem(key, value);
+    } catch {
+      warnStorageUnavailable();
+    }
+  },
+  remove(key) {
+    delete memoryStorage[key];
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // 忽略
+    }
+  },
+};
+
+/* ========== 弹窗 ========== */
+
+function showOverlay(content, onBackdrop) {
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  overlay.appendChild(content);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay && onBackdrop) {
+      onBackdrop();
+    }
+  });
+  document.body.appendChild(overlay);
+  return () => overlay.remove();
+}
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+/** actions: [{ title, style: 'cancel' | 'destructive' | 'default', handler }] */
+function showAlert({ title, message, input, actions }) {
+  const alert = el('div', 'alert');
+  const body = el('div', 'alert-body');
+  if (title) body.appendChild(el('div', 'alert-title', title));
+  if (message) body.appendChild(el('div', 'alert-message', message));
+  let field = null;
+  if (input) {
+    field = el('input');
+    field.placeholder = input.placeholder || '';
+    body.appendChild(field);
+  }
+  alert.appendChild(body);
+
+  const actionBar = el('div', 'alert-actions');
+  let close;
+  for (const action of actions) {
+    const button = el('button', '', action.title);
+    if (action.style === 'destructive') button.classList.add('destructive');
+    if (action.style !== 'cancel' && actions.length > 1) button.classList.add('bold');
+    button.addEventListener('click', () => {
+      close();
+      if (action.handler) action.handler(field ? field.value : undefined);
+    });
+    actionBar.appendChild(button);
+  }
+  alert.appendChild(actionBar);
+  close = showOverlay(alert);
+
+  if (field) {
+    field.focus();
+    field.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') actionBar.lastChild.click();
+    });
+  }
+}
+
+function showMessage(message) {
+  showAlert({ message, actions: [{ title: '好的' }] });
+}
+
+/** options: [{ title, handler }] */
+function showActionSheet({ title, message, options }) {
+  const sheet = el('div', 'sheet');
+  const group = el('div', 'sheet-group');
+  if (title || message) {
+    const header = el('div', 'sheet-header');
+    if (title) header.appendChild(el('div', 't', title));
+    if (message) header.appendChild(el('div', 'm', message));
+    group.appendChild(header);
+  }
+  let close;
+  for (const option of options) {
+    const button = el('button', option.destructive ? 'destructive' : '', option.title);
+    button.addEventListener('click', () => {
+      close();
+      option.handler();
+    });
+    group.appendChild(button);
+  }
+  const cancelGroup = el('div', 'sheet-group');
+  const cancel = el('button', 'bold', '取消');
+  cancel.addEventListener('click', () => close());
+  cancelGroup.appendChild(cancel);
+  sheet.append(group, cancelGroup);
+  close = showOverlay(sheet, () => close());
+}
+
+/* ========== 存储 ========== */
+
+function isValidState(state) {
+  if (!state || typeof state !== 'object') return false;
+  const { order, scores, rules } = state;
+  if (!Array.isArray(order) || order.length < 2) return false;
+  if (!scores || typeof scores !== 'object' || Object.keys(scores).length !== order.length) return false;
+  if (!order.every((name) => typeof scores[name] === 'number')) return false;
+  if (!rules || typeof rules !== 'object') return false;
+  return RULE_KEYS.every((key) => typeof rules[key] === 'number');
+}
+
+function loadGameState() {
+  try {
+    const state = JSON.parse(storage.get(GAME_STATE_KEY));
+    if (!isValidState(state)) return null;
+    state.round = Math.max(Number(state.round) || 1, 1);
+    state.lastWinner = typeof state.lastWinner === 'string' ? state.lastWinner : null;
+    state.lastEndType = typeof state.lastEndType === 'string' ? state.lastEndType : null;
+    state.history = Array.isArray(state.history) ? state.history.filter(isValidState) : [];
+    return state;
+  } catch {
+    return null;
+  }
+}
+
+function loadLastPlayers() {
+  try {
+    const saved = JSON.parse(storage.get(LAST_PLAYERS_KEY));
+    if (!Array.isArray(saved)) return [];
+    return saved.filter((name, i) => typeof name === 'string' && name.length > 0 && saved.indexOf(name) === i);
+  } catch {
+    return [];
+  }
+}
+
+/* ========== 首页 ========== */
+
+let players = [];
+
+function renderPlayers() {
+  $('playerHeader').textContent = `玩家（${players.length}）`;
+  const list = $('playerList');
+  list.innerHTML = '';
+  if (players.length === 0) {
+    list.appendChild(el('div', 'list-empty', '还没有玩家，点上方按钮增加'));
+    return;
+  }
+  players.forEach((name, index) => {
+    const row = el('div', 'player-row');
+    row.appendChild(el('span', '', '👤'));
+    row.appendChild(el('span', 'name', name));
+    const del = el('button', 'delete', '删除');
+    del.addEventListener('click', () => {
+      players.splice(index, 1);
+      renderPlayers();
+    });
+    row.appendChild(del);
+    list.appendChild(row);
+  });
+}
+
+function addPlayer(rawName) {
+  const name = (rawName || '').trim();
+  if (!name) {
+    showMessage('玩家名字不能为空');
+    return;
+  }
+  if (players.includes(name)) {
+    showMessage(`玩家「${name}」已存在`);
+    return;
+  }
+  players.push(name);
+  renderPlayers();
+}
+
+$('addPlayerBtn').addEventListener('click', () => {
+  showAlert({
+    title: '增加玩家',
+    input: { placeholder: '请输入玩家名字' },
+    actions: [
+      { title: '取消', style: 'cancel' },
+      { title: '确定', handler: addPlayer },
+    ],
+  });
+});
+
+$('startBtn').addEventListener('click', () => {
+  if (players.length < 2) {
+    showMessage('请至少增加两名玩家');
+    return;
+  }
+  const inputs = { foul: 'foulInput', normalWin: 'normalWinInput', smallGold: 'smallGoldInput', bigGold: 'bigGoldInput' };
+  const rules = {};
+  for (const key of RULE_KEYS) {
+    const text = $(inputs[key]).value.trim();
+    if (!/^\d+$/.test(text)) {
+      showMessage(`请输入有效的「${RULE_TITLES[key]}」分数`);
+      return;
+    }
+    rules[key] = parseInt(text, 10);
+  }
+  storage.set(LAST_PLAYERS_KEY, JSON.stringify(players));
+  game.start(players, rules);
+  showPage('gamePage');
+});
+
+/* ========== 游戏 ========== */
+
+const game = {
+  order: [],
+  scores: {},
+  rules: {},
+  round: 1,
+  lastWinner: null,  // 上局结束本局的玩家（胜者或赔分者）
+  lastEndType: null, // 上局结束方式
+  history: [], // 每次操作前的快照（不含 history），用于撤回
+
+  start(playerList, rules) {
+    // Fisher-Yates 洗牌，最开始的顺序随机
+    const order = [...playerList];
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    this.order = order;
+    this.scores = Object.fromEntries(playerList.map((name) => [name, 0]));
+    this.rules = { ...rules };
+    this.round = 1;
+    this.lastWinner = null;
+    this.lastEndType = null;
+    this.history = [];
+    this.save();
+    renderGame();
+  },
+
+  restore(state) {
+    this.restoreSnapshot(state);
+    this.history = state.history;
+    renderGame();
+  },
+
+  /** 当前分数、顺序等状态的快照（不含 history） */
+  snapshot() {
+    const snap = {
+      order: [...this.order],
+      scores: { ...this.scores },
+      rules: { ...this.rules },
+      round: this.round,
+    };
+    if (this.lastWinner) snap.lastWinner = this.lastWinner;
+    if (this.lastEndType) snap.lastEndType = this.lastEndType;
+    return snap;
+  },
+
+  restoreSnapshot(snap) {
+    this.order = [...snap.order];
+    this.scores = { ...snap.scores };
+    this.rules = { ...snap.rules };
+    this.round = Math.max(Number(snap.round) || 1, 1);
+    this.lastWinner = typeof snap.lastWinner === 'string' ? snap.lastWinner : null;
+    this.lastEndType = typeof snap.lastEndType === 'string' ? snap.lastEndType : null;
+  },
+
+  save() {
+    storage.set(GAME_STATE_KEY, JSON.stringify({ ...this.snapshot(), history: this.history }));
+  },
+
+  clear() {
+    storage.remove(GAME_STATE_KEY);
+  },
+
+  /** 当前顺序中排在该玩家前面的人（第一位的上一个是最后一位） */
+  previousPlayerOf(name) {
+    const index = this.order.indexOf(name);
+    return this.order[(index + this.order.length - 1) % this.order.length];
+  },
+
+  addScore(delta, name) {
+    this.scores[name] += delta;
+  },
+
+  pointsForWinKey(key) {
+    if (key === 'goldenNine' || key === 'blackGoldenNine') return this.rules.normalWin;
+    if (key === 'blackGold') return this.rules.bigGold;
+    return this.rules[key];
+  },
+
+  applyFoul(name) {
+    this.history.push(this.snapshot());
+    const foul = this.rules.foul;
+    this.addScore(-foul, name);
+    this.addScore(foul, this.previousPlayerOf(name));
+    this.save();
+    renderGame();
+  },
+
+  applyWin(winner, key) {
+    this.history.push(this.snapshot());
+    const points = this.pointsForWinKey(key);
+    if (isPenaltyEndType(key)) {
+      // 黑黄金9、黑金：选中的玩家赔其他每家
+      for (const name of this.order) {
+        if (name !== winner) {
+          this.addScore(points, name);
+          this.addScore(-points, winner);
+        }
+      }
+    } else if (key === 'bigGold' || key === 'goldenNine') {
+      // 大金、黄金9：其他每家给选中的玩家
+      for (const name of this.order) {
+        if (name !== winner) {
+          this.addScore(-points, name);
+          this.addScore(points, winner);
+        }
+      }
+    } else {
+      this.addScore(-points, this.previousPlayerOf(winner));
+      this.addScore(points, winner);
+    }
+
+    this.pushRoundResult(winner, key);
+
+    // 下一局：顺序反转，再轮转使结束本局的玩家（胜者或赔分者）排在首位
+    const reversed = [...this.order].reverse();
+    const winnerIndex = reversed.indexOf(winner);
+    this.order = [...reversed.slice(winnerIndex), ...reversed.slice(0, winnerIndex)];
+    this.lastWinner = winner;
+    this.lastEndType = key;
+    this.round += 1;
+
+    this.save();
+    renderGame();
+  },
+
+  /** 本局得分 = 当前分数 - 本局开始时（本局第一条历史快照）的分数 */
+  pushRoundResult(winner, key) {
+    const startSnap = this.history.find((snap) => snap.round === this.round);
+    const startScores = startSnap ? startSnap.scores : this.scores;
+    const deltas = Object.fromEntries(this.order.map((name) => [name, this.scores[name] - startScores[name]]));
+    sendRoundResultToWecom(this.round, winner, RULE_TITLES[key], [...this.order], deltas, { ...this.scores });
+  },
+
+  undo() {
+    const snap = this.history.pop();
+    if (!snap) return;
+    // 快照的局数比当前小，说明撤回的是一次本局结束
+    const isRevokingRoundEnd = snap.round < this.round;
+    const revokedPlayer = this.lastWinner;
+    const revokedEndType = this.lastEndType;
+    this.restoreSnapshot(snap);
+    if (isRevokingRoundEnd && revokedPlayer) {
+      sendRoundRevokedToWecom(this.round, revokedPlayer, RULE_TITLES[revokedEndType], isPenaltyEndType(revokedEndType));
+    }
+    this.save();
+    renderGame();
+  },
+};
+
+function renderGame() {
+  $('roundLabel').textContent = `第 ${game.round} 局`;
+  $('undoBtn').disabled = game.history.length === 0;
+
+  const orderRow = $('orderRow');
+  const scoreRow = $('scoreRow');
+  orderRow.innerHTML = '';
+  scoreRow.innerHTML = '';
+  game.order.forEach((name, index) => {
+    // 上局胜者 👑 黄色；黑黄金9、黑金的赔分者 💀 灰色
+    const isLastEnder = name === game.lastWinner;
+    const isPenalty = isLastEnder && isPenaltyEndType(game.lastEndType);
+    const marker = isLastEnder ? (isPenalty ? '💀 ' : '👑 ') : '';
+    const orderCell = el('div', 'cell', `${marker}${index + 1}. ${name}`);
+    if (isLastEnder) orderCell.classList.add(isPenalty ? 'penalty' : 'winner');
+    orderRow.appendChild(orderCell);
+
+    const score = game.scores[name];
+    const scoreCell = el('div', 'cell score', score > 0 ? `+${score}` : `${score}`);
+    if (score > 0) scoreCell.classList.add('pos');
+    if (score < 0) scoreCell.classList.add('neg');
+    scoreRow.appendChild(scoreCell);
+  });
+}
+
+function showPlayerSheet(title, handler) {
+  showActionSheet({
+    title,
+    options: game.order.map((name) => ({ title: name, handler: () => handler(name) })),
+  });
+}
+
+$('foulBtn').addEventListener('click', () => {
+  showPlayerSheet('选择犯规玩家', (name) => game.applyFoul(name));
+});
+
+$('winBtn').addEventListener('click', () => {
+  showPlayerSheet('选择结束本局的玩家', (winner) => {
+    showActionSheet({
+      title: winner,
+      message: '选择结束方式',
+      options: WIN_KEYS.map((key) => {
+        const payer = isPenaltyEndType(key) ? '赔每家' : (key === 'normalWin' || key === 'smallGold' ? '上家给' : '每家给');
+        return {
+          title: `${RULE_TITLES[key]}（${payer} ${game.pointsForWinKey(key)} 分）`,
+          destructive: isPenaltyEndType(key),
+          handler: () => game.applyWin(winner, key),
+        };
+      }),
+    });
+  });
+});
+
+$('undoBtn').addEventListener('click', () => {
+  const snap = game.history[game.history.length - 1];
+  if (!snap) return;
+  // 快照的局数比当前小，说明撤回的是一次本局结束
+  const isRevokingRoundEnd = snap.round < game.round;
+  const endTitle = RULE_TITLES[game.lastEndType] || '结束';
+  const message = isRevokingRoundEnd
+    ? `将撤回第 ${snap.round} 局 ${game.lastWinner || ''} 的${endTitle}，分数和顺序回到结算前，并推送撤回通知`
+    : '将撤回上一次犯规，分数回到犯规前';
+  showAlert({
+    title: '确定撤回？',
+    message,
+    actions: [
+      { title: '取消', style: 'cancel' },
+      { title: '撤回', style: 'destructive', handler: () => game.undo() },
+    ],
+  });
+});
+
+$('endBtn').addEventListener('click', () => {
+  showAlert({
+    title: '结束游戏',
+    message: '结束后将清除本局所有记录，确定吗？',
+    actions: [
+      { title: '取消', style: 'cancel' },
+      {
+        title: '结束',
+        style: 'destructive',
+        handler: () => {
+          game.clear();
+          players = loadLastPlayers();
+          renderPlayers();
+          showPage('setupPage');
+        },
+      },
+    ],
+  });
+});
+
+/* ========== 企业微信机器人 ========== */
+
+function signedScore(score) {
+  return score >= 0 ? `+${score}` : `${score}`;
+}
+
+/** 大金、小金的炫耀横幅，黄金9 的狗屎运横幅，黑黄金9、黑金的悲剧横幅，普胜返回 null */
+function bannerForWinType(winType, winner) {
+  switch (winType) {
+    case '大金':
+      return [
+        '🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆',
+        '💰💥 大 金 降 临 💥💰',
+        `👑 ${winner} 一杆封神，通杀全场！`,
+        '🔥 球桌颤抖，对手沉默 🔥',
+        '🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆',
+      ].join('\n');
+    case '黑金':
+      return [
+        '⚫💀⚫💀⚫💀⚫💀⚫💀',
+        '🕳️ 黑 金 · 功 亏 一 篑 🕳️',
+        `😭 ${winner} 打进 9 号，白球也一头扎进了袋！`,
+        '💸 到嘴的大金飞了，还得倒贴全场',
+        '🫡 其余人：谢谢老板！',
+        '⚫💀⚫💀⚫💀⚫💀⚫💀',
+      ].join('\n');
+    case '黑黄金9':
+      return [
+        '💀💸💀💸💀💸💀💸',
+        '😱 黑 黄 金 9 · 乐 极 生 悲 😱',
+        `🤦 ${winner} 开球进 9，白球跟着殉情！`,
+        '🎁 本局变成给全场发红包',
+        '💀💸💀💸💀💸💀💸',
+      ].join('\n');
+    case '黄金9':
+      return [
+        '💩🍀💩🍀💩🍀💩🍀💩🍀',
+        '🎱 黄 金 9 · 天 选 狗 屎 运 🎱',
+        `🤡 ${winner} 闭眼开球，9 号金球自己滚进去了！`,
+        '🙏 祖坟冒青烟，锦鲤附体，今晚可以无脑梭哈期权 🐟',
+        '😤 其余人：这也行？？？',
+        '💩🍀💩🍀💩🍀💩🍀💩🍀',
+      ].join('\n');
+    case '小金':
+      return [
+        '✨✨✨✨✨✨✨✨',
+        '🥇 小 金 到 手 🥇',
+        `😎 ${winner} 精准收割，帅到犯规！`,
+        '✨✨✨✨✨✨✨✨',
+      ].join('\n');
+    default:
+      return null;
+  }
+}
+
+function sendRoundResultToWecom(round, winner, winType, playerOrder, roundDeltas, totalScores) {
+  const lines = [];
+  const banner = bannerForWinType(winType, winner);
+  if (banner) lines.push(banner);
+  lines.push(`第 ${round} 局：${winner} ${winType}`);
+  for (const name of playerOrder) {
+    lines.push(`成员${name}：${signedScore(roundDeltas[name])}（累计${totalScores[name]}）`);
+  }
+  sendToWecom(lines.join('\n'), `第 ${round} 局结果`);
+}
+
+function sendRoundRevokedToWecom(round, player, winType, isPenalty) {
+  const detail = `${isPenalty ? '原赔分者' : '原胜者'}：${player}${winType ? ` ${winType}` : ''}`;
+  sendToWecom(`↩️ 第 ${round} 局已撤回（${detail}），以下一条结果为准`, `第 ${round} 局撤回`);
+}
+
+async function sendToWecom(content, description) {
+  const message = {
+    msgtype: 'text',
+    text: { content, mentioned_list: WECOM_MENTIONED_LIST },
+  };
+  // 企业微信接口不支持跨域（预检返回 403），只能发「简单请求」：text/plain 正文，接口会照常解析 JSON。
+  // 两种方式都拿不到响应结果，只能确认请求已发出
+  const body = JSON.stringify(message);
+  try {
+    // 优先 sendBeacon：不受 CORS 限制，页面关闭也会发出，部分内置浏览器里比 fetch 更可靠
+    if (navigator.sendBeacon?.(WECOM_WEBHOOK_URL, new Blob([body], { type: 'text/plain;charset=UTF-8' }))) {
+      return;
+    }
+  } catch {
+    // 退回 fetch
+  }
+  try {
+    await fetch(WECOM_WEBHOOK_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      body,
+    });
+  } catch (err) {
+    console.warn(`⚠️ [WeCom] 推送${description}异常:`, err);
+  }
+}
+
+/* ========== 键盘避让 ========== */
+
+// iOS Safari 弹出键盘时不缩小布局视口，用 visualViewport 算出可见区域，
+// 供弹窗定位和页面底部留白使用，并把聚焦的输入框滚到可见区域中间
+function updateViewportInsets() {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const root = document.documentElement.style;
+  const keyboardHeight = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+  root.setProperty('--viewport-top', `${vv.offsetTop}px`);
+  root.setProperty('--viewport-height', `${vv.height}px`);
+  root.setProperty('--keyboard-height', `${keyboardHeight}px`);
+}
+
+function scrollFocusedInputIntoView() {
+  const active = document.activeElement;
+  if (active && active.tagName === 'INPUT' && !active.closest('.overlay')) {
+    active.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+}
+
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', () => {
+    updateViewportInsets();
+    scrollFocusedInputIntoView();
+  });
+  window.visualViewport.addEventListener('scroll', updateViewportInsets);
+  updateViewportInsets();
+}
+document.addEventListener('focusin', (e) => {
+  if (e.target.tagName === 'INPUT') {
+    // 等键盘弹出动画结束再滚动
+    setTimeout(scrollFocusedInputIntoView, 300);
+  }
+});
+
+/* ========== 页面切换 & 启动 ========== */
+
+function showPage(id) {
+  for (const page of document.querySelectorAll('.page')) {
+    page.classList.toggle('active', page.id === id);
+  }
+  window.scrollTo(0, 0);
+}
+
+players = loadLastPlayers();
+renderPlayers();
+
+// 有本地保存的游戏时，直接进入游戏页面
+const savedState = loadGameState();
+if (savedState) {
+  game.restore(savedState);
+  showPage('gamePage');
+} else {
+  showPage('setupPage');
+}
+</script>
+</body>
+</html>

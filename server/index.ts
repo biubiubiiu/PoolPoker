@@ -82,6 +82,18 @@ app.get('/enter_robot', (_req: Request, res: Response) => {
   }
 });
 
+// 大金玩法记分板页面（独立路由，独立于 SPA）
+app.get(['/break_and_run', '/break_and_run.html'], (_req: Request, res: Response) => {
+  const distBreakAndRun = path.join(rootDir, 'dist', 'break_and_run.html');
+  const publicBreakAndRun = path.join(rootDir, 'public', 'break_and_run.html');
+  const target = fs.existsSync(distBreakAndRun) ? distBreakAndRun : publicBreakAndRun;
+  if (fs.existsSync(target)) {
+    res.sendFile(target);
+  } else {
+    res.status(404).send('页面不存在');
+  }
+});
+
 // 托管静态资源目录（优先托管打包出来的 dist 目录）
 const distDir = path.join(rootDir, 'dist');
 if (fs.existsSync(distDir)) {
