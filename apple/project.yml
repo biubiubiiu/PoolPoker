@@ -168,34 +168,32 @@ targets:
               fi
             fi
 
-            if [ ! -d "$SRCROOT/../dist" ] || [ "$SRCROOT/../src" -nt "$SRCROOT/../dist" ]; then
-              echo "Building web frontend dist..."
-              if ! (cd "$SRCROOT/.." && pnpm run build); then
-                echo "error: [PoolPoker iOS] 前端打包失败 (pnpm run build)，无法生成嵌入式 web 资源。" >&2
-                exit 1
-              fi
+            # Directory mtimes do not track edits to existing source files.
+            # Always refresh the frontend, then let Cargo track embedded assets.
+            echo "Building web frontend dist..."
+            if ! (cd "$SRCROOT/.." && pnpm run build); then
+              echo "error: [PoolPoker iOS] 前端打包失败 (pnpm run build)，无法生成嵌入式 web 资源。" >&2
+              exit 1
             fi
 
             TARGET_LIB="$TARGET_DIR/libapp.a"
             CARGO_LIB="$SRCROOT/../src-tauri/target/${RUST_TARGET}/debug/libpoolpoker_lib.a"
 
-            if [ ! -f "$TARGET_LIB" ] || [ "$SRCROOT/../src-tauri/src" -nt "$TARGET_LIB" ]; then
-              echo "Compiling offline Rust staticlib with custom-protocol for $RUST_TARGET..."
-              if ! cargo build --package poolpoker --manifest-path "$SRCROOT/../src-tauri/Cargo.toml" --target "$RUST_TARGET" --features tauri/custom-protocol; then
-                echo "error: [PoolPoker iOS] cargo build 编译 Rust 静态库失败 (target: ${RUST_TARGET})。请检查上方 Rust 报错日志。" >&2
-                exit 1
-              fi
+            echo "Compiling offline Rust staticlib with custom-protocol for $RUST_TARGET..."
+            if ! cargo build --package poolpoker --manifest-path "$SRCROOT/../src-tauri/Cargo.toml" --target "$RUST_TARGET" --features tauri/custom-protocol; then
+              echo "error: [PoolPoker iOS] cargo build 编译 Rust 静态库失败 (target: ${RUST_TARGET})。请检查上方 Rust 报错日志。" >&2
+              exit 1
+            fi
 
-              if [ ! -f "$CARGO_LIB" ]; then
-                echo "error: [PoolPoker iOS] 编译未生成预期的静态库文件: $CARGO_LIB" >&2
-                exit 1
-              fi
+            if [ ! -f "$CARGO_LIB" ]; then
+              echo "error: [PoolPoker iOS] 编译未生成预期的静态库文件: $CARGO_LIB" >&2
+              exit 1
+            fi
 
-              cp "$CARGO_LIB" "$TARGET_LIB"
-              if [ "$RUST_TARGET" = "aarch64-apple-ios" ]; then
-                mkdir -p "$SRCROOT/Externals/arm64/${CONFIGURATION}"
-                cp "$CARGO_LIB" "$SRCROOT/Externals/arm64/${CONFIGURATION}/libapp.a"
-              fi
+            cp "$CARGO_LIB" "$TARGET_LIB"
+            if [ "$RUST_TARGET" = "aarch64-apple-ios" ]; then
+              mkdir -p "$SRCROOT/Externals/arm64/${CONFIGURATION}"
+              cp "$CARGO_LIB" "$SRCROOT/Externals/arm64/${CONFIGURATION}/libapp.a"
             fi
 
             if [ ! -f "$TARGET_LIB" ]; then
