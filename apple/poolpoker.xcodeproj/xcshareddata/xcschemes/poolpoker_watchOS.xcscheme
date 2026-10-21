@@ -55,7 +55,6 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "DB2F95D2D4FFF271AAAF82FF"
             BuildableName = "PoolPokerWatch.app"
-            BlueprintName = "poolpoker_watchOS"
             ReferencedContainer = "container:poolpoker.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -72,7 +71,6 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "DB2F95D2D4FFF271AAAF82FF"
             BuildableName = "PoolPokerWatch.app"
-            BlueprintName = "poolpoker_watchOS"
             ReferencedContainer = "container:poolpoker.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
