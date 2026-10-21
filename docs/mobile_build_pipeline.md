@@ -13,7 +13,7 @@
 上述四条流程都会先执行 `codegen:models`，再执行 `codegen:check`；Release 的单元测试也等待检查完成。生成结果会更新工作区中的 TS/Kotlin/Swift 文件。独立 `pnpm run codegen:check` 仍只检查，不生成代码，可用于 CI 检测未提交的生成结果。
 
 首次执行前准备好对应平台的 SDK、Rust targets 和签名环境。iOS 默认目标为
-真机 `aarch64`，需要 macOS/Xcode；Release 沿用现有签名和导出配置，编排不负责上传商店。
+真机 `aarch64`，需要 macOS/Xcode；若直接在 Xcode 中打开 `apple/poolpoker.xcodeproj` 点击 **Run (⌘R)**，`poolpoker_iOS` 的 `Build Rust Code` 脚本同样依赖已安装 Rust 工具链（`rustup target add aarch64-apple-ios aarch64-apple-ios-sim`）与根目录 `pnpm install` + `pnpm run codegen:models`。Release 沿用现有签名和导出配置，编排不负责上传商店。
 Android Release 仍沿用工程已有的 debug keystore 签名，不会自动转换为商店发布签名。
 
 ```bash

@@ -47,7 +47,7 @@
     "game"
   ],
   "author": "",
-  "license": "ISC",
+  "license": "Apache-2.0",
   "dependencies": {
     "@fortawesome/fontawesome-free": "^7.3.1",
     "@tauri-apps/api": "^2.11.1",

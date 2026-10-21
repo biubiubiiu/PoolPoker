@@ -73,3 +73,6 @@ apple/WatchTests/.swiftpm/
 apple/build/
 apple/DerivedData/
 apple/Local.xcconfig
+
+# Agents
+.agents/

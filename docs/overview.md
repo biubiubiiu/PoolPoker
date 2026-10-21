@@ -258,6 +258,7 @@ PoolPoker/
 
 | 专题文档 | 核心内容 |
 | :--- | :--- |
+| [CONTRIBUTING.md](../CONTRIBUTING.md) | 本地开发环境准备、常用命令速查、跨端模型生成、测试门禁与 PR 贡献指南 |
 | [ble_offline_architecture.md](ble_offline_architecture.md) | 无服务器 BLE 面对面联机架构、GATT UUID、二进制帧格式、动态 MTU 分片与连接状态机 |
 | [nearby_room_discovery.md](nearby_room_discovery.md) | 在线模式地理位置附近房间发现、定位精度收敛策略、生命周期与隐私安全设计 |
 | [android_tauri_architecture.md](android_tauri_architecture.md) | Android Gradle 多模块架构、Tauri v2 APK 打包、权限配置与 Wear OS DataLayer 桥接 |
