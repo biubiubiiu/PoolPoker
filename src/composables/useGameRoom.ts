@@ -8,6 +8,7 @@ import { computed, onMounted, onUnmounted, type Ref, ref, watch } from 'vue';
 import { showAlert, showConfirm } from '@/utils/dialog';
 import { shouldAnimateRoomChange } from '@/utils/roomPresentation';
 import { useGameAudio } from './useGameAudio';
+import { isTauriEnvironment } from './useUiPreferences';
 
 export interface UseGameRoomOptions {
   socket: Ref<Socket | null>;
@@ -169,7 +170,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
               roomCode: code,
               userId: userId.value,
               myUserId: userId.value,
-              serverUrl: serverUrl?.value || window.location.origin,
+              serverUrl: serverUrl?.value || (isTauriEnvironment() ? '' : window.location.origin),
             })
           : JSON.stringify({ event: CLIENT_TO_SERVER_EVENTS.leaveRoom });
         await invoke('sync_wear_state', { payload });

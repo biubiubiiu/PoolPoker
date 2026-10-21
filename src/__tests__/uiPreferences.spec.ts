@@ -1,6 +1,11 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { nextTick } from 'vue';
-import { isTauriEnvironment, UI_PREFERENCE_STORAGE_KEY, useUiPreferences } from '@/composables/useUiPreferences';
+import {
+  isTauriEnvironment,
+  shouldShowSameOriginServer,
+  UI_PREFERENCE_STORAGE_KEY,
+  useUiPreferences,
+} from '@/composables/useUiPreferences';
 
 class LocalStorageMock {
   private store: Record<string, string> = {};
@@ -70,6 +75,13 @@ describe('useUiPreferences', () => {
       const { useNewUi } = useUiPreferences();
       expect(useNewUi.value).toBe(true);
     });
+
+    it('should always show same-origin server recommendation in Web environment', () => {
+      // In Web, whether in production or development, same-origin is supported
+      expect(shouldShowSameOriginServer(false, false)).toBe(true);
+      expect(shouldShowSameOriginServer(false, true)).toBe(true);
+      expect(shouldShowSameOriginServer()).toBe(true);
+    });
   });
 
   describe('Tauri Environment', () => {
@@ -100,6 +112,15 @@ describe('useUiPreferences', () => {
       mockStorage.setItem(UI_PREFERENCE_STORAGE_KEY, 'false');
       const { useNewUi } = useUiPreferences();
       expect(useNewUi.value).toBe(false);
+    });
+
+    it('should only show same-origin server in hot-reload (dev) mode on Tauri mobile, not in release package', () => {
+      // In Tauri mobile release build (isDev = false), same-origin MUST NOT be shown
+      expect(shouldShowSameOriginServer(true, false)).toBe(false);
+      // In Tauri mobile hot-reload mode (isDev = true), same-origin is allowed
+      expect(shouldShowSameOriginServer(true, true)).toBe(true);
+      // Default with Tauri environment active and explicit release flag
+      expect(shouldShowSameOriginServer(isTauriEnvironment(), false)).toBe(false);
     });
   });
 });

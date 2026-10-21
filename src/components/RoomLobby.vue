@@ -4,6 +4,7 @@ import type { Room } from '@shared/types/game';
 import { computed, onUnmounted, ref, watch } from 'vue';
 import NearbyRooms from '@/components/NearbyRooms.vue';
 import type { ServerUrlConfig } from '@/composables/useSocket';
+import { isTauriEnvironment, shouldShowSameOriginServer } from '@/composables/useUiPreferences';
 import { BleScanner } from '@/services/bleScanner';
 import { showAlert, showConfirm } from '@/utils/dialog';
 
@@ -43,9 +44,8 @@ const currentView = ref<'lobby' | 'settings'>('lobby');
 const tab = ref<'join' | 'create'>('join');
 const joinCode = ref('');
 
-const isTauriEnv = computed(() => {
-  return typeof window !== 'undefined' && ('__TAURI__' in window || '__TAURI_INTERNALS__' in window);
-});
+const isTauriEnv = computed(() => isTauriEnvironment());
+const showSameOriginServer = computed(() => shouldShowSameOriginServer(isTauriEnv.value));
 
 const newServerUrl = ref('');
 const newServerName = ref('');
@@ -124,7 +124,7 @@ const onJoin = async (customCode?: string, deviceId?: string) => {
     <div class="glass-panel rounded-2xl p-3 shadow-xl text-xs text-gray-300 flex items-center justify-between">
       <span class="text-gray-400">当前服务器:</span>
       <span class="font-mono text-amber-300 font-bold truncate max-w-[200px]">
-        {{ props.serverUrl ? props.serverUrl : '默认同源' }}
+        {{ props.serverUrl ? props.serverUrl : (showSameOriginServer ? '默认同源' : '未设置') }}
       </span>
     </div>
 
@@ -139,8 +139,9 @@ const onJoin = async (customCode?: string, deviceId?: string) => {
       </div>
 
       <div class="space-y-2 flex-1 overflow-y-auto pr-1">
-        <!-- 默认同源选项 -->
-        <div @click="selectServerUrl('')"
+        <!-- 默认同源选项（移动端仅在热重载模式下展示；Web 始终展示） -->
+        <div v-if="showSameOriginServer"
+             @click="selectServerUrl('')"
              :class="['p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between',
                       !props.serverUrl 
                         ? 'bg-emerald-950/60 border-amber-400/80 shadow-md' 
@@ -158,6 +159,11 @@ const onJoin = async (customCode?: string, deviceId?: string) => {
           <span v-if="!props.serverUrl" class="text-[10px] bg-amber-400 text-black font-black px-2 py-0.5 rounded-full shrink-0">
             当前使用
           </span>
+        </div>
+
+        <div v-if="!showSameOriginServer && (!props.savedServerUrls || props.savedServerUrls.length === 0)"
+             class="text-xs text-gray-400 text-center py-6">
+          暂无已保存的服务地址，请在下方添加
         </div>
 
         <!-- 自定义保存服务地址 -->

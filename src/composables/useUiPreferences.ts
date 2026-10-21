@@ -6,6 +6,21 @@ export function isTauriEnvironment(): boolean {
   return typeof window !== 'undefined' && ('__TAURI__' in window || '__TAURI_INTERNALS__' in window);
 }
 
+/**
+ * 决定是否在服务器设置中显示「默认服务器（同源推荐）」选项。
+ * 移动端/Tauri环境仅在热重载（开发）模式下支持同源选项；release 包不展示该选项。
+ * 网页端始终展示同源选项。
+ */
+export function shouldShowSameOriginServer(
+  isTauri: boolean = isTauriEnvironment(),
+  isDev: boolean = Boolean(import.meta.env?.DEV)
+): boolean {
+  if (isTauri) {
+    return isDev;
+  }
+  return true;
+}
+
 export function useUiPreferences() {
   const isTauri = isTauriEnvironment();
 

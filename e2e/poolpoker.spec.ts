@@ -51,9 +51,9 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await expect(settingsBtn).toBeVisible();
     await settingsBtn.click();
 
-    // 验证展示后端服务地址设置页面
-    await expect(page.locator('h2:has-text("后端服务地址设置")')).toBeVisible();
-    await expect(page.locator('text=默认同源 (Same Origin)')).toBeVisible();
+    // 验证展示后端服务地址设置页面（Tauri release 环境不展示同源推荐选项）
+    await expect(page.locator('h2:has-text("服务器地址设置")')).toBeVisible();
+    await expect(page.locator('text=默认服务器 (同源推荐)')).toBeHidden();
 
     // 添加新的服务器地址
     const urlInput = page.locator('input[placeholder*="http://192.168.18.227:3000"]');
