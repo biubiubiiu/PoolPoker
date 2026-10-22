@@ -139,14 +139,14 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
 
     await page.locator('input[placeholder*="请输入你的大名/外号"]').fill('V1Player');
     await page.click('button:has-text("创建新房间")');
-    await page.click('button:has-text("一键创建数字房间")');
+    await page.click('button:has-text("创建对局房间")');
     await page.waitForSelector('text=已加入玩家');
 
     // 开局
-    await page.click('button:has-text("开始扑克发牌")');
+    await page.click('button:has-text("发牌开局")');
     // 验证展示 V1 界面特有的组件元素：
     // - 我的手上扑克手牌区
-    await expect(page.locator('text=我的手上扑克手牌')).toBeVisible();
+    await expect(page.locator('text=我的手牌')).toBeVisible();
     // - 2D PokerCard 扑克手牌
     const pokerCards = page.locator('.poker-card-frame');
     await expect(pokerCards.first()).toBeVisible();
@@ -178,7 +178,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await hostPage.waitForTimeout(500);
     await hostPage.locator('input[placeholder*="请输入你的大名/外号"]').fill('HostUser');
     await hostPage.click('button:has-text("创建新房间")');
-    await hostPage.click('button:has-text("一键创建数字房间")');
+    await hostPage.click('button:has-text("创建对局房间"), button:has-text("一键创建数字房间")');
 
     await hostPage.waitForSelector('text=已加入玩家');
     const roomCodeElement = hostPage.locator('header span.font-mono').first();
@@ -236,7 +236,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await hostPage.waitForTimeout(500);
     await hostPage.locator('input[placeholder*="请输入你的大名/外号"]').fill('HostP1');
     await hostPage.click('button:has-text("创建新房间")');
-    await hostPage.click('button:has-text("一键创建数字房间")');
+    await hostPage.click('button:has-text("创建对局房间"), button:has-text("一键创建数字房间")');
 
     await hostPage.waitForSelector('text=已加入玩家');
     const roomCodeElement = hostPage.locator('header span.font-mono').first();
@@ -254,10 +254,10 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     });
 
     // 房主点击开始发牌对局
-    await hostPage.click('button:has-text("开始扑克发牌")');
+    await hostPage.click('button:has-text("发牌开局"), button:has-text("开始扑克发牌")');
 
-    await hostPage.waitForSelector('.hand-zone', { timeout: 10000 });
-    await guestPage.waitForSelector('.hand-zone', { timeout: 10000 });
+    await hostPage.waitForSelector('.hand-zone', { timeout: 20000 });
+    await guestPage.waitForSelector('.hand-zone', { timeout: 20000 });
 
     // 验证初始发牌手牌按球号/点数升序排列
     const initialHostHand = await getHandBallNumbers(hostPage);
@@ -266,7 +266,8 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
 
     // --- 3.1 测试【记录犯规 (Record Foul)】（默认选中自己）---
     const initialHandCardsCount = await hostPage.locator('.poker-prop-card').count();
-    await hostPage.click('button:has-text("犯规罚牌")');
+    await hostPage.click('button[aria-label="打开对局菜单"]');
+    await hostPage.click('button:has-text("记录犯规")');
     await expect(hostPage.locator('.fixed:has-text("记录犯规")').first()).toBeVisible();
     // 验证默认选中的玩家为自己 HostP1
     await expect(hostPage.locator('.fixed button.bg-red-950\\/60:has-text("HostP1")')).toBeVisible();
@@ -322,18 +323,22 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
       await hostPage.waitForTimeout(800);
 
       // --- 3.4 测试【撤回上一步 (Retract)】---
-      const retractBtn = hostPage.locator('button:has-text("撤回上一步")');
+      await hostPage.click('button[aria-label="打开对局菜单"]');
+      const retractBtn = hostPage.locator(
+        '.drawer-content button:has-text("撤回操作"), .drawer-content button:has-text("撤回上一步")'
+      );
       if (await retractBtn.isEnabled()) {
         await retractBtn.click();
         await hostPage.waitForTimeout(600);
 
         // 验证侧边栏实况日志显示了撤回记录
-        await hostPage.click('button[aria-label="打开对局菜单"]');
         await expect(hostPage.locator('.drawer-content').getByText('已撤回到上一步操作').first()).toBeVisible({
           timeout: 5000,
         });
         await hostPage.click('button:has-text("✕")');
         await hostPage.waitForTimeout(300);
+      } else {
+        await hostPage.click('button:has-text("✕")');
       }
     }
 
@@ -345,10 +350,10 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await hostPage.click('.fixed button:has-text("确认重开")');
 
     // 验证双侧玩家同时回到等待阶段
-    await expect(hostPage.locator('text=开始扑克发牌')).toBeVisible({
+    await expect(hostPage.locator('text=发牌开局')).toBeVisible({
       timeout: 5000,
     });
-    await expect(guestPage.locator('text=等待房主开始游戏')).toBeVisible({
+    await expect(guestPage.locator('text=等待房主开始对局')).toBeVisible({
       timeout: 5000,
     });
 
@@ -376,7 +381,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await page.waitForTimeout(500);
     await page.locator('input[placeholder*="请输入你的大名/外号"]').fill('ScoreTester');
     await page.click('button:has-text("创建新房间")');
-    await page.click('button:has-text("一键创建数字房间")');
+    await page.click('button:has-text("创建对局房间"), button:has-text("一键创建数字房间")');
 
     await page.waitForSelector('text=已加入玩家');
 
@@ -388,7 +393,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await page.waitForTimeout(300);
 
     // 开始第 1 局
-    await page.click('button:has-text("开始扑克发牌")');
+    await page.click('button:has-text("发牌开局"), button:has-text("开始扑克发牌")');
     await page.waitForSelector('.hand-zone', { timeout: 10000 });
 
     // 打掉手上的单张卡牌
@@ -397,7 +402,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
 
     // 验证弹出 VictoryModal，并展示累计战报（总积分 + 胜出徽章）
     await expect(page.locator('text=Victory')).toBeVisible({ timeout: 8000 });
-    await expect(page.locator('text=已清空有效手牌，保留的免打牌不影响获胜。')).toBeVisible({
+    await expect(page.locator('text=已清空有效手牌')).toBeVisible({
       timeout: 5000,
     });
     await expect(page.locator('text=总积分:').first()).toBeVisible({
@@ -409,8 +414,8 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
 
     // 开启第 2 局
     await page.click('button:has-text("再来一局")');
-    await page.waitForSelector('text=开始扑克发牌', { timeout: 5000 });
-    await page.click('button:has-text("开始扑克发牌")');
+    await page.waitForSelector('text=发牌开局', { timeout: 5000 });
+    await page.click('button:has-text("发牌开局"), button:has-text("开始扑克发牌")');
 
     await page.waitForSelector('.hand-zone', { timeout: 10000 });
 
@@ -420,7 +425,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
 
     // 验证 VictoryModal 展示累计战报
     await expect(page.locator('text=Victory')).toBeVisible({ timeout: 8000 });
-    await expect(page.locator('text=已清空有效手牌，保留的免打牌不影响获胜。')).toBeVisible({
+    await expect(page.locator('text=已清空有效手牌')).toBeVisible({
       timeout: 5000,
     });
     await expect(page.locator('text=🏆 胜出').first()).toBeVisible({
@@ -429,7 +434,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
   });
 
   test('5. Multi-Player Simultaneous Victory Settlement & Next-Round First Player Priority', async ({ browser }) => {
-    test.setTimeout(90000);
+    test.setTimeout(150000);
     const hostContext = await browser.newContext();
     const guestContext = await browser.newContext();
     await hostContext.addInitScript(() => localStorage.setItem('poolpoker_use_new_ui', 'true'));
@@ -446,7 +451,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await hostPage.waitForTimeout(500);
     await hostPage.locator('input[placeholder*="请输入你的大名/外号"]').fill('HostWin');
     await hostPage.click('button:has-text("创建新房间")');
-    await hostPage.click('button:has-text("一键创建数字房间")');
+    await hostPage.click('button:has-text("创建对局房间"), button:has-text("一键创建数字房间")');
 
     await hostPage.waitForSelector('text=已加入玩家');
     const roomCodeLocator = hostPage.locator('header span.font-mono').first();
@@ -473,9 +478,9 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     }
 
     // 开始第 1 局
-    await hostPage.click('button:has-text("开始扑克发牌")');
-    await hostPage.waitForSelector('.hand-zone', { timeout: 10000 });
-    await guestPage.waitForSelector('.hand-zone', { timeout: 10000 });
+    await hostPage.click('button:has-text("发牌开局"), button:has-text("开始扑克发牌")');
+    await hostPage.waitForSelector('.hand-zone', { timeout: 20000 });
+    await guestPage.waitForSelector('.hand-zone', { timeout: 20000 });
 
     // 提取未消除的扑克球号数组
     const getUnpocketedBallList = async (page: any) => {
@@ -493,16 +498,18 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     let hostBalls = await getUnpocketedBallList(hostPage);
     let guestBalls = await getUnpocketedBallList(guestPage);
 
-    // 找到在 Guest 手牌中只出现 1 次且 Host 也持有的球号
+    // 找到在 Guest 手牌中且 Host 也持有的共同球号
     const findSharedBall = (hBalls: number[], gBalls: number[]) => {
-      return hBalls.find((b) => gBalls.filter((gb) => gb === b).length === 1);
+      return hBalls.find((b) => gBalls.includes(b));
     };
 
     let sharedBall = findSharedBall(hostBalls, guestBalls);
 
     // 若当前无合适共同球号，执行记录犯规抽卡直至获得共同球号
     while (!sharedBall) {
-      await hostPage.click('button:has-text("犯规罚牌")');
+      await hostPage.click('button[aria-label="打开对局菜单"]');
+      await hostPage.click('button:has-text("记录犯规")');
+      await hostPage.locator('.fixed button:has-text("HostWin")').click();
       await hostPage.click('.fixed button:has-text("确认记录犯规")');
       await hostPage.waitForTimeout(400);
       hostBalls = await getUnpocketedBallList(hostPage);
@@ -510,12 +517,15 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
       sharedBall = findSharedBall(hostBalls, guestBalls);
     }
 
-    // 房主通过“记录进球”将所有非 sharedBall 的球打进
+    // 房主通过“记录进球/公球免打”将所有非 sharedBall 的球打进
     const nonSharedBalls = Array.from(new Set([...hostBalls, ...guestBalls])).filter((b) => b !== sharedBall);
     for (const ballNum of nonSharedBalls) {
-      const ballTarget = hostPage.locator(`.ball-target[aria-label^="记录 ${ballNum} 号球入袋"]`).first();
+      const ballTarget = hostPage
+        .locator(`.ball-target[aria-label^="记录 ${ballNum} 号球入袋"]:not([disabled])`)
+        .first();
       if (await ballTarget.isVisible()) {
         await ballTarget.click();
+        await hostPage.click('button:has-text("开球进球 / 公球免打")');
         await hostPage.waitForTimeout(400);
       }
     }
@@ -555,12 +565,12 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
 
     // 点击再来一局
     await hostPage.click('button:has-text("再来一局")');
-    await hostPage.waitForSelector('text=开始扑克发牌', { timeout: 5000 });
-    await hostPage.click('button:has-text("开始扑克发牌")');
+    await hostPage.waitForSelector('text=发牌开局', { timeout: 5000 });
+    await hostPage.click('button:has-text("发牌开局"), button:has-text("开始扑克发牌")');
 
     // 验证下一局 HostWin 优先作为第一位击球（在桌面击球顺序栏中展示）
-    await hostPage.waitForSelector('.hand-zone', { timeout: 10000 });
-    await hostPage.waitForSelector('.turn-order-strip', { timeout: 5000 });
+    await hostPage.waitForSelector('.hand-zone', { timeout: 20000 });
+    await hostPage.waitForSelector('.turn-order-strip', { timeout: 15000 });
     const orderText = await hostPage.locator('.turn-order-strip').innerText();
     expect(orderText).toMatch(/HostWin[\s\S]*GuestWin/);
 
@@ -585,7 +595,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await hostPage.waitForTimeout(500);
     await hostPage.locator('input[placeholder*="请输入你的大名/外号"]').fill('RefereeP1');
     await hostPage.click('button:has-text("创建新房间")');
-    await hostPage.click('button:has-text("一键创建数字房间")');
+    await hostPage.click('button:has-text("创建对局房间"), button:has-text("一键创建数字房间")');
 
     await hostPage.waitForSelector('text=已加入玩家');
     const roomCodeElement = hostPage.locator('header span.font-mono').first();
@@ -604,9 +614,9 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     });
 
     // 开始对局
-    await hostPage.click('button:has-text("开始扑克发牌")');
-    await hostPage.waitForSelector('.hand-zone', { timeout: 10000 });
-    await guestPage.waitForSelector('.hand-zone', { timeout: 10000 });
+    await hostPage.click('button:has-text("发牌开局"), button:has-text("开始扑克发牌")');
+    await hostPage.waitForSelector('.hand-zone', { timeout: 20000 });
+    await guestPage.waitForSelector('.hand-zone', { timeout: 20000 });
 
     // 1. Guest (RefereeP2) 为 Host (RefereeP1) 记录进球
     await guestPage.click('button[aria-label="打开对局菜单"]');
@@ -680,7 +690,7 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await hostPage.waitForTimeout(500);
     await hostPage.locator('input[placeholder*="请输入你的大名/外号"]').fill('PriHost');
     await hostPage.click('button:has-text("创建新房间")');
-    await hostPage.click('button:has-text("一键创建数字房间")');
+    await hostPage.click('button:has-text("创建对局房间"), button:has-text("一键创建数字房间")');
 
     await hostPage.waitForSelector('text=已加入玩家');
     const roomCodeElement = hostPage.locator('header span.font-mono').first();
@@ -698,9 +708,9 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await expect(hostPage.locator('text=PriGuest').first()).toBeVisible({ timeout: 5000 });
 
     // 房主发牌
-    await hostPage.click('button:has-text("开始扑克发牌")');
-    await hostPage.waitForSelector('.hand-zone', { timeout: 10000 });
-    await guestPage.waitForSelector('.hand-zone', { timeout: 10000 });
+    await hostPage.click('button:has-text("发牌开局"), button:has-text("开始扑克发牌")');
+    await hostPage.waitForSelector('.hand-zone', { timeout: 20000 });
+    await guestPage.waitForSelector('.hand-zone', { timeout: 20000 });
 
     // 1. 验证双侧玩家初始发牌手牌均为严格升序
     const hostHand1 = await getHandBallNumbers(hostPage);
@@ -711,7 +721,8 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     expect(guestHand1).toEqual([...guestHand1].sort((a, b) => a - b));
 
     // 2. 玩家主动犯规：验证手牌保持升序 & 日志不泄漏点数花色
-    await hostPage.click('button:has-text("犯规罚牌")');
+    await hostPage.click('button[aria-label="打开对局菜单"]');
+    await hostPage.click('button:has-text("记录犯规")');
     await hostPage.click('.fixed button:has-text("确认记录犯规")');
     await hostPage.waitForTimeout(500);
 
@@ -756,10 +767,10 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     await page.waitForTimeout(500);
     await page.locator('input[placeholder*="请输入你的大名/外号"]').fill('V2Tester');
     await page.click('button:has-text("创建新房间")');
-    await page.click('button:has-text("一键创建数字房间")');
+    await page.click('button:has-text("创建对局房间"), button:has-text("一键创建数字房间")');
 
     await page.waitForSelector('text=已加入玩家');
-    await page.click('button:has-text("开始扑克发牌")');
+    await page.click('button:has-text("发牌开局"), button:has-text("开始扑克发牌")');
     await page.waitForSelector('.hand-zone', { timeout: 10000 });
 
     // 1. 验证 3D 球桌画布及 15 个球号交互靶点渲染

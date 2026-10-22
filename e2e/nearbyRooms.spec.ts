@@ -36,16 +36,16 @@ test('nearby rooms appear automatically, support one-tap join, and disappear on 
     await expect(host.getByRole('status')).toContainText('正在自动发现');
     await host.getByPlaceholder('请输入你的大名/外号').fill('NearbyHost');
     await host.getByRole('button', { name: '创建新房间', exact: true }).click();
-    await host.getByRole('button', { name: /一键创建数字房间/ }).click();
+    await host.getByRole('button', { name: /创建对局房间|一键创建数字房间/ }).click();
     await expect(host.getByRole('status')).toContainText('附近玩家可发现');
     await expect(guest.getByTestId('nearby-room').filter({ hasText: 'NearbyHost' })).toBeVisible({ timeout: 10_000 });
     await expect(observer.getByTestId('nearby-room').filter({ hasText: 'NearbyHost' })).toBeVisible();
     expect(await guest.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await guest.screenshot({ path: testInfo.outputPath('nearby-mobile.png'), fullPage: true });
     await guest.getByRole('button', { name: '加入 NearbyHost 的球局' }).click();
-    await expect(guest.getByText('等待房主开始游戏...')).toBeVisible();
+    await expect(guest.getByText(/等待房主开始(对局|游戏)/)).toBeVisible();
     await expect(host.getByText('已加入玩家 (2/8)')).toBeVisible();
-    await host.getByRole('button', { name: /开始扑克发牌/ }).click();
+    await host.getByRole('button', { name: /发牌开局|开始扑克发牌/ }).click();
     await expect(observer.getByTestId('nearby-room').filter({ hasText: 'NearbyHost' })).toHaveCount(0);
   } finally {
     await Promise.all([hostContext.close(), guestContext.close(), observerContext.close()]);
@@ -65,7 +65,7 @@ test('nearby discovery hides distant hosts and supports disabling and re-enablin
     await expect(host.getByRole('status')).toContainText('正在自动发现');
     await host.getByPlaceholder('请输入你的大名/外号').fill('HiddenHost');
     await host.getByRole('button', { name: '创建新房间', exact: true }).click();
-    await host.getByRole('button', { name: /一键创建数字房间/ }).click();
+    await host.getByRole('button', { name: /创建对局房间|一键创建数字房间/ }).click();
     await expect(host.getByRole('status')).toContainText('附近玩家可发现');
     await expect(guest.getByRole('status')).toContainText('正在自动发现');
     await expect(guest.getByTestId('nearby-room').filter({ hasText: 'HiddenHost' })).toHaveCount(0);

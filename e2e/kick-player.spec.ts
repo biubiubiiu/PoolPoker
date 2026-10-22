@@ -9,17 +9,17 @@ test('host can cancel or confirm removing a player from the preparation room', a
     await host.goto('/');
     await host.locator('input[placeholder*="请输入你的大名/外号"]').fill('KickHost');
     await host.getByRole('button', { name: '创建新房间' }).click();
-    await host.getByRole('button', { name: '一键创建数字房间' }).click();
+    await host.getByRole('button', { name: /创建对局房间|一键创建数字房间/ }).click();
     await expect(host.getByText('已加入玩家', { exact: false })).toBeVisible();
     const code = (await host.locator('header span.font-mono').first().innerText()).trim();
     await guest.goto('/');
     await guest.locator('input[placeholder*="请输入你的大名/外号"]').fill('KickGuest');
     await guest.locator('input[placeholder*="输入 4 位数字房间码"]').fill(code);
     await guest.getByRole('button', { name: '进入球局' }).click();
+    await expect(guest.getByText('已加入玩家', { exact: false })).toBeVisible();
     const kick = host.getByRole('button', { name: '移出玩家 KickGuest', exact: true });
     await expect(kick).toBeVisible();
     await expect(host.getByRole('button', { name: '移出玩家 KickHost' })).toHaveCount(0);
-    await expect(guest.getByText('已加入玩家', { exact: false })).toBeVisible();
     await expect(guest.getByRole('button', { name: /移出玩家/ })).toHaveCount(0);
 
     host.once('dialog', (dialog) => dialog.dismiss());
