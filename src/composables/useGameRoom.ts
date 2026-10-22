@@ -7,8 +7,13 @@ import type { Socket } from 'socket.io-client';
 import { computed, onMounted, onUnmounted, type Ref, ref, watch } from 'vue';
 import { showAlert, showConfirm } from '@/utils/dialog';
 import { shouldAnimateRoomChange } from '@/utils/roomPresentation';
+import {
+  type GameRoomStrategyContext,
+  type GameRoomSyncStrategy,
+  SAVED_ROOM_CODE_KEY,
+  SAVED_SESSION_TOKEN_KEY,
+} from './sync';
 import { useGameAudio } from './useGameAudio';
-import { isTauriEnvironment } from './useUiPreferences';
 
 export interface UseGameRoomOptions {
   socket: Ref<Socket | null>;
@@ -16,25 +21,14 @@ export interface UseGameRoomOptions {
   playerName: Ref<string>;
   getFinalPlayerName: () => string;
   serverUrl?: Ref<string>;
-  isBleOfflineMode?: Ref<boolean>;
+  /** 传输与同步策略（在线 Socket / BLE 离线），由调用方按 isBleOfflineMode 组装 */
+  syncStrategy: Ref<GameRoomSyncStrategy>;
 }
 
 export function useGameRoom(options: UseGameRoomOptions) {
-  const { socket, userId, playerName, getFinalPlayerName, serverUrl, isBleOfflineMode } = options;
+  const { socket, userId, playerName, getFinalPlayerName, serverUrl, syncStrategy } = options;
 
-  const isOfflineBleActive = () => {
-    if (isBleOfflineMode?.value !== undefined) return isBleOfflineMode.value;
-    try {
-      return typeof localStorage !== 'undefined' && localStorage.getItem('poolpoker_offline_ble') === 'true';
-    } catch (_) {
-      return false;
-    }
-  };
-
-  const getApiUrl = (endpointPath: string) => {
-    const base = serverUrl?.value ? serverUrl.value.trim().replace(/\/+$/, '') : '';
-    return `${base}${endpointPath}`;
-  };
+  const activeStrategy = syncStrategy;
 
   const room = ref<Room | null>(null);
   const showRestartConfirm = ref<boolean>(false);
@@ -160,14 +154,45 @@ export function useGameRoom(options: UseGameRoomOptions) {
       presentationTimers.push(setTimeout(clearPresentation, 850));
     }
   };
+  const readStorage = (key: string) => (typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null);
+  const clearSavedSession = () => {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(SAVED_ROOM_CODE_KEY);
+      localStorage.removeItem(SAVED_SESSION_TOKEN_KEY);
+    }
+  };
+
+  const strategyContext: GameRoomStrategyContext = {
+    get userId() {
+      return userId.value;
+    },
+    get serverUrl() {
+      return serverUrl?.value;
+    },
+    room,
+    getSavedRoomCode: () => readStorage(SAVED_ROOM_CODE_KEY),
+    getSavedSessionToken: () => readStorage(SAVED_SESSION_TOKEN_KEY),
+    setFeedback: (msg: string) => {
+      feedback.value = msg;
+    },
+    acceptRoom: (next: Room, live?: boolean) => {
+      acceptRoom(next, live ?? false);
+    },
+    triggerConfetti,
+    clearRoom: () => {
+      room.value = null;
+    },
+    clearSavedSession,
+  };
+
   const sendAction = (event: string, payload: Record<string, unknown>) => {
     if (!room.value || pendingAction.value) return;
     if (isPresenting.value) {
       clearPresentation();
     }
-    if (!socket.value?.connected && !isOfflineBleActive()) {
-      feedback.value = '正在恢复连接，请稍候...';
-      socket.value?.connect();
+    const check = activeStrategy.value.canSendAction(socket.value);
+    if (!check.allowed) {
+      if (check.feedback) feedback.value = check.feedback;
       return;
     }
     unlockAudio();
@@ -180,34 +205,12 @@ export function useGameRoom(options: UseGameRoomOptions) {
     });
     pendingTimer = setTimeout(() => {
       pendingAction.value = false;
-      if (!isOfflineBleActive()) {
-        feedback.value = '网络稍有延迟，已为您同步最新牌局';
-        void fetchLatestRoomState();
-      }
+      activeStrategy.value.onActionTimeout(strategyContext);
     }, 2000);
   };
 
   const syncNativeRoomSession = async (code: string | null) => {
-    // 离线蓝牙面对面模式下无远端 HTTP/Socket.IO 房间会话，不向手表下发在线房间凭证
-    if (code && isOfflineBleActive()) return;
-    if (typeof window !== 'undefined' && ('__TAURI__' in window || '__TAURI_INTERNALS__' in window)) {
-      try {
-        const { invoke } = await import('@tauri-apps/api/core');
-        const payload = code
-          ? JSON.stringify({
-              event: 'room_credentials',
-              sessionToken: localStorage.getItem('billiards_session_token'),
-              roomCode: code,
-              userId: userId.value,
-              myUserId: userId.value,
-              serverUrl: serverUrl?.value || (isTauriEnvironment() ? '' : window.location.origin),
-            })
-          : JSON.stringify({ event: CLIENT_TO_SERVER_EVENTS.leaveRoom });
-        await invoke('sync_wear_state', { payload });
-      } catch (err) {
-        console.warn('[NativeSync] Failed to sync room session:', err);
-      }
-    }
+    await activeStrategy.value.syncNativeSession(strategyContext, code);
   };
 
   watch(
@@ -219,53 +222,8 @@ export function useGameRoom(options: UseGameRoomOptions) {
     }
   );
 
-  const smartFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-    let tauriErr: any = null;
-    if (typeof window !== 'undefined' && ('__TAURI__' in window || '__TAURI_INTERNALS__' in window)) {
-      try {
-        const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http');
-        return await tauriFetch(input, init);
-      } catch (err) {
-        tauriErr = err;
-        console.warn('[smartFetch] @tauri-apps/plugin-http fetch failed, falling back to browser fetch:', err);
-      }
-    }
-    return await fetch(input, init);
-  };
-
   const fetchLatestRoomState = async () => {
-    // 离线蓝牙面对面模式下，房间状态完全由本地/蓝牙维护，严禁请求远端 HTTP 快照（防止 404 误删本地房间）
-    if (isOfflineBleActive()) return;
-    const savedRoomCode = localStorage.getItem('billiards_room_code');
-    if (!savedRoomCode) return;
-    const savedToken = localStorage.getItem('billiards_session_token');
-
-    try {
-      const res = await smartFetch(getApiUrl(`/api/rooms/${savedRoomCode}?userId=${encodeURIComponent(userId.value)}`));
-      if (res.ok) {
-        const data = await res.json();
-        if (
-          localStorage.getItem('billiards_room_code') !== savedRoomCode ||
-          localStorage.getItem('billiards_session_token') !== savedToken
-        )
-          return;
-        if (data.success && data.room?.players.some((p: Player) => p.userId === userId.value)) {
-          console.log('[HTTP] 极速同步房间状态成功');
-          const prevWinnersCount = room.value?.winners?.length ?? 0;
-          acceptRoom(data.room);
-          if (prevWinnersCount === 0 && data.room.winners && data.room.winners.length > 0) {
-            triggerConfetti();
-          }
-        }
-      } else if (res.status === 404) {
-        console.warn('[HTTP Sync] 房间不存在或已解散');
-        localStorage.removeItem('billiards_room_code');
-        localStorage.removeItem('billiards_session_token');
-        room.value = null;
-      }
-    } catch (err) {
-      console.error('[HTTP Sync Error]', err);
-    }
+    await activeStrategy.value.fetchLatestRoomState(strategyContext);
   };
 
   const handleVisibilityChange = () => {
@@ -322,8 +280,8 @@ export function useGameRoom(options: UseGameRoomOptions) {
       feedback.value = '';
       console.log('[Socket] Connected, ID:', s.id);
 
-      const savedRoomCode = localStorage.getItem('billiards_room_code');
-      const savedSessionToken = localStorage.getItem('billiards_session_token') || '';
+      const savedRoomCode = localStorage.getItem(SAVED_ROOM_CODE_KEY);
+      const savedSessionToken = localStorage.getItem(SAVED_SESSION_TOKEN_KEY) || '';
       if (savedRoomCode) {
         s.emit(
           CLIENT_TO_SERVER_EVENTS.rejoinRoom,
@@ -334,16 +292,9 @@ export function useGameRoom(options: UseGameRoomOptions) {
           },
           (res: SocketCallbackResponse) => {
             if (!res.success) {
-              console.warn('[Rejoin Failed]', res.message);
-              if (!isOfflineBleActive()) {
-                localStorage.removeItem('billiards_room_code');
-                localStorage.removeItem('billiards_session_token');
-                room.value = null;
-              } else {
-                feedback.value = '房主锁屏离线中，已开启离线记牌（随时打出，碰面自动对齐）';
-              }
+              activeStrategy.value.onRejoinFailed(strategyContext, res.message);
             } else if (res.sessionToken) {
-              localStorage.setItem('billiards_session_token', res.sessionToken);
+              localStorage.setItem(SAVED_SESSION_TOKEN_KEY, res.sessionToken);
             }
           }
         );
@@ -354,11 +305,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
 
     const handleDisconnect = () => {
       if (room.value) {
-        if (isOfflineBleActive()) {
-          feedback.value = '房主锁屏离线中，已开启离线记牌（随时打出，碰面自动对齐）';
-        } else {
-          feedback.value = '连接已断开，正在尝试自动重连...';
-        }
+        feedback.value = activeStrategy.value.getDisconnectFeedback();
       }
     };
     s.on('disconnect', handleDisconnect);
@@ -372,7 +319,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
       acceptRoom(updatedRoom, true);
       showRestartConfirm.value = false;
       if (updatedRoom?.code) {
-        localStorage.setItem('billiards_room_code', updatedRoom.code);
+        localStorage.setItem(SAVED_ROOM_CODE_KEY, updatedRoom.code);
       }
 
       if (updatedRoom?.status === 'waiting') {
@@ -386,10 +333,9 @@ export function useGameRoom(options: UseGameRoomOptions) {
     });
 
     s.on(SERVER_TO_CLIENT_EVENTS.roomKicked, ({ roomCode, reason }: { roomCode: string; reason?: string }) => {
-      if (room.value?.code !== roomCode && localStorage.getItem('billiards_room_code') !== roomCode) return;
+      if (room.value?.code !== roomCode && localStorage.getItem(SAVED_ROOM_CODE_KEY) !== roomCode) return;
       releaseWakeLock();
-      localStorage.removeItem('billiards_room_code');
-      localStorage.removeItem('billiards_session_token');
+      clearSavedSession();
       room.value = null;
       showRestartConfirm.value = false;
       showRefereePocketModal.value = false;
@@ -398,7 +344,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
     });
 
     s.on(SERVER_TO_CLIENT_EVENTS.roomCreated, ({ roomCode }: { roomCode: string }) => {
-      localStorage.setItem('billiards_room_code', roomCode);
+      localStorage.setItem(SAVED_ROOM_CODE_KEY, roomCode);
     });
 
     s.on(SERVER_TO_CLIENT_EVENTS.errorMessage, (msg: string) => {
@@ -461,9 +407,9 @@ export function useGameRoom(options: UseGameRoomOptions) {
       },
       (res: SocketCallbackResponse) => {
         if (res.success && res.roomCode) {
-          localStorage.setItem('billiards_room_code', res.roomCode);
+          localStorage.setItem(SAVED_ROOM_CODE_KEY, res.roomCode);
           if (res.sessionToken) {
-            localStorage.setItem('billiards_session_token', res.sessionToken);
+            localStorage.setItem(SAVED_SESSION_TOKEN_KEY, res.sessionToken);
           }
         }
       }
@@ -500,9 +446,9 @@ export function useGameRoom(options: UseGameRoomOptions) {
         if (!res.success) {
           showAlert(res.message || '加入房间失败');
         } else if (res.roomCode) {
-          localStorage.setItem('billiards_room_code', res.roomCode);
+          localStorage.setItem(SAVED_ROOM_CODE_KEY, res.roomCode);
           if (res.sessionToken) {
-            localStorage.setItem('billiards_session_token', res.sessionToken);
+            localStorage.setItem(SAVED_SESSION_TOKEN_KEY, res.sessionToken);
           }
         }
       }
@@ -659,18 +605,10 @@ export function useGameRoom(options: UseGameRoomOptions) {
   const handleLeaveRoom = async () => {
     if (await showConfirm('确定退出当前房间吗？', '退出确认')) {
       if (room.value) {
-        const payload = { roomCode: room.value.code };
-        if (isOfflineBleActive() && socket.value) {
-          socket.value.emit(CLIENT_TO_SERVER_EVENTS.leaveRoom, payload, (res: SocketCallbackResponse) => {
-            if (!res.success) showAlert(res.message || '退房未获房主确认，请让房主检查席位');
-          });
-        } else {
-          socket.value?.emit(CLIENT_TO_SERVER_EVENTS.leaveRoom, payload);
-        }
+        await activeStrategy.value.leaveRoom(socket.value, room.value.code);
       }
       releaseWakeLock();
-      localStorage.removeItem('billiards_room_code');
-      localStorage.removeItem('billiards_session_token');
+      clearSavedSession();
       room.value = null;
     }
   };

@@ -8,6 +8,7 @@ import RoomLobby from '@/components/RoomLobby.vue';
 import VictoryModal from '@/components/VictoryModal.vue';
 import GameViewV1 from '@/components/v1/GameView.vue';
 import GameViewV2 from '@/components/v2/GameView.vue';
+import { useGameRoomSyncStrategy } from '@/composables/sync';
 import { provideBallAppearance } from '@/composables/useBallAppearance';
 import { useGameRoom } from '@/composables/useGameRoom';
 import { useNearbyRooms } from '@/composables/useNearbyRooms';
@@ -80,7 +81,7 @@ const {
   playerName,
   getFinalPlayerName,
   serverUrl,
-  isBleOfflineMode,
+  syncStrategy: useGameRoomSyncStrategy(isBleOfflineMode),
 });
 
 provideBallAppearance();

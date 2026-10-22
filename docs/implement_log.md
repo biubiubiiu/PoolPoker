@@ -836,3 +836,26 @@ iPhone 实际 Tauri 模拟器包在原有 Build Rust Code 阶段失败；关闭�
   - `pnpm run lint`：Biome 检查通过，0 错误 0 警告；
   - `pnpm run build`：`vue-tsc` 类型检查通过，Vite 生产构建成功。
 - **commit**：`df2f338`
+
+### 第40轮：`useGameRoom` 传输与同步策略解耦重构（策略模式） [2026-10-22]
+- **输入**：用户提出 `useGameRoom.ts` 中同时维护在线 Socket 与离线 BLE 两种游玩逻辑，存在耦合分支，评估是否值得重构。
+- **探索与决策**：
+  1. *根因分析*：核心对局引擎、3D 台面动画与卡牌演算逻辑在在线与离线模式下 100% 共享，不应将 `useGameRoom` 拆分为两个平行的 composable；但网络拓扑语义（C/S 中心化 vs 近场 P2P 容灾）的特异行为（HTTP 快照同步与 404 清退、手表凭证同步、断线离线出牌放行、退房确认等）散落在 7 个不同函数中，破坏了 `useGameRoom` 的单一职责。
+  2. *重构方案*：采用策略模式（Strategy Pattern）。提取抽象接口 `GameRoomSyncStrategy`，分别实现 `OnlineSyncStrategy`（包含 HTTP 快照、404 清退、手表凭证同步、断线重连）与 `BleOfflineSyncStrategy`（包含离线动作放行、断线保留本地手牌、离线退房确认）。
+  3. *接入方式*：`useGameRoom` 面向策略接口编程，彻底清除其内部的 `isOfflineBleActive` 及硬编码 HTTP 同步逻辑。`syncStrategy` 设为**必填**选项，由唯一调用方 `App.vue` 按 `isBleOfflineMode` 组装注入——不保留「未传策略时读 `localStorage` 回退」的兼容路径，因为该路径一旦包进 `computed` 便会缓存非响应式的 `localStorage` 读取，切换离线模式后策略不再更新。
+  4. *契约层次收敛*：`GameRoomStrategyContext` 中 `room` 收紧为 `Readonly<Ref<Room | null>>` 并新增 `clearRoom()` 回调，使 `useGameRoom` 重新成为房间状态的唯一变更入口，策略层任何直接写入都会被 `vue-tsc` 编译期拦下；会话存储键名提升为 `SAVED_ROOM_CODE_KEY` / `SAVED_SESSION_TOKEN_KEY` 常量，策略经 `getSavedRoomCode()` / `getSavedSessionToken()` 读取，键名知识单点化。
+  5. *无状态约束*：策略单例在所有房间与调用方间共享，必须保持无状态；已在 `sync/index.ts` 注释声明，若未来需持有状态则改为工厂内 `new` 新实例。
+- **最终改动**：
+  - `src/composables/sync/types.ts` — 新增：策略契约 `GameRoomSyncStrategy`、`GameRoomStrategyContext`、`StrategyActionCheck` 与两个会话存储键名常量。
+  - `src/composables/sync/onlineSyncStrategy.ts` — 新增：在线同步策略实现；顺带修复 `window.location.origin` 被提前求值的隐患（改为 `getOriginUrl()` 懒取并容忍宿主无 `location`）。
+  - `src/composables/sync/bleSyncStrategy.ts` — 新增：BLE 离线同步策略实现，离线提示文案提取为 `OFFLINE_FEEDBACK` 常量。
+  - `src/composables/sync/index.ts` — 新增：策略导出、工厂函数、`useGameRoomSyncStrategy` 与无状态约束声明。
+  - `src/composables/useGameRoom.ts` — 修改：接入策略依赖注入（`syncStrategy` 必填），移除 7 处硬编码分支与内部 HTTP 逻辑，8 处 `localStorage` 字面量键名统一为常量。
+  - `src/App.vue` — 修改：组装 `useGameRoomSyncStrategy(isBleOfflineMode)` 注入 `useGameRoom`。
+  - `src/__tests__/gameRoomStrategy.spec.ts` — 新增：20 项针对在线与离线策略隔离行为的单元测试，覆盖 `canSendAction` / `onActionTimeout` / `fetchLatestRoomState`（含 404 清退、在途换房丢弃过期响应）/ `onRejoinFailed` / `syncNativeSession`（含 BLE 不下发在线凭证、非 Tauri 宿主跳过）/ `leaveRoom`；全局 `window` 与 `localStorage` 打桩收进 `beforeAll`/`afterAll`，避免关闭 Vitest `isolate` 后污染其他套件。
+- **验收**：
+  - `pnpm run test:unit`：20 个测试套件，205 项单元测试全量通过；
+  - `pnpm exec vue-tsc --noEmit`：TypeScript 类型检查通过（0 错误）；
+  - `pnpm run lint`：Biome 检查通过（0 错误 0 警告）。
+  - **待补**：BLE 离线链路的真机/模拟器手动回归——离线模式下断开房主，确认本地房间未被清空且出现「房主锁屏离线中…」提示（该不变量位于 `useGameRoom` 接线层，单测仅覆盖策略层）。
+- **commit**：`0c3b3ca`
