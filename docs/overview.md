@@ -78,18 +78,21 @@ server/roomManager.ts (按 userId 裁剪私有手牌 + 多 Socket 会话广播 r
 
 ### 2.2 模式 B：无服务器 BLE 面对面离线联机架构
 
-在无网络环境下，应用通过 `useSocket.ts` 的 `toggleBleOfflineMode(true)` 切换至 `BleTransport`（虚拟 Socket 适配器）：
+在无网络环境下，应用通过 `useSocket.ts` 的 `toggleBleOfflineMode(true)` 切换至 `BleTransport`（虚拟 Socket 适配器）。为彻底解决线下台球聚会中“房主开局看完手牌即长时间锁屏，其他成员交替亮屏记牌并锁屏”的痛点，该模式深度融合了 **CRDT 去中心化事件溯源与本地乐观演算机制**：
 
 ```text
-房主与客机 Vue 业务层 (useGameRoom.ts —— 零业务代码改动)
+房主与客机 Vue 业务层 (useGameRoom.ts —— Screen WakeLock 屏幕常亮 + 离线动作放行)
         │
         ▼
-src/services/bleTransport.ts (模拟 Socket.IO 接口)
+src/services/bleTransport.ts (模拟 Socket.IO 接口 + 离线双重持久化队列)
   ├─ 房主模式 (Host):
-  │    ├─ LocalHostEngine (直接复用 gameEngine / pokerDeck / gameRoomService 权威逻辑)
+  │    ├─ LocalHostEngine (权威规则引擎 + 本地存储恢复)
   │    ├─ 本机视图: getDirectClientRoom() 零拷贝无损直通
   │    └─ 客机推送: encodeBleRoomState() 脱敏二进制帧 -> GATT Notification 按 peerId 单播
   └─ 客机模式 (Guest):
+       ├─ 本地乐观执行: applyLocalOptimisticAction (0ms 本地瞬时消牌、落袋与 3D 动画)
+       ├─ 离线动作队列: pendingOfflineActions (内存与 localStorage 双重持久化 + 重连自动 flush)
+       ├─ 纯函数 CRDT 演算: src/services/crdt/ (Genesis + Events 确定性状态推导)
        ├─ BleScanner (扫描解析广播包 + 12s TTL 过期淘汰)
        └─ BleChunkReassembler (动态 MTU 分片重组 -> decodeBleRoomState)
         │
@@ -164,7 +167,8 @@ PoolPoker/
 │   ├── __tests__/                  # 前端服务与组合式函数 Vitest 单元测试
 │   ├── components/                 # 公共组件及 v1 (2D 经典) / v2 (3D 沉浸式) 对局视图组件
 │   ├── composables/                # 响应式业务层 (useGameRoom, useSocket, useNearbyRooms 等)
-│   ├── services/                   # 离线蓝牙引擎与传输层 (localHostEngine, bleTransport, bleScanner)
+│   ├── services/                   # 离线蓝牙传输与 CRDT 引擎 (bleTransport, localHostEngine, crdt/)
+│   │   └── crdt/                   # 纯领域 CRDT 确定性演算器 (deterministicEngine, gameEvents, eventLogStorage)
 │   ├── styles/                     # 全局样式、iOS 安全区适配与球牌防反色规则 (main.css)
 │   └── utils/                      # 原生弹窗桥接等工具函数
 └── src-tauri/                      # Tauri v2 Rust 宿主与跨端插件 (ble_mesh.rs, lib.rs)
@@ -218,7 +222,7 @@ PoolPoker/
 
 - `usePlayerProfile.ts`：管理持久化 `userId` 与玩家昵称（`localStorage`）。
 - `useSocket.ts`：管理在线 Socket.IO 实例与离线 `BleTransport` 实例的生命周期及模式切换（`toggleBleOfflineMode`）。
-- `useGameRoom.ts`：核心业务编排层。维护响应式 `room` 状态、乐观待确认状态（`pendingAction`）、3D 场景演出队列（`shouldAnimateRoomChange`）、页面切回前台时的 HTTP 快照极速同步（`/api/rooms/:code`，离线模式下自动跳过）以及智能手表凭证同步。
+- `useGameRoom.ts`：核心业务编排层。维护响应式 `room` 状态、乐观待确认状态（`pendingAction`）、3D 场景演出队列（`shouldAnimateRoomChange`）、Screen WakeLock 屏幕常亮与切回前台自动唤醒、离线模式动作放行与断线会话保护、页面切回前台时的 HTTP 快照极速同步（`/api/rooms/:code`，离线模式下自动跳过）以及智能手表凭证同步。
 - `useNearbyRooms.ts`：统一编排在线 GPS 附近房间发现与离线 BLE 附近桌台扫描。
 - `useUiPreferences.ts` & `useBallAppearance.ts`：管理 v1/v2 视图切换、音效/触觉开关及台球外观主题（星牌等）。
 
@@ -230,10 +234,11 @@ PoolPoker/
   - `HandDeckFan.vue` & `PokerCardProp.vue`：拟真弧形扇面手牌，支持抬牌、出牌与免打转化过渡动画。
   - `GameMinimalHud.vue`、`TableOpponentSeats.vue` 与 `GameControlDrawer.vue`：提供环绕式对手席位、代记对象快速切换与抽屉式规则/日志面板。
 
-### 5.3 离线蓝牙面对面传输层 (`src/services/`)
+### 5.3 离线蓝牙面对面传输与 CRDT 引擎 (`src/services/`)
 
-- `localHostEngine.ts` (`LocalHostEngine`)：运行在房主前端内存中的权威游戏引擎，管理客机 `peerId ↔ userId` 席位映射、满员/开局拒连判定以及状态广播。
-- `bleTransport.ts` (`BleTransport`)：实现 Socket.IO 兼容接口，处理 `CLIENT_JOIN` 20 字节分片握手、`LEAVE_ACK` 退房确认闭环及断线重连。
+- `localHostEngine.ts` (`LocalHostEngine`)：运行在房主前端内存中的权威游戏引擎，管理客机 `peerId ↔ userId` 席位映射、满员/开局拒连判定、状态广播以及本地状态双重持久化（内存与 `localStorage`，防杀后台丢失）。
+- `bleTransport.ts` (`BleTransport`)：实现 Socket.IO 兼容接口，支持客机本地乐观更新（`applyLocalOptimisticAction`，0ms 本地消牌与落袋反馈）、离线动作双重持久化队列（`pendingOfflineActions`）、重连自动冲刷对齐（`flushPendingOfflineActions`）、房主锁屏下 `rejoin_room` 会话保持及后台自动重连。
+- `crdt/` 确定性事件溯源演算器 (`src/services/crdt/`)：包含 `gameEvents.ts`（Mulberry32 确定性伪随机数发牌算法、创世基线 `GenesisSnapshot` 与 Lamport 时钟全序比较器）、`deterministicEngine.ts`（`reduceGameState` 纯函数无冲突演算器，基于可交换集合并集保证任意乱序事件收敛）与 `eventLogStorage.ts`（离线事件持久化与幂等去重）。
 - `bleScanner.ts` (`BleScanner`)：监听原生蓝牙扫描事件，维护附近蓝牙桌台列表并执行 12 秒 TTL 过期清理。
 
 ### 5.4 智能手表原生端（Wear OS & Apple Watch）

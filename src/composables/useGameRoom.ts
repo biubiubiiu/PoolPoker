@@ -43,6 +43,29 @@ export function useGameRoom(options: UseGameRoomOptions) {
   const refereeTargetUserId = ref<string>('');
   const refereeSelectedBallNum = ref<number | null>(null);
 
+  // Screen WakeLock: 防止对局或面对面联机中手机自动锁屏进入休眠导致房间中断
+  let wakeLockSentinel: any = null;
+  const acquireWakeLock = async () => {
+    if (typeof navigator !== 'undefined' && 'wakeLock' in navigator) {
+      try {
+        if (!wakeLockSentinel) {
+          wakeLockSentinel = await (navigator as any).wakeLock.request('screen');
+          wakeLockSentinel.addEventListener('release', () => {
+            wakeLockSentinel = null;
+          });
+        }
+      } catch (_) {}
+    }
+  };
+  const releaseWakeLock = () => {
+    if (wakeLockSentinel) {
+      try {
+        wakeLockSentinel.release().catch(() => {});
+      } catch (_) {}
+      wakeLockSentinel = null;
+    }
+  };
+
   const triggerConfetti = () => {
     confetti({
       particleCount: 100,
@@ -102,6 +125,11 @@ export function useGameRoom(options: UseGameRoomOptions) {
       clearPresentation();
     }
     room.value = next;
+    if (['waiting', 'playing'].includes(next.status)) {
+      void acquireWakeLock();
+    } else {
+      releaseWakeLock();
+    }
     if (!next.players.some((p) => p.userId === recordingUserId.value)) recordingUserId.value = userId.value;
     if (!previous || previous.code !== next.code || previous.roundCount !== next.roundCount) breakMode.value = false;
     if (next.winners && next.winners.length > 0) {
@@ -137,7 +165,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
     if (isPresenting.value) {
       clearPresentation();
     }
-    if (!socket.value?.connected) {
+    if (!socket.value?.connected && !isOfflineBleActive()) {
       feedback.value = '正在恢复连接，请稍候...';
       socket.value?.connect();
       return;
@@ -145,15 +173,17 @@ export function useGameRoom(options: UseGameRoomOptions) {
     unlockAudio();
     pendingAction.value = true;
     feedback.value = '';
-    socket.value.emit(event, { roomCode: room.value.code, ...payload }, (result: SocketCallbackResponse) => {
+    socket.value?.emit(event, { roomCode: room.value.code, ...payload }, (result: SocketCallbackResponse) => {
       clearTimeout(pendingTimer);
       pendingAction.value = false;
-      if (!result.success) feedback.value = result.message || '牌局已变化，请查看最新状态';
+      if (!result?.success) feedback.value = result?.message || '牌局已变化，请查看最新状态';
     });
     pendingTimer = setTimeout(() => {
       pendingAction.value = false;
-      feedback.value = '网络稍有延迟，已为您同步最新牌局';
-      void fetchLatestRoomState();
+      if (!isOfflineBleActive()) {
+        feedback.value = '网络稍有延迟，已为您同步最新牌局';
+        void fetchLatestRoomState();
+      }
     }, 2000);
   };
 
@@ -244,6 +274,9 @@ export function useGameRoom(options: UseGameRoomOptions) {
     sceneReset.value++;
     if (document.visibilityState === 'visible') {
       console.log('[VisibilityChange] 页面切回前台，立即发起 HTTP 快照同步与 Socket 重连');
+      if (room.value && ['waiting', 'playing'].includes(room.value.status)) {
+        void acquireWakeLock();
+      }
       fetchLatestRoomState();
 
       if (socket.value && !socket.value.connected) {
@@ -280,6 +313,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
     window.removeEventListener('online', handleOnline);
     clearPresentation();
     clearTimeout(pendingTimer);
+    releaseWakeLock();
   });
 
   const setupSocketListeners = (s: Socket) => {
@@ -301,9 +335,13 @@ export function useGameRoom(options: UseGameRoomOptions) {
           (res: SocketCallbackResponse) => {
             if (!res.success) {
               console.warn('[Rejoin Failed]', res.message);
-              localStorage.removeItem('billiards_room_code');
-              localStorage.removeItem('billiards_session_token');
-              room.value = null;
+              if (!isOfflineBleActive()) {
+                localStorage.removeItem('billiards_room_code');
+                localStorage.removeItem('billiards_session_token');
+                room.value = null;
+              } else {
+                feedback.value = '房主锁屏离线中，已开启离线记牌（随时打出，碰面自动对齐）';
+              }
             } else if (res.sessionToken) {
               localStorage.setItem('billiards_session_token', res.sessionToken);
             }
@@ -316,7 +354,11 @@ export function useGameRoom(options: UseGameRoomOptions) {
 
     const handleDisconnect = () => {
       if (room.value) {
-        feedback.value = '连接已断开，正在尝试自动重连...';
+        if (isOfflineBleActive()) {
+          feedback.value = '房主锁屏离线中，已开启离线记牌（随时打出，碰面自动对齐）';
+        } else {
+          feedback.value = '连接已断开，正在尝试自动重连...';
+        }
       }
     };
     s.on('disconnect', handleDisconnect);
@@ -345,6 +387,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
 
     s.on(SERVER_TO_CLIENT_EVENTS.roomKicked, ({ roomCode, reason }: { roomCode: string; reason?: string }) => {
       if (room.value?.code !== roomCode && localStorage.getItem('billiards_room_code') !== roomCode) return;
+      releaseWakeLock();
       localStorage.removeItem('billiards_room_code');
       localStorage.removeItem('billiards_session_token');
       room.value = null;
@@ -520,7 +563,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
       clearPresentation();
     }
     selectRecordingPlayer(userId.value);
-    sendAction(CLIENT_TO_SERVER_EVENTS.pocketBall, { cardId: card.id });
+    sendAction(CLIENT_TO_SERVER_EVENTS.pocketBall, { cardId: card.id, ballNumber: card.ballNumber });
   };
   const handleTableBallClick = (ballNum: number) => {
     if (room.value?.status !== 'playing' || room.value.pocketedBallNumbers.includes(ballNum)) return;
@@ -544,7 +587,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
     if (await showConfirm(confirmText, '出牌确认')) {
       if (room.value?.status !== 'playing') return;
       selectRecordingPlayer(userId.value);
-      sendAction(CLIENT_TO_SERVER_EVENTS.pocketBall, { cardId: card.id });
+      sendAction(CLIENT_TO_SERVER_EVENTS.pocketBall, { cardId: card.id, ballNumber: card.ballNumber });
     }
   };
 
@@ -625,6 +668,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
           socket.value?.emit(CLIENT_TO_SERVER_EVENTS.leaveRoom, payload);
         }
       }
+      releaseWakeLock();
       localStorage.removeItem('billiards_room_code');
       localStorage.removeItem('billiards_session_token');
       room.value = null;

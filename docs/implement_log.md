@@ -807,3 +807,32 @@ iPhone 实际 Tauri 模拟器包在原有 Build Rust Code 阶段失败；关闭�
 - BLE 虚拟 Socket 被在线附近发现当作在线连接，导致离线模式仍申请定位。`App.vue` 使用计算属性 `onlineSocket`，BLE 模式传入 `null`，复用 `useNearbyRooms` 已有的空 Socket 判断和清理流程；恢复在线后自动重新发现。
 - 改动仅隔离调用入口，保留原有重试行为和 composable 接口。Manifest 移除精确定位的 API 30 上限并补齐粗略定位，支持现代 Android 上的在线附近发现；声明权限本身不触发授权弹窗。
 - 回归覆盖无在线 Socket 时不启动、在线/离线切换清理与恢复、离线 Socket 更新。尚未重新打包安装 release APK 做修复后真机验证。
+
+### 第39轮：BLE 离线面对面联机 CRDT 事件溯源重构与多端交替锁屏记牌修复 [2026-10-22]
+- **输入**：用户反馈“房主锁屏后，在另一台设备上尝试记牌没有任何反应”，以及真实线下场景诉求——房主开局看完手牌即长时间锁屏，其他成员交替亮屏记牌并锁屏，要求即使房主锁屏，记牌仍能正常记录且恢复后全员状态一致。
+- **探索与决策**：
+  1. *根因排查*：定位到 4 处硬阻塞：① `useGameRoom.ts:sendAction` 遇 `!socket.value?.connected` 截断；② `bleTransport.ts:emit` 遇 `!this.connected` 返回失败阻断且未本地处理；③ `handleIncomingState` 在非连接态拒绝派发 `room_updated`；④ 客机锁屏再亮屏时 `rejoin_room` 因底层 GATT 连不上锁屏房主返回失败，误触发 `localStorage.removeItem('billiards_room_code'); room.value = null` 将客机踢出房间。
+  2. *方案抉择*：舍弃重型 Raft 动态选主与容易产生脑裂的快照二选一冲突弹窗，转向纯领域 CRDT 事件溯源与本地乐观演算方案。基于台球落袋操作的数学可交换性（$A \cup B = B \cup A$），任意成员可在离线断网状态下 0ms 乐观更新并加入持久化队列，重连后自动重放冲刷。
+  3. *清理与备份*：将 1700 行暂存区 Raft 选举改动安全归档到分支 `refs/heads/backup-staged-recovery`（commit `586d00ed677a159f0e53ae0931911a4e90536267`）。
+- **最终改动**：
+  - `src/services/crdt/gameEvents.ts` — 新增：Mulberry32 确定性 32-bit PRNG 洗牌、Genesis 基线快照与 Lamport 全序时钟比较器。
+  - `src/services/crdt/deterministicEngine.ts` — 新增：`reduceGameState` 纯函数演算器，支持无序事件去重、可交换落袋并集计算、悔球撤销与手牌脱敏。
+  - `src/services/crdt/eventLogStorage.ts` — 新增：追加式离线事件日志持久化与幂等去重工具。
+  - `src/services/bleTransport.ts` — 修改：
+    - 新增 `applyLocalOptimisticAction`：断网状态下即刻本地计算消除手牌、标记落袋球、驱动 3D 台面动画并强制广播 `room_updated`（0ms 响应）；
+    - 新增 `pendingOfflineActions`：离线操作队列同步持久化至内存与 `localStorage`；
+    - 新增 `flushPendingOfflineActions`：监听到 `ble://peripheral_connected` 时自动串行重放离线动作，并在接收到权威状态后自动剪枝对齐；
+    - 重构 `rejoin_room`：房主锁屏断连时自动从本地缓存恢复界面并返回成功，启动后台静默重试，绝不清空房间。
+  - `src/services/localHostEngine.ts` — 修改：新增 `saveToStorage` 与 `restoreFromStorage`，支持房主端进程被杀或切回前台时无损恢复权威房间状态。
+  - `src/composables/useGameRoom.ts` — 修改：
+    - `sendAction` 在 BLE 离线模式下放行离线动作；
+    - 接入 Web Screen WakeLock API，对局中自动阻止锁屏，切回前台（`visibilitychange`）自动重新申请锁定；
+    - 优化断线提示为“房主锁屏离线中，已开启离线记牌（随时打出，碰面自动对齐）”；
+    - `rejoin_room` 失败时对离线 BLE 模式增加豁免保护，保留本地房间与卡牌。
+  - `src/__tests__/crdtEngine.spec.ts` — 新增：6 项 CRDT 乱序合并、重复过滤与最终一致性单测。
+  - `src/__tests__/bleTransport.spec.ts` — 修改：更新断线拦截测试为离线记牌与重连自动冲刷测试，新增多端交替锁屏端到端用例。
+- **验收**：
+  - `pnpm run test:unit`：19 个测试套件，181 项单元测试全量通过（100% Pass）；
+  - `pnpm run lint`：Biome 检查通过，0 错误 0 警告；
+  - `pnpm run build`：`vue-tsc` 类型检查通过，Vite 生产构建成功。
+- **commit**：`df2f338`

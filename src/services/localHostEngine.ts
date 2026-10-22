@@ -147,6 +147,8 @@ export function getLocalBleState(room: ServerRoom, targetUserId: string): BleRoo
   };
 }
 
+const memoryHostRoomStorage = new Map<string, string>();
+
 export class LocalHostEngine {
   private room: ServerRoom | null = null;
   private onStateUpdate: StateUpdateCallback | null = null;
@@ -166,7 +168,39 @@ export class LocalHostEngine {
    */
   public initRoom(hostUserId: string, hostName: string, roomCode = '8848'): Room {
     this.room = createLocalRoom(hostUserId, hostName, roomCode);
+    this.saveToStorage();
     return this.broadcastState(hostUserId);
+  }
+
+  private saveToStorage(): void {
+    if (!this.room) return;
+    try {
+      const data = JSON.stringify(this.room);
+      memoryHostRoomStorage.set(`poolpoker_host_room_${this.room.code}`, data);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(`poolpoker_host_room_${this.room.code}`, data);
+      }
+    } catch (_) {}
+  }
+
+  public restoreFromStorage(roomCode: string): boolean {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem(`poolpoker_host_room_${roomCode}`);
+        if (raw) {
+          this.room = JSON.parse(raw) as ServerRoom;
+          return true;
+        }
+      }
+    } catch (_) {}
+    const mem = memoryHostRoomStorage.get(`poolpoker_host_room_${roomCode}`);
+    if (mem) {
+      try {
+        this.room = JSON.parse(mem) as ServerRoom;
+        return true;
+      } catch (_) {}
+    }
+    return false;
   }
 
   /**
@@ -481,6 +515,7 @@ export class LocalHostEngine {
    */
   public broadcastAll(): void {
     if (!this.room) return;
+    this.saveToStorage();
     for (const player of this.room.players) {
       this.broadcastState(player.userId);
     }

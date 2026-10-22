@@ -30,7 +30,7 @@ import {
   splitIntoBleChunks,
 } from '../../shared/types/bleProtocol';
 import type { Room } from '../../shared/types/game';
-import { getRandomInt } from '../../shared/utils/crypto';
+import { getRandomHex, getRandomInt, getRandomUUID } from '../../shared/utils/crypto';
 import { BleScanner } from './bleScanner';
 import { LocalHostEngine } from './localHostEngine';
 
@@ -83,6 +83,9 @@ export function getSharedHostEngine(): LocalHostEngine {
   return sharedHostEngine;
 }
 
+const memoryRoomStorage = new Map<string, string>();
+const memoryPendingActionsStorage = new Map<string, string>();
+
 export function resetSharedHostEngine(): void {
   if (sharedHostEngine) {
     sharedHostEngine.destroy();
@@ -91,6 +94,8 @@ export function resetSharedHostEngine(): void {
   sharedPeerIdToUserId.clear();
   sharedUserIdToPeerId.clear();
   clearStoredDeviceId();
+  memoryRoomStorage.clear();
+  memoryPendingActionsStorage.clear();
 }
 
 export class BleTransport {
@@ -130,9 +135,348 @@ export class BleTransport {
   private reconnectAttempts = 0;
   private isReconnecting = false;
 
+  // 离线动作队列与同步
+  private pendingOfflineActions: BleClientAction[] = [];
+  private isFlushingActions = false;
+  private pendingRetryTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // A suspended WebView can lose writes while GATT still reports connected.
+  // Only ball recordings are safe to retry using the existing protocol: the
+  // host's pocketed-ball set makes them idempotent. Penalties/undo need IDs/ACKs.
+  private isRetryableRecording(action: BleClientAction): boolean {
+    return [
+      BleActionType.POCKET_BALL,
+      BleActionType.REFEREE_POCKET,
+      BleActionType.ACCIDENTAL_POCKET,
+      BleActionType.BREAK_POCKET,
+    ].includes(action.actionType);
+  }
+
+  private schedulePendingRetry(): void {
+    if (this.pendingRetryTimer || this.isHost || this.leaving || !this.initialized || !this.connected) return;
+    if (!this.pendingOfflineActions.some((action) => this.isRetryableRecording(action))) return;
+    this.pendingRetryTimer = setTimeout(() => {
+      this.pendingRetryTimer = null;
+      if (
+        !this.connected ||
+        this.leaving ||
+        !this.pendingOfflineActions.some((action) => this.isRetryableRecording(action))
+      )
+        return;
+      this.sendJoinHandshake();
+      void this.flushPendingOfflineActions(true);
+    }, 1500);
+  }
+
+  private clearPendingRetry(): void {
+    if (this.pendingRetryTimer) clearTimeout(this.pendingRetryTimer);
+    this.pendingRetryTimer = null;
+  }
+
+  private handleVisibilityChange = (): void => {
+    if (document.visibilityState !== 'visible' || this.leaving || !this.currentRoomCode) return;
+    if (this.isHost) {
+      // Refresh every subscribed guest, even when lock/unlock never disconnected GATT.
+      this.hostEngine?.broadcastAll();
+    } else if (this.connected) {
+      this.sendJoinHandshake();
+      void this.joinSendQueue.then(() => this.flushPendingOfflineActions(true));
+    }
+  };
+
   constructor(userId: string, playerName = '我') {
     this.selfUserId = userId;
     this.playerName = playerName;
+  }
+
+  private getStorageKey(suffix: string): string {
+    return `poolpoker_ble_${this.currentRoomCode}_${suffix}`;
+  }
+
+  private saveCachedRoom(): void {
+    if (!this.cachedRoom) return;
+    try {
+      const data = JSON.stringify(this.cachedRoom);
+      memoryRoomStorage.set(this.getStorageKey('cached_room'), data);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(this.getStorageKey('cached_room'), data);
+      }
+    } catch (e) {
+      console.warn('[BleTransport] Failed to cache room to localStorage:', e);
+    }
+  }
+
+  private loadCachedRoom(): Room | null {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem(this.getStorageKey('cached_room'));
+        if (raw) return JSON.parse(raw) as Room;
+      }
+    } catch (_) {}
+    const mem = memoryRoomStorage.get(this.getStorageKey('cached_room'));
+    if (mem) {
+      try {
+        return JSON.parse(mem) as Room;
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  private clearCachedRoom(): void {
+    memoryRoomStorage.delete(this.getStorageKey('cached_room'));
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(this.getStorageKey('cached_room'));
+      }
+    } catch (_) {}
+  }
+
+  private savePendingActions(): void {
+    try {
+      const data = JSON.stringify(this.pendingOfflineActions);
+      memoryPendingActionsStorage.set(this.getStorageKey('pending_actions'), data);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(this.getStorageKey('pending_actions'), data);
+      }
+    } catch (e) {
+      console.warn('[BleTransport] Failed to save pending actions:', e);
+    }
+  }
+
+  private loadPendingActions(): BleClientAction[] {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem(this.getStorageKey('pending_actions'));
+        if (raw) return JSON.parse(raw) as BleClientAction[];
+      }
+    } catch (_) {}
+    const mem = memoryPendingActionsStorage.get(this.getStorageKey('pending_actions'));
+    if (mem) {
+      try {
+        return JSON.parse(mem) as BleClientAction[];
+      } catch (_) {}
+    }
+    return [];
+  }
+
+  private clearPendingActions(): void {
+    memoryPendingActionsStorage.delete(this.getStorageKey('pending_actions'));
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(this.getStorageKey('pending_actions'));
+      }
+    } catch (_) {}
+    this.pendingOfflineActions = [];
+  }
+
+  public async flushPendingOfflineActions(retryOnly = false): Promise<void> {
+    if (this.isHost || !this.connected || this.leaving || this.isFlushingActions) return;
+    if (this.pendingOfflineActions.length === 0) {
+      this.pendingOfflineActions = this.loadPendingActions();
+    }
+    if (this.pendingOfflineActions.length === 0) return;
+
+    this.isFlushingActions = true;
+    try {
+      // Serialize after CLIENT_JOIN; sending before seat binding loses identity.
+      await this.joinSendQueue;
+      const actionsToSend = this.pendingOfflineActions.filter(
+        (action) => !retryOnly || this.isRetryableRecording(action)
+      );
+      for (const action of actionsToSend) {
+        if (!this.connected || this.leaving) break;
+        const bytes = encodeBleAction(action);
+        await safeInvoke('ble_send_command_to_host', {
+          payload: Array.from(bytes),
+        });
+        await new Promise((r) => setTimeout(r, 60));
+      }
+    } catch (err) {
+      console.warn('[BleTransport] Error flushing pending actions:', err);
+    } finally {
+      this.isFlushingActions = false;
+      this.schedulePendingRetry();
+    }
+  }
+
+  /**
+   * 客机本地乐观应用操作（即刻消除手牌与更新落袋球，实现 0ms 响应与完全离线记牌）
+   */
+  public applyLocalOptimisticAction(action: BleClientAction, targetRoom?: Room): Room | null {
+    if (!targetRoom && !this.cachedRoom) {
+      this.cachedRoom = this.loadCachedRoom();
+    }
+    // Never mutate a snapshot already published to Vue. Mutating the raw object
+    // bypasses its reactive proxy, and assigning it again does not trigger a render.
+    // Incoming remote snapshots are private until replay completes, so targetRoom
+    // can still be updated in place while overlaying pending actions.
+    const room = targetRoom || (this.cachedRoom ? (JSON.parse(JSON.stringify(this.cachedRoom)) as Room) : null);
+    if (!room) return null;
+
+    let ballNumber = action.ballNumber;
+    const actorUserId = this.selfUserId;
+    const selfPlayer = room.players.find((p) => p.userId === actorUserId);
+
+    if (action.actionType === BleActionType.POCKET_BALL) {
+      if (selfPlayer) {
+        let card = action.cardId ? selfPlayer.cards.find((c) => c.id === action.cardId) : undefined;
+        if (!card && ballNumber !== undefined) {
+          card = selfPlayer.cards.find((c) => c.ballNumber === ballNumber);
+        }
+        if (card) {
+          ballNumber = card.ballNumber;
+          const targetCardId = card.id;
+          selfPlayer.cards = selfPlayer.cards.filter((c) => c.id !== targetCardId);
+          if (!selfPlayer.pocketedCards.some((c) => c.id === targetCardId)) {
+            selfPlayer.pocketedCards.push(card);
+          }
+          selfPlayer.cardCount = selfPlayer.cards.length;
+        }
+      }
+      if (ballNumber !== undefined && !room.pocketedBallNumbers.includes(ballNumber)) {
+        room.pocketedBallNumbers.push(ballNumber);
+        room.pocketedBallNumbers.sort((a, b) => a - b);
+      }
+      if (selfPlayer && ballNumber !== undefined) {
+        const time = new Date().toLocaleTimeString('zh-CN', {
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        });
+        room.logs.push({
+          id: `${Date.now()}_${getRandomHex(3)}`,
+          time,
+          text: `🎯 ${selfPlayer.name} 打进 ${ballNumber}号球，消去对应卡牌`,
+        });
+      }
+    } else if (action.actionType === BleActionType.REFEREE_POCKET) {
+      const targetUserId =
+        action.targetUserId ||
+        (action.targetSeatIndex !== undefined && room.players[action.targetSeatIndex]
+          ? room.players[action.targetSeatIndex].userId
+          : undefined) ||
+        actorUserId;
+      const targetPlayer = room.players.find((p) => p.userId === targetUserId);
+      if (ballNumber !== undefined && !room.pocketedBallNumbers.includes(ballNumber)) {
+        room.pocketedBallNumbers.push(ballNumber);
+        room.pocketedBallNumbers.sort((a, b) => a - b);
+      }
+      if (targetPlayer) {
+        if (targetPlayer.cards.length > 0) {
+          const cardIdx = targetPlayer.cards.findIndex((c) => c.ballNumber === ballNumber);
+          if (cardIdx !== -1) {
+            const [pocketedCard] = targetPlayer.cards.splice(cardIdx, 1);
+            targetPlayer.pocketedCards.push(pocketedCard);
+          }
+        }
+        targetPlayer.cardCount = Math.max(0, targetPlayer.cardCount - 1);
+        const time = new Date().toLocaleTimeString('zh-CN', {
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        });
+        room.logs.push({
+          id: `${Date.now()}_${getRandomHex(3)}`,
+          time,
+          text: `⚖️ 裁判代记：${targetPlayer.name} 打进 ${ballNumber}号球`,
+        });
+      }
+    } else if (action.actionType === BleActionType.BREAK_POCKET) {
+      if (ballNumber !== undefined && !room.pocketedBallNumbers.includes(ballNumber)) {
+        room.pocketedBallNumbers.push(ballNumber);
+        room.pocketedBallNumbers.sort((a, b) => a - b);
+        const time = new Date().toLocaleTimeString('zh-CN', {
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        });
+        room.logs.push({
+          id: `${Date.now()}_${getRandomHex(3)}`,
+          time,
+          text: `🎱 开球进球：${ballNumber}号球落袋`,
+        });
+      }
+    } else if (action.actionType === BleActionType.ACCIDENTAL_POCKET) {
+      if (ballNumber !== undefined && !room.pocketedBallNumbers.includes(ballNumber)) {
+        room.pocketedBallNumbers.push(ballNumber);
+        room.pocketedBallNumbers.sort((a, b) => a - b);
+        const time = new Date().toLocaleTimeString('zh-CN', {
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        });
+        room.logs.push({
+          id: `${Date.now()}_${getRandomHex(3)}`,
+          time,
+          text: `🎱 事故球：${ballNumber}号球误进`,
+        });
+      }
+    } else if (
+      action.actionType === BleActionType.DRAW_PENALTY ||
+      action.actionType === BleActionType.REFEREE_PENALTY
+    ) {
+      const targetUserId = action.targetUserId || actorUserId;
+      const targetPlayer = room.players.find((p) => p.userId === targetUserId);
+      if (targetPlayer) {
+        targetPlayer.cardCount += 1;
+        const time = new Date().toLocaleTimeString('zh-CN', {
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        });
+        room.logs.push({
+          id: `${Date.now()}_${getRandomHex(3)}`,
+          time,
+          text: `⚠️ ${targetPlayer.name} 犯规，罚抽 1 张扑克牌`,
+        });
+      }
+    }
+
+    // 判定胜负条件
+    const pocketedSet = new Set(room.pocketedBallNumbers);
+    let hasWinner = false;
+    for (const p of room.players) {
+      if (p.cards.length > 0) {
+        const activeCards = p.cards.filter((c) => !pocketedSet.has(c.ballNumber));
+        if (activeCards.length === 0) {
+          p.isWinner = true;
+          hasWinner = true;
+          if (!room.winners.some((w) => w.userId === p.userId)) {
+            room.winners.push({
+              id: p.id,
+              userId: p.userId,
+              name: p.name,
+              wins: (p.wins || 0) + 1,
+            });
+          }
+        }
+      }
+    }
+    if (hasWinner) {
+      room.status = 'finished';
+    }
+
+    room.revision = (room.revision || 0) + 1;
+    if (ballNumber !== undefined) {
+      room.sceneEvent = {
+        id: getRandomUUID(),
+        kind: 'pocket_ball',
+        revision: room.revision,
+        targetUserId: action.targetUserId || actorUserId,
+        ballNumber,
+      };
+    }
+
+    if (room.logs.length > 50) {
+      room.logs = room.logs.slice(-50);
+    }
+
+    return room;
   }
 
   private sendJoinHandshake(): void {
@@ -248,6 +592,9 @@ export class BleTransport {
     this.connected = true;
     if (this.initialized) return this;
     this.initialized = true;
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    }
 
     // 1. 监听来自物理蓝牙从机发来的指令包或入房握手包 (房主模式接收)
     try {
@@ -376,7 +723,36 @@ export class BleTransport {
             }
 
             const clientRoom = bleStateToClientRoom(bleState, this.selfUserId, this.currentRoomCode, this.playerName);
+
+            // Never replay previous-round recordings into a new deal.
+            if (this.cachedRoom && this.cachedRoom.roundCount !== clientRoom.roundCount) {
+              this.clearPendingActions();
+              this.clearPendingRetry();
+            }
+
+            // 对齐离线暂存动作：若房主已确认并纳入权威落袋球，从本地暂存中安全剔除
+            if (this.pendingOfflineActions.length === 0) {
+              this.pendingOfflineActions = this.loadPendingActions();
+            }
+            if (this.pendingOfflineActions.length > 0) {
+              const pocketedSet = new Set(clientRoom.pocketedBallNumbers);
+              this.pendingOfflineActions = this.pendingOfflineActions.filter((act) => {
+                if (act.ballNumber !== undefined && pocketedSet.has(act.ballNumber)) {
+                  return false;
+                }
+                return true;
+              });
+              this.savePendingActions();
+
+              // 房主若尚未处理完离线重放指令，在本地权威视图上继续垫高，杜绝手牌闪烁回弹
+              for (const act of this.pendingOfflineActions) {
+                this.applyLocalOptimisticAction(act, clientRoom);
+              }
+            }
+
             this.handleIncomingState(clientRoom);
+            // A fresh host snapshot is also a liveness signal, not just reconnect.
+            this.schedulePendingRetry();
           } catch (err) {
             console.error('[BleTransport] Failed to decode incoming BLE state:', err);
           }
@@ -415,13 +791,14 @@ export class BleTransport {
       });
 
       // 4. 监听与房主物理断线与重连事件 (客端模式)
-      this.unlistenPeripheralConn = await listen<{ peer_id: string }>('ble://peripheral_connected', (event) => {
+      this.unlistenPeripheralConn = await listen<{ peer_id: string }>('ble://peripheral_connected', async (event) => {
         if (!this.isHost) {
           this.connected = true;
           this.connectedDeviceId = event.payload.peer_id;
           this.clearAutoReconnect();
           // 物理链路与特征值就绪后，向房主发送 CLIENT_JOIN 握手同步真实 userId 与昵称
           this.sendJoinHandshake();
+          await this.flushPendingOfflineActions();
           // 注意：物理连接就绪事件只更新底层链路状态，严禁在此发射 'connect' 事件，
           // 否则会触发 useGameRoom 的 handleConnect 重复发起 rejoin_room -> ble_connect_peripheral 循环
         }
@@ -433,6 +810,7 @@ export class BleTransport {
           this.connectedDeviceId = null;
           this.isReconnecting = false;
           this.stateReassembler.reset();
+          this.clearPendingRetry();
           this.emitLocal('disconnect', 'transport close');
           if (!this.leaving && this.currentRoomCode && getStoredDeviceId()) {
             this.reconnectAttempts++;
@@ -461,6 +839,10 @@ export class BleTransport {
 
   public disconnect(): this {
     this.clearAutoReconnect();
+    this.clearPendingRetry();
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    }
     if (this.isHost) {
       safeInvoke('ble_stop_advertising');
     } else {
@@ -547,11 +929,12 @@ export class BleTransport {
     }
   }
 
-  public handleIncomingState(room: Room): void {
-    if (this.leaving || !this.connected || !this.currentRoomCode) {
+  public handleIncomingState(room: Room, force = false): void {
+    if (this.leaving || (!this.connected && !force) || !this.currentRoomCode) {
       return;
     }
     this.cachedRoom = room;
+    this.saveCachedRoom();
     this.emitLocal('room_updated', room);
   }
 
@@ -662,7 +1045,10 @@ export class BleTransport {
         const roomCode = payload?.roomCode || this.currentRoomCode;
         const targetUserId = payload?.userId || this.selfUserId;
 
-        const engine = sharedHostEngine;
+        const engine = sharedHostEngine || getSharedHostEngine();
+        if (engine && !engine.getRawRoom() && roomCode) {
+          engine.restoreFromStorage(roomCode);
+        }
         if (engine && engine.getRawRoom()?.code === roomCode && engine.getRawRoom()?.hostUserId === targetUserId) {
           this.hostEngine = engine;
           this.isHost = true;
@@ -680,6 +1066,7 @@ export class BleTransport {
 
           const clientRoom = engine.getDirectClientRoom(targetUserId);
           this.handleIncomingState(clientRoom);
+          engine.broadcastAll();
           if (callback) {
             callback({
               success: true,
@@ -692,12 +1079,21 @@ export class BleTransport {
 
         // 跨设备真实客机：从缓存或 payload 中提取上次连接的桌台 deviceId 重连物理蓝牙
         const lastDeviceId = payload?.deviceId || getStoredDeviceId();
-        if (lastDeviceId) {
-          this.currentRoomCode = roomCode;
-          this.isHost = false;
+        this.currentRoomCode = roomCode;
+        this.isHost = false;
 
+        if (!this.cachedRoom) {
+          this.cachedRoom = this.loadCachedRoom();
+        }
+        if (this.cachedRoom && this.cachedRoom.code === roomCode) {
+          this.handleIncomingState(this.cachedRoom, true);
+        }
+
+        if (lastDeviceId) {
           // 如果物理链路已连接到该外设，直接恢复房间会话，无需重复调用底层 GATT 连接
           if (this.connected && this.connectedDeviceId === lastDeviceId) {
+            this.sendJoinHandshake();
+            await this.flushPendingOfflineActions(true);
             if (callback) {
               callback({
                 success: true,
@@ -712,6 +1108,7 @@ export class BleTransport {
             await invoke('ble_connect_peripheral', { deviceId: lastDeviceId });
             this.connectedDeviceId = lastDeviceId;
             this.connected = true;
+            await this.flushPendingOfflineActions();
             if (callback) {
               callback({
                 success: true,
@@ -721,6 +1118,19 @@ export class BleTransport {
             }
             return;
           } catch (err: any) {
+            // 房主锁屏时底层物理连接失败，但客机依然保持离线本地会话与记牌能力！
+            if (this.cachedRoom && this.cachedRoom.code === roomCode) {
+              this.connected = false;
+              this.scheduleAutoReconnect();
+              if (callback) {
+                callback({
+                  success: true,
+                  roomCode,
+                  sessionToken: `ble_token_${this.selfUserId}`,
+                });
+              }
+              return;
+            }
             if (callback) {
               callback({
                 success: false,
@@ -729,6 +1139,17 @@ export class BleTransport {
             }
             return;
           }
+        }
+
+        if (this.cachedRoom && this.cachedRoom.code === roomCode) {
+          if (callback) {
+            callback({
+              success: true,
+              roomCode,
+              sessionToken: `ble_token_${this.selfUserId}`,
+            });
+          }
+          return;
         }
 
         if (callback) {
@@ -793,6 +1214,8 @@ export class BleTransport {
             this.stateReassembler.reset();
             this.commandReassemblers.clear();
             clearStoredDeviceId();
+            this.clearCachedRoom();
+            this.clearPendingActions();
             this.cachedRoom = null;
             this.currentRoomCode = '';
             this.leaving = false;
@@ -807,6 +1230,8 @@ export class BleTransport {
         this.stateReassembler.reset();
         this.commandReassemblers.clear();
         clearStoredDeviceId();
+        this.clearCachedRoom();
+        this.clearPendingActions();
         this.cachedRoom = null;
         this.currentRoomCode = '';
         this.leaving = false;
@@ -928,17 +1353,23 @@ export class BleTransport {
             });
           }
         } else {
-          if (!this.connected) {
-            if (callback) {
-              callback({ success: false, message: '与房主蓝牙连接已断开，请重新连接' });
-            }
-            return;
+          // 客端模式：乐观更新本地状态 + 离线持久化队列 + 尝试上报房主
+          const optimisticRoom = this.applyLocalOptimisticAction(action);
+          if (optimisticRoom) {
+            this.handleIncomingState(optimisticRoom, true);
           }
-          // 客端通过物理蓝牙写入房主外设
-          const bytes = encodeBleAction(action);
-          safeInvoke('ble_send_command_to_host', {
-            payload: Array.from(bytes),
-          });
+          this.pendingOfflineActions.push(action);
+          this.savePendingActions();
+          this.schedulePendingRetry();
+
+          if (this.connected) {
+            const bytes = encodeBleAction(action);
+            safeInvoke('ble_send_command_to_host', {
+              payload: Array.from(bytes),
+            }).catch((err) => {
+              console.warn('[BleTransport] Failed to send action to host:', err);
+            });
+          }
         }
 
         if (callback) {

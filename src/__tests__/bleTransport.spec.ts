@@ -1,5 +1,8 @@
+import { invoke } from '@tauri-apps/api/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { computed, ref } from 'vue';
 import { BLE_PROTOCOL_VERSION, BleGameStatus, type BleRoomState, ballsToMask } from '../../shared/types/bleProtocol';
+import type { Room } from '../../shared/types/game';
 import { BleTransport, resetSharedHostEngine, setStoredDeviceId } from '../services/bleTransport';
 
 const mockInvokes: Array<{ cmd: string; args?: any }> = [];
@@ -314,18 +317,53 @@ describe('BleTransport Virtual Socket Layer', () => {
     expect(payloadBytes[7]).toBe(0); // 席位 0
   });
 
-  it('should handle peripheral_disconnected on guest, emit disconnect event, and reject subsequent actions', async () => {
+  it('should handle peripheral_disconnected on guest, emit disconnect event, and optimistically queue subsequent actions', async () => {
     const guestTransport = new BleTransport('guest_dc', '断线球友');
     await guestTransport.init();
     await guestTransport.emit('join_room', { roomCode: '8848', deviceId: 'test_host_peripheral' });
     expect(guestTransport.connected).toBe(true);
+
+    guestTransport.handleIncomingState({
+      code: '8848',
+      revision: 1,
+      hostUserId: 'host_0',
+      status: 'playing',
+      roundCount: 1,
+      deckCount: 44,
+      logs: [],
+      winners: [],
+      pocketedBallNumbers: [],
+      turnOrder: ['guest_dc'],
+      lastRoundScores: [],
+      players: [
+        {
+          id: 'ble_guest_dc',
+          userId: 'guest_dc',
+          name: '断线球友',
+          isHost: false,
+          online: true,
+          cardCount: 1,
+          cards: [{ id: 'c1', suit: '♠', rank: '7', ballNumber: 7, color: 'black', suitType: 'spade' }],
+          pocketedCards: [],
+          wins: 0,
+          isWinner: false,
+          totalScore: 0,
+        },
+      ],
+      settings: { cardsPerPlayer: 5, includeBlackEight: true, maxPlayers: 8 },
+    });
 
     let disconnectedReason: any = null;
     guestTransport.on('disconnect', (reason) => {
       disconnectedReason = reason;
     });
 
-    // 触发原生外设物理断线事件
+    let updatedRoom: any = null;
+    guestTransport.on('room_updated', (room) => {
+      updatedRoom = room;
+    });
+
+    // 触发原生外设物理断线事件（房主手机锁屏休眠）
     const disconnListener = eventListeners['ble://peripheral_disconnected'];
     expect(disconnListener).toBeDefined();
     disconnListener({ payload: { peer_id: 'test_host_peripheral' } });
@@ -333,15 +371,21 @@ describe('BleTransport Virtual Socket Layer', () => {
     expect(guestTransport.connected).toBe(false);
     expect(disconnectedReason).toBe('transport close');
 
-    // 此时尝试发送游戏操作，必须被拦截并返回断线提示，严禁误报成功
+    // 房主锁屏断线后，客机依然可以离线记牌，即刻本地乐观生效并排队待同步
     const actionCb = vi.fn();
-    await guestTransport.emit('draw_penalty', {}, actionCb);
-    expect(actionCb).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-        message: expect.stringContaining('与房主蓝牙连接已断开'),
-      })
-    );
+    await guestTransport.emit('pocket_ball', { cardId: 'c1', ballNumber: 7 }, actionCb);
+    expect(actionCb).toHaveBeenCalledWith({ success: true });
+    expect(updatedRoom).not.toBeNull();
+    expect(updatedRoom.pocketedBallNumbers).toContain(7);
+
+    // 模拟房主亮屏，物理蓝牙重新建连，自动重放离线队列
+    mockInvokes.length = 0;
+    const connListener = eventListeners['ble://peripheral_connected'];
+    expect(connListener).toBeDefined();
+    await connListener({ payload: { peer_id: 'test_host_peripheral' } });
+
+    expect(guestTransport.connected).toBe(true);
+    expect(mockInvokes.some((i) => i.cmd === 'ble_send_command_to_host')).toBe(true);
   });
 
   it('should restore isHost, roomCode, and state update callback on host rejoin_room', async () => {
@@ -891,5 +935,224 @@ describe('BleTransport Virtual Socket Layer', () => {
     const player = (host as any).hostEngine.getRawRoom().players[1];
     expect(player.userId).toBe(uid);
     expect(player.name).toBe('这是十个字的中文昵称');
+  });
+
+  it.each([true, false])(
+    'renders local recording while host is suspended (disconnected=%s) and flushes upon reconnect',
+    async (disconnected) => {
+      // 1. 初始化客机连接并获取房间初态
+      const guestUid = 'guest_offline_tester';
+      const guest = new BleTransport(guestUid, '离线记录员');
+      await guest.init();
+      await guest.emit('join_room', { roomCode: '7777', deviceId: 'host_hw_addr' });
+
+      let latestRoom: any = null;
+      const visibleRoom = ref<Room | null>(null);
+      const renderedBalls = computed(() => visibleRoom.value?.pocketedBallNumbers.join(',') ?? '');
+      const renderedHand = computed(() => visibleRoom.value?.players[0].cards.map((c) => c.ballNumber).join(','));
+      guest.on('room_updated', (r) => {
+        latestRoom = r;
+        visibleRoom.value = r;
+      });
+
+      guest.handleIncomingState({
+        code: '7777',
+        revision: 1,
+        hostUserId: 'host_uid',
+        status: 'playing',
+        roundCount: 1,
+        deckCount: 44,
+        logs: [],
+        winners: [],
+        pocketedBallNumbers: [],
+        turnOrder: [guestUid],
+        lastRoundScores: [],
+        players: [
+          {
+            id: `ble_${guestUid}`,
+            userId: guestUid,
+            name: '离线记录员',
+            isHost: false,
+            online: true,
+            cardCount: 2,
+            cards: [
+              { id: 'card_3', suit: '♠', rank: '3', ballNumber: 3, color: 'black', suitType: 'spade' },
+              { id: 'card_7', suit: '♥', rank: '7', ballNumber: 7, color: 'red', suitType: 'heart' },
+            ],
+            pocketedCards: [],
+            wins: 0,
+            isWinner: false,
+            totalScore: 0,
+          },
+        ],
+        settings: { cardsPerPlayer: 5, includeBlackEight: true, maxPlayers: 8 },
+      });
+
+      // Prime Vue's computed cache as a rendered component would do.
+      expect(renderedBalls.value).toBe('');
+      expect(renderedHand.value).toBe('3,7');
+      const previousRoom = latestRoom as Room;
+
+      // 2. 模拟房主手机锁屏 -> 物理断线
+      if (disconnected) {
+        eventListeners['ble://peripheral_disconnected']?.({ payload: { peer_id: 'host_hw_addr' } });
+      }
+      expect(guest.connected).toBe(!disconnected);
+
+      // 3. 客机在离线状态下打出手牌 3 号球
+      const cb1 = vi.fn();
+      await guest.emit('pocket_ball', { cardId: 'card_3', ballNumber: 3 }, cb1);
+      expect(cb1).toHaveBeenCalledWith({ success: true });
+      expect(renderedBalls.value).toBe('3');
+      expect(renderedHand.value).toBe('7');
+      expect(previousRoom.pocketedBallNumbers).toEqual([]);
+      expect(previousRoom.players[0].cards).toHaveLength(2);
+      expect(latestRoom).not.toBe(previousRoom);
+      expect(latestRoom.pocketedBallNumbers).toContain(3);
+      expect(latestRoom.players[0].cards.map((c: any) => c.ballNumber)).not.toContain(3);
+      expect(latestRoom.players[0].pocketedCards.map((c: any) => c.ballNumber)).toContain(3);
+
+      // 4. 客机代记 8 号球落袋 (台面选球)
+      const cb2 = vi.fn();
+      await guest.emit('referee_pocket_ball', { ballNumber: 8, targetUserId: guestUid }, cb2);
+      expect(cb2).toHaveBeenCalledWith({ success: true });
+      expect(renderedBalls.value).toBe('3,8');
+      expect(latestRoom.pocketedBallNumbers).toContain(8);
+
+      // 5. 模拟客机自身也锁屏或重新打开页面 -> 触发 rejoin_room (此时房主仍锁屏离线)
+      const guestReloaded = new BleTransport(guestUid, '离线记录员');
+      await guestReloaded.init();
+
+      const rejoinCb = vi.fn();
+      await guestReloaded.emit(
+        'rejoin_room',
+        { roomCode: '7777', userId: guestUid, deviceId: 'host_hw_addr' },
+        rejoinCb
+      );
+      expect(rejoinCb).toHaveBeenCalledWith(expect.objectContaining({ success: true, roomCode: '7777' }));
+
+      // 验证离线持久化的本地视图已完整恢复，两颗落袋球依然在
+      const reloadedRoom = (guestReloaded as any).cachedRoom;
+      expect(reloadedRoom).not.toBeNull();
+      expect(reloadedRoom.pocketedBallNumbers).toContain(3);
+      expect(reloadedRoom.pocketedBallNumbers).toContain(8);
+
+      // 6. 房主终于亮屏解锁 -> GATT 物理链路重新建立
+      mockInvokes.length = 0;
+      await eventListeners['ble://peripheral_connected']?.({ payload: { peer_id: 'host_hw_addr' } });
+      expect(guestReloaded.connected).toBe(true);
+
+      // 验证自动触发了向房主的离线动作队列冲刷 (flush)
+      const commandPayloads = mockInvokes
+        .filter((i) => i.cmd === 'ble_send_command_to_host')
+        .map((i) => i.args.payload);
+      expect(commandPayloads.length).toBeGreaterThanOrEqual(2);
+      guest.destroy();
+      guestReloaded.destroy();
+    }
+  );
+
+  it('resends an unconfirmed recording after host resumes without a GATT reconnect', async () => {
+    vi.useFakeTimers();
+    const guest = new BleTransport('resume_guest', '记牌员');
+    const host = new BleTransport('resume_host', '房主');
+    try {
+      await guest.init();
+      await guest.emit('join_room', { roomCode: '6981', deviceId: 'host_device' });
+      const receiveGuestState = eventListeners['ble://state_received'];
+      await host.init();
+      await host.emit('create_room', { roomCode: '6981' });
+      const engine = (host as any).hostEngine;
+      engine.addPlayer('resume_guest', '记牌员');
+      (host as any).peerIdToUserId.set('guest_peer', 'resume_guest');
+      (host as any).userIdToPeerId.set('resume_guest', 'guest_peer');
+      await host.emit('start_game');
+      const initial = engine.getDirectClientRoom('resume_guest') as Room;
+      guest.handleIncomingState(initial);
+      const card = initial.players.find((p) => p.userId === 'resume_guest')?.cards[0];
+      if (!card) throw new Error('Expected a dealt guest card');
+      const receiveHostCommand = eventListeners['ble://command_received'];
+      let hostSuspended = true;
+      vi.mocked(invoke).mockImplementation(async (cmd, args: any) => {
+        mockInvokes.push({ cmd, args });
+        if (cmd === 'ble_send_command_to_host' && !hostSuspended) {
+          receiveHostCommand({ payload: { peer_id: 'guest_peer', payload: args.payload } });
+        }
+        if (cmd === 'ble_notify_state_to_clients' && args.targetPeerId === 'guest_peer') {
+          receiveGuestState({ payload: args.payload });
+        }
+        return {} as any;
+      });
+
+      await guest.emit('pocket_ball', { cardId: card.id, ballNumber: card.ballNumber });
+      expect(guest.connected).toBe(true);
+      expect(engine.getDirectClientRoom('resume_host').pocketedBallNumbers).not.toContain(card.ballNumber);
+      await vi.advanceTimersByTimeAsync(1600);
+      expect(engine.getDirectClientRoom('resume_host').pocketedBallNumbers).not.toContain(card.ballNumber);
+
+      // No peripheral_connected event occurs: the GATT connection survived lock.
+      (host as any).peerIdToUserId.clear();
+      (host as any).userIdToPeerId.clear();
+      hostSuspended = false;
+      await vi.advanceTimersByTimeAsync(1600);
+      expect(engine.getDirectClientRoom('resume_host').pocketedBallNumbers).toContain(card.ballNumber);
+      expect((guest as any).pendingOfflineActions).toHaveLength(0);
+      const revision = engine.getRawRoom().revision;
+      const sends = mockInvokes.filter((call) => call.cmd === 'ble_send_command_to_host').length;
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(engine.getRawRoom().revision).toBe(revision);
+      expect(mockInvokes.filter((call) => call.cmd === 'ble_send_command_to_host')).toHaveLength(sends);
+    } finally {
+      guest.destroy();
+      host.destroy();
+      vi.mocked(invoke).mockImplementation(async (cmd, args: any) => {
+        mockInvokes.push({ cmd, args });
+        return {} as any;
+      });
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not automatically retry non-idempotent penalties while waiting for a host snapshot', async () => {
+    vi.useFakeTimers();
+    const guest = new BleTransport('penalty_guest');
+    try {
+      await guest.init();
+      await guest.emit('join_room', { roomCode: '6982', deviceId: 'host_device' });
+      mockInvokes.length = 0;
+      await guest.emit('draw_penalty');
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(mockInvokes.filter((call) => call.cmd === 'ble_send_command_to_host')).toHaveLength(1);
+    } finally {
+      guest.destroy();
+      vi.useRealTimers();
+    }
+  });
+
+  it('broadcasts host state on foreground without requiring GATT reconnection and cleans up its listener', async () => {
+    const documentEvents = Object.assign(new EventTarget(), { visibilityState: 'visible' });
+    vi.stubGlobal('document', documentEvents);
+    const host = new BleTransport('foreground_host');
+    try {
+      await host.init();
+      await host.emit('create_room', { roomCode: '6983' });
+      const engine = (host as any).hostEngine;
+      engine.addPlayer('foreground_guest', '记牌员');
+      (host as any).userIdToPeerId.set('foreground_guest', 'guest_peer');
+      mockInvokes.length = 0;
+      documentEvents.dispatchEvent(new Event('visibilitychange'));
+      expect(
+        mockInvokes.some(
+          (call) => call.cmd === 'ble_notify_state_to_clients' && call.args.targetPeerId === 'guest_peer'
+        )
+      ).toBe(true);
+      host.destroy();
+      mockInvokes.length = 0;
+      documentEvents.dispatchEvent(new Event('visibilitychange'));
+      expect(mockInvokes).toHaveLength(0);
+    } finally {
+      host.destroy();
+      vi.unstubAllGlobals();
+    }
   });
 });
