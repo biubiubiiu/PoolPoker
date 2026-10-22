@@ -1,5 +1,5 @@
-import { cardToIndex } from '../shared/types/bleProtocol';
 import type { ServerRoom } from '../shared/types/game';
+import { cardToIndex } from '../shared/utils/bleCodec';
 import { getRandomUUID } from '../shared/utils/crypto';
 import { addLog, checkGameWinners, computeTurnOrder, getPocketedBallNumbers, handleGameFinished } from './gameEngine';
 import { recordGameStep, undoGameStep } from './gameState';

@@ -4,12 +4,14 @@ import {
   BLE_PROTOCOL_VERSION,
   BLE_UUIDS,
   BleActionType,
-  BleChunkReassembler,
   type BleClientAction,
   BleGameStatus,
   type BleHostEvent,
   BleHostEventCode,
   type BleRoomState,
+} from '../../shared/types/bleProtocol';
+import {
+  BleChunkReassembler,
   ballsToMask,
   bleStateToClientRoom,
   cardToIndex,
@@ -24,7 +26,7 @@ import {
   indexToCard,
   maskToBalls,
   splitIntoBleChunks,
-} from '../../shared/types/bleProtocol';
+} from '../../shared/utils/bleCodec';
 
 describe('BLE Compact Binary Wire Protocol', () => {
   it('should round-trip card mapping for all 54 cards', () => {

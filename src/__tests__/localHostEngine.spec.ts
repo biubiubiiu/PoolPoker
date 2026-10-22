@@ -1,12 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import {
-  BLE_PROTOCOL_VERSION,
-  BleActionType,
-  BleGameStatus,
-  decodeBleRoomState,
-  encodeBleAction,
-  encodeBleRoomState,
-} from '../../shared/types/bleProtocol';
+import { BLE_PROTOCOL_VERSION, BleActionType, BleGameStatus } from '../../shared/types/bleProtocol';
+import { decodeBleRoomState, encodeBleAction, encodeBleRoomState } from '../../shared/utils/bleCodec';
 import { createLocalRoom, getLocalBleState, handleLocalCommand, LocalHostEngine } from '../services/localHostEngine';
 
 describe('LocalHostEngine in Front-end', () => {

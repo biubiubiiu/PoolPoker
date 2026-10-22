@@ -12,13 +12,15 @@ import {
   BleGameStatus,
   type BlePlayerSummary,
   type BleRoomState,
+} from '../../shared/types/bleProtocol';
+import type { Player, Room, ServerRoom } from '../../shared/types/game';
+import {
   ballsToMask,
   cardToIndex,
   decodeBleAction,
   encodeBleRoomState,
   simpleHash8,
-} from '../../shared/types/bleProtocol';
-import type { Player, Room, ServerRoom } from '../../shared/types/game';
+} from '../../shared/utils/bleCodec';
 
 export type StateUpdateCallback = (targetUserId: string, stateBytes: Uint8Array, clientRoom: Room) => void;
 

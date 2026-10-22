@@ -14,10 +14,13 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import {
   BLE_PROTOCOL_VERSION,
   BleActionType,
-  BleChunkReassembler,
   type BleClientAction,
   BleHostEventCode,
   BleMessageType,
+} from '../../shared/types/bleProtocol';
+import type { Room } from '../../shared/types/game';
+import {
+  BleChunkReassembler,
   bleStateToClientRoom,
   cardToIndex,
   decodeBleAction,
@@ -28,8 +31,7 @@ import {
   encodeBleHostEvent,
   encodeBleJoin,
   splitIntoBleChunks,
-} from '../../shared/types/bleProtocol';
-import type { Room } from '../../shared/types/game';
+} from '../../shared/utils/bleCodec';
 import { getRandomHex, getRandomInt, getRandomUUID } from '../../shared/utils/crypto';
 import { BleScanner } from './bleScanner';
 import { LocalHostEngine } from './localHostEngine';

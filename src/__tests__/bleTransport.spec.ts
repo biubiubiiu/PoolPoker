@@ -1,8 +1,9 @@
 import { invoke } from '@tauri-apps/api/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { computed, ref } from 'vue';
-import { BLE_PROTOCOL_VERSION, BleGameStatus, type BleRoomState, ballsToMask } from '../../shared/types/bleProtocol';
+import { BLE_PROTOCOL_VERSION, BleGameStatus, type BleRoomState } from '../../shared/types/bleProtocol';
 import type { Room } from '../../shared/types/game';
+import { ballsToMask } from '../../shared/utils/bleCodec';
 import { BleTransport, resetSharedHostEngine, setStoredDeviceId } from '../services/bleTransport';
 
 const mockInvokes: Array<{ cmd: string; args?: any }> = [];
@@ -226,7 +227,8 @@ describe('BleTransport Virtual Socket Layer', () => {
 
     const guestLeaveCb = vi.fn();
     const leavePromise = guestTransport.emit('leave_room', {}, guestLeaveCb);
-    const { encodeBleHostEvent, BleHostEventCode } = await import('../../shared/types/bleProtocol');
+    const { encodeBleHostEvent } = await import('../../shared/utils/bleCodec');
+    const { BleHostEventCode } = await import('../../shared/types/bleProtocol');
     const ackBytes = encodeBleHostEvent({
       version: BLE_PROTOCOL_VERSION,
       code: BleHostEventCode.LEAVE_ACK,
@@ -433,7 +435,8 @@ describe('BleTransport Virtual Socket Layer', () => {
     // 退出房间
     const leaveCb = vi.fn();
     const leavePromise = guestTransport.emit('leave_room', {}, leaveCb);
-    const { encodeBleHostEvent, BleHostEventCode } = await import('../../shared/types/bleProtocol');
+    const { encodeBleHostEvent } = await import('../../shared/utils/bleCodec');
+    const { BleHostEventCode } = await import('../../shared/types/bleProtocol');
     const ackBytes = encodeBleHostEvent({
       version: BLE_PROTOCOL_VERSION,
       code: BleHostEventCode.LEAVE_ACK,
@@ -470,7 +473,7 @@ describe('BleTransport Virtual Socket Layer', () => {
         },
       ],
     };
-    const { encodeBleRoomState } = await import('../../shared/types/bleProtocol');
+    const { encodeBleRoomState } = await import('../../shared/utils/bleCodec');
     const encoded = Array.from(encodeBleRoomState(mockState));
 
     // 迟到包到达
@@ -610,7 +613,8 @@ describe('BleTransport Virtual Socket Layer', () => {
 
     // 模拟从机连接并发送 CLIENT_JOIN
     eventListeners['ble://client_connected']?.({ payload: { peer_id: 'ble_peer_mac_9' } });
-    const { encodeBleJoin, decodeBleHostEvent, BleHostEventCode } = await import('../../shared/types/bleProtocol');
+    const { encodeBleJoin, decodeBleHostEvent } = await import('../../shared/utils/bleCodec');
+    const { BleHostEventCode } = await import('../../shared/types/bleProtocol');
     const joinPayload = Array.from(
       encodeBleJoin({
         version: BLE_PROTOCOL_VERSION,
@@ -646,7 +650,7 @@ describe('BleTransport Virtual Socket Layer', () => {
     await hostTransport.init();
     await hostTransport.emit('create_room', { roomCode: '8848', name: '房主' });
 
-    const { encodeBleJoin } = await import('../../shared/types/bleProtocol');
+    const { encodeBleJoin } = await import('../../shared/utils/bleCodec');
     const engine = (hostTransport as any).hostEngine;
 
     // 填充到满员 8 人 (1 房主 + 7 客人) 并建立初始物理映射
@@ -666,7 +670,8 @@ describe('BleTransport Virtual Socket Layer', () => {
     eventListeners['ble://client_connected']?.({ payload: { peer_id: 'mac_peer_7_rotated' } });
 
     // 物理连接建立时严禁提前发出 JOIN_REJECTED_FULL 拒连通知
-    const { decodeBleHostEvent, BleHostEventCode } = await import('../../shared/types/bleProtocol');
+    const { decodeBleHostEvent } = await import('../../shared/utils/bleCodec');
+    const { BleHostEventCode } = await import('../../shared/types/bleProtocol');
     const prematureReject = mockInvokes.find((i) => {
       if (i.cmd !== 'ble_notify_state_to_clients') return false;
       try {
@@ -708,7 +713,8 @@ describe('BleTransport Virtual Socket Layer', () => {
     (hostTransport as any).peerIdToUserId.set('mac_leaver', 'guest_to_leave');
     (hostTransport as any).userIdToPeerId.set('guest_to_leave', 'mac_leaver');
 
-    const { encodeBleAction, BleActionType } = await import('../../shared/types/bleProtocol');
+    const { encodeBleAction } = await import('../../shared/utils/bleCodec');
+    const { BleActionType } = await import('../../shared/types/bleProtocol');
     const leaveCmd = Array.from(
       encodeBleAction({
         version: BLE_PROTOCOL_VERSION,
@@ -742,9 +748,8 @@ describe('BleTransport Virtual Socket Layer', () => {
     });
 
     // 构造一个大于 BLE_CHUNK_SIZE (140) 的大状态
-    const { encodeBleRoomState, splitIntoBleChunks, BleGameStatus, ballsToMask } = await import(
-      '../../shared/types/bleProtocol'
-    );
+    const { encodeBleRoomState, splitIntoBleChunks, ballsToMask } = await import('../../shared/utils/bleCodec');
+    const { BleGameStatus } = await import('../../shared/types/bleProtocol');
     const bigState = {
       version: BLE_PROTOCOL_VERSION,
       revision: 99,
@@ -812,9 +817,10 @@ describe('BleTransport Virtual Socket Layer', () => {
   });
 
   it('should support dynamic connection MTU payload limits (e.g. 20 bytes standard MTU 23) in chunking', async () => {
-    const { encodeBleRoomState, splitIntoBleChunks, BleChunkReassembler, BleGameStatus, ballsToMask } = await import(
-      '../../shared/types/bleProtocol'
+    const { encodeBleRoomState, splitIntoBleChunks, BleChunkReassembler, ballsToMask } = await import(
+      '../../shared/utils/bleCodec'
     );
+    const { BleGameStatus } = await import('../../shared/types/bleProtocol');
     const mockState = {
       version: BLE_PROTOCOL_VERSION,
       revision: 12,
@@ -859,9 +865,7 @@ describe('BleTransport Virtual Socket Layer', () => {
     expect(reassembled).toEqual(binary);
   });
   it('passes the initial public state intact to native MTU chunking', async () => {
-    const { splitIntoBleChunks, BleChunkReassembler, decodeBleRoomState } = await import(
-      '../../shared/types/bleProtocol'
-    );
+    const { splitIntoBleChunks, BleChunkReassembler, decodeBleRoomState } = await import('../../shared/utils/bleCodec');
     const host = new BleTransport('host', '这是六字昵称');
     await host.init();
     await host.emit('create_room', { roomCode: '8848' });
@@ -881,7 +885,8 @@ describe('BleTransport Virtual Socket Layer', () => {
   });
 
   it('suppresses in-flight room state while leaving, but still accepts LEAVE_ACK', async () => {
-    const { encodeBleHostEvent, BleHostEventCode } = await import('../../shared/types/bleProtocol');
+    const { encodeBleHostEvent } = await import('../../shared/utils/bleCodec');
+    const { BleHostEventCode } = await import('../../shared/types/bleProtocol');
     const guest = new BleTransport('guest');
     await guest.init();
     await guest.emit('join_room', { roomCode: '8848', deviceId: 'host_mac' });

@@ -1,12 +1,7 @@
-import {
-  DISCOVERY,
-  type DiscoveryMode,
-  type DiscoveryPosition,
-  discoveryPositionIssue,
-  type NearbyRoom,
-} from '@shared/types/discovery';
+import { DISCOVERY, type DiscoveryMode, type DiscoveryPosition, type NearbyRoom } from '@shared/types/discovery';
 import { CLIENT_TO_SERVER_EVENTS, SERVER_TO_CLIENT_EVENTS } from '@shared/types/protocol';
 import type { SocketCallbackResponse } from '@shared/types/socket';
+import { discoveryPositionIssue } from '@shared/utils/discovery';
 import type { Socket } from 'socket.io-client';
 import { normalizeGeolocationTimestamp } from './geolocationTimestamp';
 import type { DiscoveryCallbacks, RoomDiscoveryProvider } from './provider';

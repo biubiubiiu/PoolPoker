@@ -561,11 +561,11 @@ iPhone 实际 Tauri 模拟器包在原有 Build Rust Code 阶段失败；关闭�
 
 ## 2026-10-15：离线蓝牙（BLE）本地版架构与 QuickJS 状态机落地
 
-- **BLE 紧凑二进制协议设计**：在 `shared/types/bleProtocol.ts` 定义低功耗蓝牙专有二进制报文规范。4 字节定长帧头预留协议主版本号（`0x01`）与扩展标志位；54 张扑克牌按 6-bit 映射为单字节索引，1~15 号落袋球压缩为 16-bit 位图；下行状态帧从原 2.5KB+ JSON 压缩至 26~45 字节，单次 BLE Notify 瞬间到达，杜绝分包与延迟。
+- **BLE 紧凑二进制协议设计**：在 `shared/types/bleProtocol.ts`（协议常量与接口）与 `shared/utils/bleCodec.ts`（编解码实现）定义低功耗蓝牙专有二进制报文规范。4 字节定长帧头预留协议主版本号（`0x01`）与扩展标志位；54 张扑克牌按 6-bit 映射为单字节索引，1~15 号落袋球压缩为 16-bit 位图；下行状态帧从原 2.5KB+ JSON 压缩至 26~45 字节，单次 BLE Notify 瞬间到达，杜绝分包与延迟。
 - **核心状态机同构化脱耦**：提取无依赖的跨平台 CSPRNG 随机数工具 `shared/utils/crypto.ts`；解除 `gameEngine.ts` 对企微推送模块的静态耦合，改用事件侦听钩子；创建 `shared/engine/isomorphicEngine.ts` 并通过 `esbuild` 编译出自包含单文件产物 `src-tauri/engine.bundle.js`（体积仅 14KB）。
 - **Rust 内嵌 QuickJS 状态机**：在 `src-tauri/Cargo.toml` 引入纯 C 编译轻量 JS 引擎 `rquickjs = "0.9"`；实现 `LocalGameEngine`（`src-tauri/src/engine_bridge.rs`），支持在 Rust 后台调度 QuickJS 状态机完成建房、发牌、打牌、消除、撤回及紧凑二进制切片导出（执行耗时 0.01s，内存消耗 < 3MB）。
 - **Tauri 原生命令与前端虚拟 Socket**：在 `src-tauri/src/lib.rs` 引入 `BleAppState` 及 `ble_start_host` / `ble_connect_host` / `ble_send_action` 命令；前端编写 `src/services/bleTransport.ts` 模拟 Socket.IO 协议契约；在 `useSocket` 与 `RoomLobby.vue` 中集成「离线蓝牙对战模式」开关与状态展示，实现上层 Vue 组件对底层连接通道的无感切换。
-- **全量测试与验证**：新增 `bleProtocol.spec.ts`、`isomorphicEngine.spec.ts`、`bleTransport.spec.ts`；Vitest 单元测试增至 131 项全绿通过；Rust `engine_bridge` 单元测试通过；Biome lint / format 零报错；`vue-tsc` 类型检查与 Vite 生产打包通过。
+- **全量测试与验证**：新增 `bleCodec.spec.ts`、`isomorphicEngine.spec.ts`、`bleTransport.spec.ts`；Vitest 单元测试增至 131 项全绿通过；Rust `engine_bridge` 单元测试通过；Biome lint / format 零报错；`vue-tsc` 类型检查与 Vite 生产打包通过。
 
 ## 2026-10-16：离线蓝牙本地版 CodeReview 7 项缺陷修复与系统级加固
 
@@ -604,7 +604,7 @@ iPhone 实际 Tauri 模拟器包在原有 Build Rust Code 阶段失败；关闭�
 针对复审提出的 8 项问题（4 项 P1、4 项 P2），完成全量根因排查、代码修复与单测覆盖：
 
 1. **[P1] QuickJS 缺少 UTF-8 编码支持**：
-   - *修复*：在 `shared/types/bleProtocol.ts` 实现纯 JS 无依赖的 `utf8Encode` 与 `utf8Decode`，并向 QuickJS 全局运行时注入 `TextEncoder`/`TextDecoder` polyfills；在 `engine_bridge.rs` 中增加单测验证出牌与罚牌后 `get_ble_binary_state` 正常序列化带 Emoji 及中文的 `lastActionText`。
+   - *修复*：在 `shared/utils/bleCodec.ts` 实现纯 JS 无依赖的 `utf8Encode` 与 `utf8Decode`，并向 QuickJS 全局运行时注入 `TextEncoder`/`TextDecoder` polyfills；在 `engine_bridge.rs` 中增加单测验证出牌与罚牌后 `get_ble_binary_state` 正常序列化带 Emoji 及中文的 `lastActionText`。
 2. **[P1] 随机数组填充方式导致洗牌有偏**：
    - *修复*：修正 `src-tauri/src/engine_bridge.rs` 中的 `crypto.getRandomValues`，由 `arr.length` 改为 `arr.byteLength` 获取系统级随机字节，并通过 `new Uint8Array(arr.buffer, arr.byteOffset || 0, byteLength)` 映射写入底座缓冲区；在 Rust 单测中验证 `Uint32Array(50)` 填充均布且无 8-bit 截断。
 3. **[P1] 加入房间未连接远端房主**：
@@ -784,12 +784,12 @@ iPhone 实际 Tauri 模拟器包在原有 Build Rust Code 阶段失败；关闭�
 针对 `34e42a5^..e65259d` 提交区间引入的“无需服务器蓝牙面对面联机”特性，进行系统性架构审查、冗余清理、边界缺陷修复与技术文档沉淀：
 
 1. **清理历史方案遗留与跨层冗余**：
-   - **移除废弃的 JSON Schema 与生成模型**：删除从未在业务代码中引用的 `shared/schemas/ble.schema.json`，重新执行 `pnpm run codegen:models`，从 TypeScript (`wire-models.ts`)、Kotlin (`WireModels.kt`) 与 Swift (`WireModels.swift`) 中清理约 350 行死代码（`BleWire*`），使二进制协议单一事实来源收敛至 `shared/types/bleProtocol.ts`。
+   - **移除废弃的 JSON Schema 与生成模型**：删除从未在业务代码中引用的 `shared/schemas/ble.schema.json`，重新执行 `pnpm run codegen:models`，从 TypeScript (`wire-models.ts`)、Kotlin (`WireModels.kt`) 与 Swift (`WireModels.swift`) 中清理约 350 行死代码（`BleWire*`），使二进制协议单一事实来源收敛至 `shared/types/bleProtocol.ts` 与 `shared/utils/bleCodec.ts`。
    - **消除 `shared -> server` 反向依赖**：将 `shared/engine/isomorphicEngine.ts` 内联整合进 `src/services/localHostEngine.ts`（并将对应单测合并至 `src/__tests__/localHostEngine.spec.ts`），消除包装层冗余。
    - **清理配置与类型残留**：移除 `biome.json` 中废弃的 `!!**/src-tauri/engine.bundle.js` 忽略规则；清理 `shared/types/socket.ts` 中残留的 `avatar?: string` 字段；恢复 `apple/project.yml` 与 `apple/poolpoker_iOS/Info.plist` 中的 `UILaunchScreen -> UIColorName: LaunchBackgroundColor` 配置以防 iOS 冷启动白屏闪烁。
 2. **简化房主本地执行路径与加固二进制协议边界**：
    - **房主本地零拷贝直通**：在 `LocalHostEngine` 中新增 `getDirectClientRoom(userId)` 与 `executeAction(action, ...)`，房主自身状态更新直接构造无损 `Room` 视图（完整保留 15 条日志、真实卡牌 ID 与玩家身份），跳过不必要的 `encodeBleRoomState -> decodeBleRoomState` 与 `encodeBleAction -> decodeBleAction` 二进制编解码自环。
-   - **扑克牌解码元数据对齐**：修正 `shared/types/bleProtocol.ts` 中的 `indexToCard`，默认生成 `c_1..c_54` 卡牌 ID，并将大小王花色与颜色（小王 `gray`、大王 `👑`/`gold`）与 `server/pokerDeck.ts` 完全对齐。
+   - **扑克牌解码元数据对齐**：修正 `shared/utils/bleCodec.ts` 中的 `indexToCard`，默认生成 `c_1..c_54` 卡牌 ID，并将大小王花色与颜色（小王 `gray`、大王 `👑`/`gold`）与 `server/pokerDeck.ts` 完全对齐。
    - **UTF-8 字节截断防溢出**：使用原生 `TextEncoder`/`TextDecoder` 替代手写 UTF-8 编解码循环，新增 `truncateUtf8Bytes` 对 `lastActionText`（`<= 180` 字节）和玩家昵称（`<= 48` 字节）在写入单字节长度头前进行安全截断，杜绝超长中文日志导致 `uint8` 长度回绕损坏包体。
 3. **修复 BLE 扫描、会话与原生层物理时序竞态**：
    - **扫描列表过期淘汰**：在 `src/services/bleScanner.ts` 增加 12 秒 TTL 过期清理机制（`evictStaleRooms`），自动移除已关房或离开范围的蓝牙桌台。

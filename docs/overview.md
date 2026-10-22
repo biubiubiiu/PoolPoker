@@ -111,7 +111,7 @@ src-tauri/src/ble_mesh.rs (Rust Tauri Commands & Events)
   - **TypeScript**: `shared/types/generated/wire-models.ts`
   - **Kotlin**: `android/shared-models/src/main/java/com/poolpoker/shared/generated/WireModels.kt`
   - **Swift**: `apple/Shared/Generated/WireModels.swift`
-- 二进制 BLE 协议则由 `shared/types/bleProtocol.ts` 作为单一事实来源，原生层仅负责字节透传与按连接 MTU 动态切片。
+- 二进制 BLE 协议则由 `shared/types/bleProtocol.ts`（协议常量与接口定义）与 `shared/utils/bleCodec.ts`（编解码与分包实现）共同作为单一事实来源，原生层仅负责字节透传与按连接 MTU 动态切片。
 
 ### 2.4 核心安全与工程不变量
 
@@ -161,8 +161,8 @@ PoolPoker/
 │   └── wecomWebhook.ts             # 企业微信机器人战报推送
 ├── shared/                         # 前后端与跨平台共享层
 │   ├── schemas/                    # Draft-07 JSON Schemas (card, room, wear, discovery)
-│   ├── types/                      # TS 类型定义、protocol.ts 常量与 bleProtocol.ts 二进制编解码
-│   └── utils/                      # 同构 CSPRNG 随机工具 (crypto.ts)
+│   ├── types/                      # TS 类型定义、protocol.ts 与 bleProtocol.ts 协议常量与接口
+│   └── utils/                      # 跨端通用无依赖工具 (crypto.ts, discovery.ts, bleCodec.ts)
 ├── src/                            # Vue 3 前端应用
 │   ├── __tests__/                  # 前端服务与组合式函数 Vitest 单元测试
 │   ├── components/                 # 公共组件及 v1 (2D 经典) / v2 (3D 沉浸式) 对局视图组件

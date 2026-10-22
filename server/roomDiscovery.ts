@@ -1,6 +1,7 @@
-import { DISCOVERY, type DiscoveryPosition, discoveryPositionIssue, type NearbyRoom } from '../shared/types/discovery';
+import { DISCOVERY, type DiscoveryPosition, type NearbyRoom } from '../shared/types/discovery';
 import type { ServerRoom } from '../shared/types/game';
 import type { SocketCallbackResponse } from '../shared/types/socket';
+import { discoveryPositionIssue } from '../shared/utils/discovery';
 import { appConfig } from './config';
 import { getSocketSession, listRooms, type SocketSession } from './roomManager';
 

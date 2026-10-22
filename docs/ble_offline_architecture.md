@@ -218,7 +218,7 @@ $$A \cup B = B \cup A$$
 
 ---
 
-## 5. 二进制协议规范 (`shared/types/bleProtocol.ts`)
+## 5. 二进制协议规范 (`shared/types/bleProtocol.ts` 与 `shared/utils/bleCodec.ts`)
 
 协议版本号：`BLE_PROTOCOL_VERSION = 0x01`。所有多字节整数采用大端序（Big-Endian）。
 
