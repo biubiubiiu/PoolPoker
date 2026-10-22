@@ -319,7 +319,12 @@ export function useGameRoom(options: UseGameRoomOptions) {
       acceptRoom(updatedRoom, true);
       showRestartConfirm.value = false;
       if (updatedRoom?.code) {
-        localStorage.setItem(SAVED_ROOM_CODE_KEY, updatedRoom.code);
+        if (updatedRoom.status === 'finished') {
+          // 对局已完结并进入结算，清除持久化凭据，防止关闭 App 退出后下次启动仍自动恢复此已完结房间
+          clearSavedSession();
+        } else {
+          localStorage.setItem(SAVED_ROOM_CODE_KEY, updatedRoom.code);
+        }
       }
 
       if (updatedRoom?.status === 'waiting') {

@@ -227,7 +227,8 @@ onMounted(() => {
                   :players="room?.players || []"
                   :pocketedBallNumbers="room?.pocketedBallNumbers || []"
                   :lastRoundScores="room?.lastRoundScores || []"
-                  @restart="handleConfirmRestart" />
+                  @restart="handleConfirmRestart"
+                  @leave="handleLeaveRoom" />
 
     <RestartModal :show="showRestartConfirm"
                   @cancel="showRestartConfirm = false"

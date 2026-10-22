@@ -278,6 +278,17 @@ describe('GameRoomSyncStrategy', () => {
       expect(setFeedback).toHaveBeenCalledWith(OFFLINE_FEEDBACK);
     });
 
+    it('should clear room and session on rejoin failure when game has finished or room disbanded', () => {
+      const setFeedback = vi.fn();
+      const clearSavedSession = vi.fn();
+      const clearRoom = vi.fn();
+
+      strategy.onRejoinFailed(makeCtx({ setFeedback, clearSavedSession, clearRoom }), '上局对战已完结');
+      expect(clearRoom).toHaveBeenCalledOnce();
+      expect(clearSavedSession).toHaveBeenCalledOnce();
+      expect(setFeedback).not.toHaveBeenCalled();
+    });
+
     it('should return offline feedback on disconnect', () => {
       expect(strategy.getDisconnectFeedback()).toBe(OFFLINE_FEEDBACK);
     });

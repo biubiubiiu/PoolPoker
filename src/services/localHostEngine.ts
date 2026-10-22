@@ -206,6 +206,32 @@ export class LocalHostEngine {
   }
 
   /**
+   * 清除指定或全部本地持久化房主房间
+   */
+  public static clearStorage(roomCode?: string): void {
+    if (roomCode) {
+      memoryHostRoomStorage.delete(`poolpoker_host_room_${roomCode}`);
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.removeItem(`poolpoker_host_room_${roomCode}`);
+        }
+      } catch (_) {}
+    } else {
+      memoryHostRoomStorage.clear();
+      try {
+        if (typeof localStorage !== 'undefined') {
+          for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (key?.startsWith('poolpoker_host_room_')) {
+              localStorage.removeItem(key);
+            }
+          }
+        }
+      } catch (_) {}
+    }
+  }
+
+  /**
    * 获取当前内部房间对象 (只读)
    */
   public getRawRoom(): ServerRoom | null {

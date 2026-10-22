@@ -1160,4 +1160,87 @@ describe('BleTransport Virtual Socket Layer', () => {
       vi.unstubAllGlobals();
     }
   });
+
+  it('should reject rejoin_room and clean storage when host room is in finished status', async () => {
+    const host = new BleTransport('finished_host', '房主');
+    await host.init();
+    await host.emit('create_room', { roomCode: '7788', name: '房主' });
+    const engine = (host as any).hostEngine;
+    // 将房间状态人工设置为 finished
+    engine.getRawRoom().status = 'finished';
+    engine.saveToStorage();
+
+    // 模拟关闭并重启 App，新建 BleTransport
+    resetSharedHostEngine();
+    const reloadedHost = new BleTransport('finished_host', '房主');
+    await reloadedHost.init();
+
+    let updatedRoom: any = null;
+    reloadedHost.on('room_updated', (r) => {
+      updatedRoom = r;
+    });
+
+    const rejoinCb = vi.fn();
+    await reloadedHost.emit('rejoin_room', { roomCode: '7788', userId: 'finished_host' }, rejoinCb);
+
+    expect(rejoinCb).toHaveBeenCalledWith({ success: false, message: '上局对战已完结' });
+    expect(updatedRoom).toBeNull();
+    // 验证本地存储已被清理
+    if (typeof localStorage !== 'undefined') {
+      expect(localStorage.getItem('poolpoker_host_room_7788')).toBeNull();
+    }
+  });
+
+  it('should reject rejoin_room and clean cache when guest cachedRoom is in finished status', async () => {
+    const guest = new BleTransport('finished_guest', '客机');
+    await guest.init();
+    (guest as any).currentRoomCode = '5566';
+    (guest as any).cachedRoom = {
+      code: '5566',
+      status: 'finished',
+      winners: [{ userId: 'finished_guest', name: '客机' }],
+      players: [{ userId: 'finished_guest', name: '客机', cards: [], pocketedCards: [] }],
+      pocketedBallNumbers: [],
+    };
+    (guest as any).saveCachedRoom();
+
+    // 模拟关闭并重启 App，新建 BleTransport
+    const reloadedGuest = new BleTransport('finished_guest', '客机');
+    await reloadedGuest.init();
+
+    let updatedRoom: any = null;
+    reloadedGuest.on('room_updated', (r) => {
+      updatedRoom = r;
+    });
+
+    const rejoinCb = vi.fn();
+    await reloadedGuest.emit('rejoin_room', { roomCode: '5566', userId: 'finished_guest' }, rejoinCb);
+
+    expect(rejoinCb).toHaveBeenCalledWith({ success: false, message: '上局对战已完结' });
+    expect(updatedRoom).toBeNull();
+    expect((reloadedGuest as any).cachedRoom).toBeNull();
+  });
+
+  it('should immediately succeed on leave_room without waiting for ACK when game is already finished', async () => {
+    const guest = new BleTransport('fin_guest_leave', '结算客端');
+    await guest.init();
+    (guest as any).cachedRoom = {
+      code: '4433',
+      status: 'finished',
+      winners: [{ userId: 'fin_guest_leave', name: '结算客端' }],
+      players: [{ userId: 'fin_guest_leave', name: '结算客端', cards: [], pocketedCards: [] }],
+      pocketedBallNumbers: [],
+    };
+    (guest as any).currentRoomCode = '4433';
+    (guest as any).connected = true;
+
+    mockInvokes.length = 0;
+    const leaveCb = vi.fn();
+    await guest.emit('leave_room', {}, leaveCb);
+
+    // 验证无需等待 1.5s ACK 超时，直接判定退出成功
+    expect(leaveCb).toHaveBeenCalledWith({ success: true });
+    expect((guest as any).cachedRoom).toBeNull();
+    expect(mockInvokes.some((i) => i.cmd === 'ble_disconnect_peripheral')).toBe(true);
+  });
 });

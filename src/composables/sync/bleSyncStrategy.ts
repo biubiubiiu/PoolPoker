@@ -25,6 +25,11 @@ export class BleOfflineSyncStrategy implements GameRoomSyncStrategy {
 
   onRejoinFailed(ctx: GameRoomStrategyContext, message?: string): void {
     console.warn('[BLE Rejoin Notice]', message);
+    if (message?.includes('完结') || message?.includes('已解散') || message?.includes('不存在')) {
+      ctx.clearSavedSession();
+      ctx.clearRoom();
+      return;
+    }
     ctx.setFeedback(OFFLINE_FEEDBACK);
   }
 

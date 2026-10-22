@@ -10,7 +10,10 @@ const props = defineProps<{
   lastRoundScores: RoundScoreEntry[];
 }>();
 
-const emit = defineEmits<(e: 'restart') => void>();
+const emit = defineEmits<{
+  (e: 'restart'): void;
+  (e: 'leave'): void;
+}>();
 
 const getSuitColor = (card: Card) => {
   if (card.color === 'red') return 'text-red-400';
@@ -71,7 +74,13 @@ function getRemainingCardPenalties(player: Player): Map<string, number> {
     <div class="glass-panel rounded-t-3xl sm:rounded-3xl w-full sm:max-w-sm border-t-2 sm:border-2 border-amber-400/60 shadow-2xl flex flex-col max-h-[92vh]">
 
       <!-- 顶部胜利信息 -->
-      <div class="text-center px-5 pt-5 pb-3 shrink-0">
+      <div class="text-center px-5 pt-5 pb-3 shrink-0 relative">
+        <button @click="emit('leave')"
+                title="退出房间"
+                aria-label="退出房间"
+                class="absolute right-4 top-4 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-gray-400 hover:text-white flex items-center justify-center cursor-pointer transition-colors text-sm">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
         <div class="text-4xl animate-pulse mb-1">🏆</div>
         <h3 class="text-[10px] text-amber-300 font-bold uppercase tracking-widest">Victory</h3>
         <h2 class="text-lg font-black text-white mt-0.5">{{ winningNamesText }}</h2>
@@ -165,12 +174,27 @@ function getRemainingCardPenalties(player: Player): Map<string, number> {
       </div>
 
       <!-- 底部操作 -->
-      <div class="px-4 pb-5 pt-2 shrink-0">
-        <button v-if="isHost" @click="emit('restart')"
-                class="w-full py-3 bg-gradient-to-r from-amber-400 to-yellow-500 text-black font-black rounded-xl shadow-lg hover:from-amber-300 hover:to-yellow-400 active:scale-95 cursor-pointer">
-          再来一局 <i class="fa-solid fa-rotate-right ml-1"></i>
-        </button>
-        <p v-else class="text-center text-xs text-gray-400">等待房主开启下一局...</p>
+      <div class="px-4 pb-5 pt-2 shrink-0 space-y-2">
+        <template v-if="isHost">
+          <button @click="emit('restart')"
+                  class="w-full py-3 bg-gradient-to-r from-amber-400 to-yellow-500 text-black font-black rounded-xl shadow-lg hover:from-amber-300 hover:to-yellow-400 active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 text-sm">
+            <span>再来一局</span>
+            <i class="fa-solid fa-rotate-right"></i>
+          </button>
+          <button @click="emit('leave')"
+                  class="w-full py-2.5 bg-white/10 hover:bg-white/15 text-gray-300 hover:text-white font-bold rounded-xl border border-white/10 active:scale-95 cursor-pointer text-xs flex items-center justify-center gap-1.5 transition-colors">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+            <span>退出房间</span>
+          </button>
+        </template>
+        <template v-else>
+          <p class="text-center text-xs text-gray-400 pb-1">等待房主开启下一局...</p>
+          <button @click="emit('leave')"
+                  class="w-full py-2.5 bg-white/10 hover:bg-white/15 text-gray-300 hover:text-white font-bold rounded-xl border border-white/10 active:scale-95 cursor-pointer text-xs flex items-center justify-center gap-1.5 transition-colors">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+            <span>退出房间</span>
+          </button>
+        </template>
       </div>
 
     </div>

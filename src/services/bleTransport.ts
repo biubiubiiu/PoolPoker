@@ -1052,6 +1052,21 @@ export class BleTransport {
           engine.restoreFromStorage(roomCode);
         }
         if (engine && engine.getRawRoom()?.code === roomCode && engine.getRawRoom()?.hostUserId === targetUserId) {
+          if (engine.getRawRoom()?.status === 'finished') {
+            LocalHostEngine.clearStorage(roomCode);
+            resetSharedHostEngine();
+            this.hostEngine = null;
+            this.isHost = false;
+            this.currentRoomCode = '';
+            if (callback) {
+              callback({
+                success: false,
+                message: '上局对战已完结',
+              });
+            }
+            return;
+          }
+
           this.hostEngine = engine;
           this.isHost = true;
           this.connected = true;
@@ -1088,6 +1103,19 @@ export class BleTransport {
           this.cachedRoom = this.loadCachedRoom();
         }
         if (this.cachedRoom && this.cachedRoom.code === roomCode) {
+          if (this.cachedRoom.status === 'finished') {
+            this.clearCachedRoom();
+            this.cachedRoom = null;
+            clearStoredDeviceId();
+            this.currentRoomCode = '';
+            if (callback) {
+              callback({
+                success: false,
+                message: '上局对战已完结',
+              });
+            }
+            return;
+          }
           this.handleIncomingState(this.cachedRoom, true);
         }
 
@@ -1166,12 +1194,38 @@ export class BleTransport {
       if (event === 'leave_room') {
         this.clearAutoReconnect();
         this.leaving = true;
+        const isAlreadyFinished = this.cachedRoom?.status === 'finished';
         this.cachedRoom = null;
         if (this.isHost) {
           safeInvoke('ble_stop_advertising');
+          if (this.currentRoomCode) {
+            LocalHostEngine.clearStorage(this.currentRoomCode);
+          }
           resetSharedHostEngine();
           this.hostEngine = null;
         } else if (this.currentRoomCode) {
+          // 如果当前对局已完结，退房为单向完结离开，无需阻塞等待房主席位确认
+          if (isAlreadyFinished || !this.connected) {
+            safeInvoke('ble_disconnect_peripheral');
+            this.stateReassembler.reset();
+            this.commandReassemblers.clear();
+            clearStoredDeviceId();
+            this.clearCachedRoom();
+            this.clearPendingActions();
+            this.cachedRoom = null;
+            this.currentRoomCode = '';
+            this.leaving = false;
+            this.isHost = false;
+            this.connectedDeviceId = null;
+            this.connected = true;
+            this.peerIdToUserId.clear();
+            this.userIdToPeerId.clear();
+            if (callback) {
+              callback({ success: true });
+            }
+            return;
+          }
+
           // 向房主发送主动退房指令，并等待房主确认 (LEAVE_ACK) 或超时，彻底杜绝指令丢弃竞态
           const leaveAction = encodeBleAction({
             version: BLE_PROTOCOL_VERSION,
