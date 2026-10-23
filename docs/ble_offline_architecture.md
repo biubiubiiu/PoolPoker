@@ -1,6 +1,6 @@
 # BLE 面对面离线联机架构与协议规范 (`docs/ble_offline_architecture.md`)
 
-本文档定义 PoolPoker（球霸扑克）**无需服务器、无需互联网连接**的蓝牙低功耗（BLE, Bluetooth Low Energy）面对面联机架构、CRDT 去中心化事件溯源模型、GATT 服务拓扑、二进制传输协议规范及跨平台（Android / iOS / Web 沙盒）会话状态机。
+本文档定义 PoolPoker（球霸扑克）**无需服务器、无需互联网连接**的蓝牙低功耗（BLE, Bluetooth Low Energy）面对面联机架构、房主权威与客机乐观更新链路、传输层模块化分工、统一传输接口、GATT 服务拓扑、二进制传输协议规范以及作为技术储备的 CRDT 确定性事件溯源模型。
 
 ---
 
@@ -8,32 +8,37 @@
 
 在无网络或信号不佳的线下台球房场景中，多部手机可通过 BLE 直接组建局域对局网络（1 台房主 Peripheral + 最多 7 台客机 Central）进行完整对局。
 
-### 1.1 现实痛点与 CRDT 架构演进
+### 1.1 现实痛点与架构演进
 
 线下打台球存在极其普遍的使用习惯：
 - **交替锁屏与离线记牌**：房主建房开局后，看完自己的手牌通常会**立即锁屏将手机放入口袋**；随后其他成员轮流上台击球，某位成员亮屏记录进球/罚牌，记录完毕后也**随手锁屏入兜**。
-- **传统 GATT 单主星型网络的结构性瘫痪**：
-  - 传统模式下房主 Peripheral 是唯一的网络中心和状态权威。一旦房主锁屏休眠，GATT 链路中断，其他设备被系统阻断；
+- **传统 GATT 单主星型网络的痛点**：
+  - 传统模式下房主 Peripheral 一旦锁屏休眠，GATT 链路中断，其他设备被系统阻断；
   - 若采用重型 Raft/Paxos 动态换主方案，多名成员隔绝锁屏后各自记牌，会形成互不相容的分支快照，汇合时产生严重脑裂（Split-Brain），不得不弹出糟糕的“二选一”冲突确认弹窗舍弃某一方的记录。
-- **CRDT 事件溯源解法（无冲突最终一致性）**：
-  - 台球扑克的业务规则具备天然的**数学可交换性（Commutative Property）**：3 号球进球与 8 号球进球互不排斥，全局已落袋球号是各成员记录操作的**数学并集（Set Union）**；
-  - 任何成员在房主锁屏离线时均可**本地乐观即时生效（0ms 响应）**，操作入队持久化；
-  - 一旦房主点亮屏幕或任意节点建立短连接，离线操作有序重放对齐，实现零冲突无感收敛。
+- **当前生产架构：房主权威状态 ＋ 客机乐观更新 ＋ 待发送队列**：
+  - **房主权威单主**：房主端运行 `LocalHostEngine`，所有对局终态与洗牌发牌由房主权威决定，杜绝规则分歧；
+  - **客机 0ms 乐观更新**：台球落袋操作在业务上具备天然的可叠加性，客机在断网或房主锁屏时即刻本地消牌并产生落袋动画与音效；
+  - **离线队列持久化与自动冲刷**：动作推入持久化队列，待房主亮屏建立短连接后自动有序重放冲刷对齐，实现零冲突无感收敛。
+- **未来去中心化储备：CRDT 纯领域事件溯源**：
+  - 在 `src/services/crdt/` 中保留了完整的无主确定性事件演算模型，供后续向完全无主 Mesh 拓扑演进。
 
 ### 1.2 核心设计原则
 
 1. **零 C/JS 外部引擎冗余，复用纯 TypeScript 权威领域模型**
    - 房主手机直接在前端运行 `LocalHostEngine`（`src/services/localHostEngine.ts`），原汁原味复用 `server/gameEngine.ts`、`server/pokerDeck.ts` 与 `server/services/gameRoomService.ts` 的全部规则（CSPRNG 发牌、8 号球规则、胜负判定、积分结算、悔球回退），并增加本地存储持久化支持。
    - 无需 QuickJS 或独立后台 HTTP Server。
-2. **纯函数 CRDT 状态推导 (`src/services/crdt/`)**
-   - 包含 Mulberry32 确定性洗牌发牌、创世基线快照（`GenesisSnapshot`）、可交换事件流（`GameEvent`）与 `reduceGameState` 纯函数。任意顺序的事件集合均能推导出 100% 相同且正确的游戏全局状态。
-3. **虚拟 Socket 适配器模式（`BleTransport`）**
-   - `BleTransport`（`src/services/bleTransport.ts`）完整模拟 `socket.io-client` 的 `.on()` / `.emit()` / `.connect()` / `.disconnect()` 接口。
-   - 上层业务状态层（`useGameRoom.ts`、`useNearbyRooms.ts`）与 UI 组件无需感知底层是 WebSocket 还是 BLE GATT，仅通过 `useSocket.ts` 的 `toggleBleOfflineMode()` 即可无感切换。
-4. **客机本地乐观更新与离线队列双重持久化**
+2. **统一传输接口与传输层模块化分工（`GameTransport` & `src/services/ble/`）**
+   - 定义项目统一的 `GameTransport` 传输接口（`src/types/transport.ts`），彻底替换此前将 BLE 强制转为 Socket 的类型断言（`ble as any as Socket`）。
+   - 将原单文件膨胀的传输层拆分为 5 大高内聚低耦合模块：
+     - `BleConnectionManager`：连接生命周期、Tauri 原生事件监听与断线自动重连；
+     - `BleHandshakeManager`：入房握手分包、`peerId ↔ userId` 映射与退房 `LEAVE_ACK` 协商；
+     - `BleCommandQueue`：离线待发动作双重持久化队列、幂等重试与权威落袋球剪枝；
+     - `BleStateSync`：下行状态重组、客机 0ms 乐观更新演算与房主状态脱敏单播；
+     - `BleStorage`：设备 ID、房间快照与动作队列持久化（`localStorage` + 内存降级）。
+3. **客机本地乐观更新与离线队列双重持久化**
    - 客机即使处于蓝牙断开状态，打出卡牌或记球仍立即在本地生效（消除手牌、增加落袋球、触发 3D 动画与音效）；
    - 离线动作加入队列并持久化到 `localStorage` 与内存，防杀后台、防页面刷新；重连后自动冲刷并与权威状态无缝对齐。
-5. **房主零拷贝直通，客机紧凑二进制定向单播**
+4. **房主零拷贝直通，客机紧凑二进制定向单播**
    - **房主本人**：通过 `LocalHostEngine.getDirectClientRoom(hostUserId)` 直接获取无损脱敏 `Room` 视图（完整保留 15 条对局日志、真实卡牌 ID `c_1..c_54` 与玩家昵称），不经过二进制编解码自环。
    - **蓝牙客机**：房主为每位已连接的客机单独生成脱敏二进制状态帧（仅包含该客机自己的手牌索引，绝不泄露其他玩家未打出的底牌），并通过 GATT Notification 按 `peerId` 定向单播。
 
@@ -44,20 +49,19 @@
 │ Vue 3 视图与业务层 (RoomLobby.vue / useGameRoom.ts / useNearbyRooms.ts) │
 │ • Screen WakeLock 屏幕常亮保护   • 离线动作放行   • 0ms 乐观响应          │
 └───────────────────┬─────────────────────────────────┬───────────────────┘
-                    │ emit / on                       │ startContinuousScan
+                    │ emit / on (统一 GameTransport)    │ startContinuousScan
                     ▼                                 ▼
-┌───────────────────────────────────────┐ ┌───────────────────────────────┐
-│ BleTransport (src/services/...)       │ │ BleScanner (12s TTL 过期淘汰)  │
-│  ├─ 房主模式: LocalHostEngine (权威)   │ └───────────────┬───────────────┘
-│  │    └─ 内存/localStorage 双重持久化  │                 │
-│  ├─ 客机模式:                         │                 │
-│  │    ├─ 本地乐观执行: applyOptimistic │                 │
-│  │    ├─ 离线动作队列: pendingActions  │                 │
-│  │    └─ 重组器: BleChunkReassembler   │                 │
-│  └─ CRDT 领域引擎: crdt/ (纯函数演算法) │                 │
-└───────────────────┬───────────────────┘                 │
-                    │ invoke / listen ('ble://*')         │
-                    ▼                                     ▼
+┌───────────────────────────────────────────────────┐ ┌───────────────────┐
+│ BleTransport (src/services/bleTransport.ts 门面协调)│ │ BleScanner        │
+│  ├─ 连接管理: BleConnectionManager                │ └─────────┬─────────┘
+│  ├─ 握手鉴权: BleHandshakeManager                 │           │
+│  ├─ 指令队列: BleCommandQueue                     │           │
+│  ├─ 状态同步: BleStateSync                        │           │
+│  ├─ 存储持久化: BleStorage                         │           │
+│  └─ 房主权威引擎: LocalHostEngine (运行于房主端)     │           │
+└───────────────────┬───────────────────────────────┘           │
+                    │ invoke / listen ('ble://*')               │
+                    ▼                                           ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │ Rust Tauri 桥接层 (src-tauri/src/ble_mesh.rs)                            │
 │  ├─ Android: JNI 双向桥接 (Java_com_poolpoker_app_BleMeshManager_*)     │
@@ -75,7 +79,11 @@
 
 ---
 
-## 2. CRDT 确定性事件溯源与无冲突收敛模型 (`src/services/crdt/`)
+## 2. 【技术储备】CRDT 确定性事件溯源与无冲突收敛模型 (`src/services/crdt/`)
+
+> [!NOTE] 架构现状与实现对齐
+> 本节描述的 CRDT 去中心化事件溯源演算模型（`src/services/crdt/`）已在纯领域层实现并具备全套单元测试（`crdtEngine.spec.ts`），作为未来支持完全无主、点对点 Mesh 网络的架构储备。
+> 当前生产实际运行的对局链路使用的是成熟轻量的**「房主权威状态（LocalHostEngine）＋客机乐观更新（applyLocalOptimisticAction）＋待发送离线队列（BleCommandQueue）」**（详见第 3 节）。
 
 ### 2.1 创世基线（Genesis Snapshot）与确定性 Mulberry32 PRNG
 

@@ -1,7 +1,7 @@
 import type { Player, Room } from '@shared/types/game';
 import { CLIENT_TO_SERVER_EVENTS } from '@shared/types/protocol';
-import type { Socket } from 'socket.io-client';
 import { isTauriEnvironment } from '@/composables/useUiPreferences';
+import type { GameTransport } from '@/types/transport';
 import type { GameRoomStrategyContext, GameRoomSyncStrategy, StrategyActionCheck } from './types';
 
 const isNativeRuntime = () =>
@@ -30,9 +30,9 @@ const getApiUrl = (serverUrl: string | undefined, endpointPath: string) => {
 export class OnlineSyncStrategy implements GameRoomSyncStrategy {
   readonly name = 'online' as const;
 
-  canSendAction(socket: Socket | null): StrategyActionCheck {
-    if (!socket?.connected) {
-      socket?.connect();
+  canSendAction(transport: GameTransport | null): StrategyActionCheck {
+    if (!transport?.connected) {
+      transport?.connect();
       return {
         allowed: false,
         feedback: '正在恢复连接，请稍候...',
@@ -119,7 +119,7 @@ export class OnlineSyncStrategy implements GameRoomSyncStrategy {
     }
   }
 
-  async leaveRoom(socket: Socket | null, roomCode: string): Promise<void> {
-    socket?.emit(CLIENT_TO_SERVER_EVENTS.leaveRoom, { roomCode });
+  async leaveRoom(transport: GameTransport | null, roomCode: string): Promise<void> {
+    transport?.emit(CLIENT_TO_SERVER_EVENTS.leaveRoom, { roomCode });
   }
 }

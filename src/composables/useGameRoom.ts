@@ -3,8 +3,8 @@ import type { Card, Player, Room } from '@shared/types/game';
 import { CLIENT_TO_SERVER_EVENTS, SERVER_TO_CLIENT_EVENTS } from '@shared/types/protocol';
 import type { SocketCallbackResponse } from '@shared/types/socket';
 import confetti from 'canvas-confetti';
-import type { Socket } from 'socket.io-client';
 import { computed, onMounted, onUnmounted, type Ref, ref, watch } from 'vue';
+import type { GameTransport } from '@/types/transport';
 import { showAlert, showConfirm } from '@/utils/dialog';
 import { shouldAnimateRoomChange } from '@/utils/roomPresentation';
 import {
@@ -16,7 +16,8 @@ import {
 import { useGameAudio } from './useGameAudio';
 
 export interface UseGameRoomOptions {
-  socket: Ref<Socket | null>;
+  /** 统一传输层实例（在线 Socket.IO 或离线 BLE） */
+  transport: Ref<GameTransport | null>;
   userId: Ref<string>;
   playerName: Ref<string>;
   getFinalPlayerName: () => string;
@@ -26,7 +27,7 @@ export interface UseGameRoomOptions {
 }
 
 export function useGameRoom(options: UseGameRoomOptions) {
-  const { socket, userId, playerName, getFinalPlayerName, serverUrl, syncStrategy } = options;
+  const { transport, userId, playerName, getFinalPlayerName, serverUrl, syncStrategy } = options;
 
   const activeStrategy = syncStrategy;
 
@@ -190,7 +191,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
     if (isPresenting.value) {
       clearPresentation();
     }
-    const check = activeStrategy.value.canSendAction(socket.value);
+    const check = activeStrategy.value.canSendAction(transport.value);
     if (!check.allowed) {
       if (check.feedback) feedback.value = check.feedback;
       return;
@@ -198,7 +199,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
     unlockAudio();
     pendingAction.value = true;
     feedback.value = '';
-    socket.value?.emit(event, { roomCode: room.value.code, ...payload }, (result: SocketCallbackResponse) => {
+    transport.value?.emit(event, { roomCode: room.value.code, ...payload }, (result: SocketCallbackResponse) => {
       clearTimeout(pendingTimer);
       pendingAction.value = false;
       if (!result?.success) feedback.value = result?.message || '牌局已变化，请查看最新状态';
@@ -231,23 +232,23 @@ export function useGameRoom(options: UseGameRoomOptions) {
     clearPresentation();
     sceneReset.value++;
     if (document.visibilityState === 'visible') {
-      console.log('[VisibilityChange] 页面切回前台，立即发起 HTTP 快照同步与 Socket 重连');
+      console.log('[VisibilityChange] 页面切回前台，立即发起 HTTP 快照同步与传输层重连');
       if (room.value && ['waiting', 'playing'].includes(room.value.status)) {
         void acquireWakeLock();
       }
       fetchLatestRoomState();
 
-      if (socket.value && !socket.value.connected) {
-        socket.value.connect();
+      if (transport.value && !transport.value.connected) {
+        transport.value.connect();
       }
     }
   };
 
   const handleOnline = () => {
-    console.log('[Network] 网络连接已恢复，立即同步牌局与尝试重连 Socket');
+    console.log('[Network] 网络连接已恢复，立即同步牌局与尝试重连传输层');
     fetchLatestRoomState();
-    if (socket.value && !socket.value.connected) {
-      socket.value.connect();
+    if (transport.value && !transport.value.connected) {
+      transport.value.connect();
     }
   };
 
@@ -274,16 +275,16 @@ export function useGameRoom(options: UseGameRoomOptions) {
     releaseWakeLock();
   });
 
-  const setupSocketListeners = (s: Socket) => {
+  const setupTransportListeners = (t: GameTransport) => {
     const handleConnect = () => {
       suppressNextAnimation = true;
       feedback.value = '';
-      console.log('[Socket] Connected, ID:', s.id);
+      console.log('[Transport] Connected, ID:', t.id);
 
       const savedRoomCode = localStorage.getItem(SAVED_ROOM_CODE_KEY);
       const savedSessionToken = localStorage.getItem(SAVED_SESSION_TOKEN_KEY) || '';
       if (savedRoomCode) {
-        s.emit(
+        t.emit(
           CLIENT_TO_SERVER_EVENTS.rejoinRoom,
           {
             roomCode: savedRoomCode,
@@ -301,20 +302,20 @@ export function useGameRoom(options: UseGameRoomOptions) {
       }
     };
 
-    s.on('connect', handleConnect);
+    t.on('connect', handleConnect);
 
     const handleDisconnect = () => {
       if (room.value) {
         feedback.value = activeStrategy.value.getDisconnectFeedback();
       }
     };
-    s.on('disconnect', handleDisconnect);
+    t.on('disconnect', handleDisconnect);
 
-    if (s.connected) {
+    if (t.connected) {
       handleConnect();
     }
 
-    s.on(SERVER_TO_CLIENT_EVENTS.roomUpdated, (updatedRoom: Room) => {
+    t.on(SERVER_TO_CLIENT_EVENTS.roomUpdated, (updatedRoom: Room) => {
       feedback.value = '';
       acceptRoom(updatedRoom, true);
       showRestartConfirm.value = false;
@@ -337,7 +338,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
       }
     });
 
-    s.on(SERVER_TO_CLIENT_EVENTS.roomKicked, ({ roomCode, reason }: { roomCode: string; reason?: string }) => {
+    t.on(SERVER_TO_CLIENT_EVENTS.roomKicked, ({ roomCode, reason }: { roomCode: string; reason?: string }) => {
       if (room.value?.code !== roomCode && localStorage.getItem(SAVED_ROOM_CODE_KEY) !== roomCode) return;
       releaseWakeLock();
       clearSavedSession();
@@ -348,28 +349,28 @@ export function useGameRoom(options: UseGameRoomOptions) {
       showAlert(reason || '你已被房主移出房间');
     });
 
-    s.on(SERVER_TO_CLIENT_EVENTS.roomCreated, ({ roomCode }: { roomCode: string }) => {
+    t.on(SERVER_TO_CLIENT_EVENTS.roomCreated, ({ roomCode }: { roomCode: string }) => {
       localStorage.setItem(SAVED_ROOM_CODE_KEY, roomCode);
     });
 
-    s.on(SERVER_TO_CLIENT_EVENTS.errorMessage, (msg: string) => {
+    t.on(SERVER_TO_CLIENT_EVENTS.errorMessage, (msg: string) => {
       showAlert(msg);
     });
   };
 
   watch(
-    socket,
-    (newSocket, oldSocket) => {
-      if (oldSocket) {
-        oldSocket.off('connect');
-        oldSocket.off('disconnect');
-        oldSocket.off(SERVER_TO_CLIENT_EVENTS.roomUpdated);
-        oldSocket.off(SERVER_TO_CLIENT_EVENTS.roomCreated);
-        oldSocket.off(SERVER_TO_CLIENT_EVENTS.roomKicked);
-        oldSocket.off(SERVER_TO_CLIENT_EVENTS.errorMessage);
+    transport,
+    (newTransport, oldTransport) => {
+      if (oldTransport) {
+        oldTransport.off('connect');
+        oldTransport.off('disconnect');
+        oldTransport.off(SERVER_TO_CLIENT_EVENTS.roomUpdated);
+        oldTransport.off(SERVER_TO_CLIENT_EVENTS.roomCreated);
+        oldTransport.off(SERVER_TO_CLIENT_EVENTS.roomKicked);
+        oldTransport.off(SERVER_TO_CLIENT_EVENTS.errorMessage);
       }
-      if (newSocket) {
-        setupSocketListeners(newSocket);
+      if (newTransport) {
+        setupTransportListeners(newTransport);
       }
     },
     { immediate: true }
@@ -404,7 +405,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
   // 1. 创建房间
   const handleCreateRoom = () => {
     const finalName = getFinalPlayerName();
-    socket.value?.emit(
+    transport.value?.emit(
       CLIENT_TO_SERVER_EVENTS.createRoom,
       {
         userId: userId.value,
@@ -425,15 +426,15 @@ export function useGameRoom(options: UseGameRoomOptions) {
   const joiningRoom = ref(false);
   const handleJoinRoom = (code: string, discoverySource?: DiscoverySource) => {
     if (joiningRoom.value) return;
-    if (!socket.value?.connected) {
-      socket.value?.connect();
+    if (!transport.value?.connected) {
+      transport.value?.connect();
       showAlert('未连接到服务器，正在重试，请稍候…');
       return;
     }
     joiningRoom.value = true;
-    const joiningSocket = socket.value;
+    const joiningTransport = transport.value;
     const finalName = getFinalPlayerName();
-    joiningSocket.timeout(5000).emit(
+    joiningTransport.timeout(5000).emit(
       CLIENT_TO_SERVER_EVENTS.joinRoom,
       {
         roomCode: code,
@@ -443,7 +444,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
       },
       (error: Error | null, res?: SocketCallbackResponse) => {
         joiningRoom.value = false;
-        if (socket.value !== joiningSocket) return;
+        if (transport.value !== joiningTransport) return;
         if (error || !res) {
           showAlert('加入超时，请稍后重试');
           return;
@@ -466,7 +467,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
     const current = room.value.settings?.cardsPerPlayer || 5;
     const newCount = current + delta;
     if (newCount < 1 || newCount > 10) return;
-    socket.value?.emit(CLIENT_TO_SERVER_EVENTS.updateSettings, {
+    transport.value?.emit(CLIENT_TO_SERVER_EVENTS.updateSettings, {
       roomCode: room.value.code,
       settings: { cardsPerPlayer: newCount },
     });
@@ -480,13 +481,13 @@ export function useGameRoom(options: UseGameRoomOptions) {
     if (!(await showConfirm(`确认将「${player.name}」移出房间吗？`, '移出玩家'))) return;
     if (!isHost.value || room.value?.code !== currentRoom.code || !['waiting', 'lobby'].includes(room.value.status))
       return;
-    socket.value?.emit(CLIENT_TO_SERVER_EVENTS.kickPlayer, { roomCode: currentRoom.code, targetUserId });
+    transport.value?.emit(CLIENT_TO_SERVER_EVENTS.kickPlayer, { roomCode: currentRoom.code, targetUserId });
   };
 
   // 4. 房主开始游戏
   const handleStartGame = () => {
     if (!isHost.value || !room.value) return;
-    socket.value?.emit(CLIENT_TO_SERVER_EVENTS.startGame, { roomCode: room.value.code });
+    transport.value?.emit(CLIENT_TO_SERVER_EVENTS.startGame, { roomCode: room.value.code });
   };
 
   const currentShooter = computed(
@@ -602,7 +603,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
   // 8. 重置房间
   const handleConfirmRestart = () => {
     if (!isHost.value || !room.value) return;
-    socket.value?.emit(CLIENT_TO_SERVER_EVENTS.restartGame, { roomCode: room.value.code });
+    transport.value?.emit(CLIENT_TO_SERVER_EVENTS.restartGame, { roomCode: room.value.code });
     showRestartConfirm.value = false;
   };
 
@@ -610,7 +611,7 @@ export function useGameRoom(options: UseGameRoomOptions) {
   const handleLeaveRoom = async () => {
     if (await showConfirm('确定退出当前房间吗？', '退出确认')) {
       if (room.value) {
-        await activeStrategy.value.leaveRoom(socket.value, room.value.code);
+        await activeStrategy.value.leaveRoom(transport.value, room.value.code);
       }
       releaseWakeLock();
       clearSavedSession();

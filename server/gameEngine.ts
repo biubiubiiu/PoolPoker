@@ -1,5 +1,6 @@
 import type { Card, Player, RoundScoreEntry, ServerRoom } from '../shared/types/game';
 import { getRandomHex } from '../shared/utils/crypto';
+import { getPocketedBallNumbers } from '../shared/utils/roomRules';
 import { createRoundFinishedPayload } from './hook/snapshot';
 import type { GameHookEvent } from './hook/types';
 import { shuffle } from './pokerDeck';
@@ -40,10 +41,6 @@ export function addLog(room: ServerRoom, text: string): void {
     room.logs = room.logs.slice(-50);
   }
 }
-
-import { getPocketedBallNumbers } from '../shared/utils/roomRules';
-
-export { getPocketedBallNumbers };
 
 // 检查是否有玩家满足胜利条件（手牌中未被打进的有效卡牌数为 0）
 export function checkGameWinners(room: ServerRoom): Player[] {

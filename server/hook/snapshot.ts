@@ -1,5 +1,6 @@
 import type { ServerRoom } from '../../shared/types/game';
-import { computeTurnOrder, getPocketedBallNumbers } from '../gameEngine';
+import { getPocketedBallNumbers } from '../../shared/utils/roomRules';
+import { computeTurnOrder } from '../gameEngine';
 import type { PlayerScoreSnapshot, RoundFinishedPayload } from './types';
 
 export function createRoundFinishedPayload(room: ServerRoom): RoundFinishedPayload {

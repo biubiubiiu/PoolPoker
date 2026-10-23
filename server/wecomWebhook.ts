@@ -1,5 +1,5 @@
 import type { ServerRoom } from '../shared/types/game';
-import { getPocketedBallNumbers } from './gameEngine';
+import { getPocketedBallNumbers } from '../shared/utils/roomRules';
 import { getRobotWebhookUrl } from './robotConfig';
 import { listRooms } from './roomManager';
 

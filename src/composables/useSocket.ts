@@ -1,6 +1,8 @@
-import { io, type Socket } from 'socket.io-client';
+import { io } from 'socket.io-client';
 import { onMounted, onUnmounted, ref, shallowRef } from 'vue';
-import { BleTransport, clearStoredDeviceId } from '@/services/bleTransport';
+import { clearStoredDeviceId } from '@/services/ble';
+import { BleTransport } from '@/services/bleTransport';
+import type { GameTransport } from '@/types/transport';
 
 export interface ServerUrlConfig {
   id: string;
@@ -9,7 +11,7 @@ export interface ServerUrlConfig {
 }
 
 export function useSocket() {
-  const socket = shallowRef<Socket | null>(null);
+  const transport = shallowRef<GameTransport | null>(null);
   const socketId = ref<string>('');
   const serverUrl = ref<string>(localStorage.getItem('poolpoker_server_url') || '');
   const isBleOfflineMode = ref<boolean>(localStorage.getItem('poolpoker_offline_ble') === 'true');
@@ -56,15 +58,15 @@ export function useSocket() {
   }
 
   const connectBle = (userId?: string) => {
-    if (socket.value) {
-      socket.value.disconnect();
-      socket.value = null;
+    if (transport.value) {
+      transport.value.disconnect();
+      transport.value = null;
     }
     const currentUserId = userId || localStorage.getItem('billiards_user_id') || `user_${Date.now()}`;
     const savedName = localStorage.getItem('billiards_player_name') || '我';
     const ble = new BleTransport(currentUserId, savedName);
     ble.init();
-    socket.value = ble as any;
+    transport.value = ble;
     socketId.value = `ble_${currentUserId}`;
   };
 
@@ -73,9 +75,9 @@ export function useSocket() {
       connectBle();
       return;
     }
-    if (socket.value) {
-      socket.value.disconnect();
-      socket.value = null;
+    if (transport.value) {
+      transport.value.disconnect();
+      transport.value = null;
     }
 
     const savedName = localStorage.getItem('billiards_player_name') || '';
@@ -95,18 +97,18 @@ export function useSocket() {
       timeout: 4000,
     };
 
-    socket.value = url ? io(url, options) : io(options);
+    transport.value = url ? io(url, options) : io(options);
 
-    socket.value.on('connect', () => {
-      socketId.value = socket.value?.id || '';
+    transport.value.on('connect', () => {
+      socketId.value = transport.value?.id || '';
       console.log('[Socket] Connected to', url || 'same-origin', 'ID:', socketId.value);
     });
 
-    socket.value.on('disconnect', (reason) => {
+    transport.value.on('disconnect', (reason) => {
       console.log('[Socket] Disconnected:', reason);
     });
 
-    socket.value.on('connect_error', (error) => {
+    transport.value.on('connect_error', (error) => {
       console.warn('[Socket] Connect error:', error.message);
     });
   };
@@ -158,27 +160,27 @@ export function useSocket() {
   });
 
   onUnmounted(() => {
-    if (socket.value) {
-      socket.value.disconnect();
-      socket.value = null;
+    if (transport.value) {
+      transport.value.disconnect();
+      transport.value = null;
     }
   });
 
   const on = (event: string, callback: (...args: any[]) => void) => {
-    socket.value?.on(event, callback);
+    transport.value?.on(event, callback);
   };
 
   const off = (event: string, callback?: (...args: any[]) => void) => {
-    socket.value?.off(event, callback);
+    transport.value?.off(event, callback);
   };
 
   const emit = (event: string, payload?: any, callback?: (...args: any[]) => void) => {
     if (callback) {
-      socket.value?.emit(event, payload, callback);
+      transport.value?.emit(event, payload, callback);
     } else if (payload !== undefined) {
-      socket.value?.emit(event, payload);
+      transport.value?.emit(event, payload);
     } else {
-      socket.value?.emit(event);
+      transport.value?.emit(event);
     }
   };
 
@@ -198,7 +200,8 @@ export function useSocket() {
   };
 
   return {
-    socket,
+    transport,
+    socket: transport,
     socketId,
     serverUrl,
     savedServerUrls,

@@ -1,6 +1,6 @@
 import type { Room } from '@shared/types/game';
-import type { Socket } from 'socket.io-client';
 import type { Ref } from 'vue';
+import type { GameTransport } from '@/types/transport';
 
 /** 房间码在 localStorage 中的持久化键名（唯一定义处） */
 export const SAVED_ROOM_CODE_KEY = 'billiards_room_code';
@@ -33,7 +33,7 @@ export interface GameRoomSyncStrategy {
   readonly name: 'online' | 'ble';
 
   /** 发起出牌动作前的可用性校验与网络连接恢复提示 */
-  canSendAction(socket: Socket | null): StrategyActionCheck;
+  canSendAction(transport: GameTransport | null): StrategyActionCheck;
 
   /** 发起操作超时（如 2000ms）时的补救处理 */
   onActionTimeout(ctx: GameRoomStrategyContext): void;
@@ -51,5 +51,5 @@ export interface GameRoomSyncStrategy {
   syncNativeSession(ctx: GameRoomStrategyContext, roomCode: string | null): Promise<void>;
 
   /** 主动退出房间的发送契约 */
-  leaveRoom(socket: Socket | null, roomCode: string): Promise<void>;
+  leaveRoom(transport: GameTransport | null, roomCode: string): Promise<void>;
 }

@@ -859,3 +859,91 @@ iPhone 实际 Tauri 模拟器包在原有 Build Rust Code 阶段失败；关闭�
   - `pnpm run lint`：Biome 检查通过（0 错误 0 警告）。
   - **待补**：BLE 离线链路的真机/模拟器手动回归——离线模式下断开房主，确认本地房间未被清空且出现「房主锁屏离线中…」提示（该不变量位于 `useGameRoom` 接线层，单测仅覆盖策略层）。
 - **commit**：`0c3b3ca`
+
+### 第41轮：离线架构文档与实现对齐，传输层接口抽象及 BleTransport 职责拆分 [2026-10-23]
+- **输入**：自动化代码审查发现两项 P2 问题：
+  1. 架构文档描述已融合 CRDT，但当前运行链路实际使用的是“房主权威状态＋客机乐观更新＋待发送队列”；CRDT 模块仅被自身及测试引用，文档需与实现对齐，完善当前房主权威方案说明；
+  2. 约 1,444 行的 `BleTransport` 单文件职责臃肿，且 `useSocket.ts:67` 存在将 `BleTransport` 强制断言为 `Socket`（`ble as any`）的类型安全隐患，建议拆分子模块并定义项目统一的传输接口。
+- **探索与决策**：
+  1. *文档对齐与架构澄清*：更新 `docs/overview.md` 与 `docs/ble_offline_architecture.md`，明确阐述生产运行环境采用的单主星型拓扑架构——房主运行 `LocalHostEngine` 作为权威规则引擎，客机通过 `applyLocalOptimisticAction` 实现 0ms 本地瞬时记牌与消牌，动作存入持久化待发队列并在重连时自动冲刷；澄清 `src/services/crdt/` 纯领域确定性事件溯源模块作为未来向完全去中心化多主 Mesh 架构演进的技术储备定位。
+  2. *统一传输接口设计*：新增 `src/types/transport.ts`，定义契约接口 `GameTransport`（涵盖 `connected`、`id`、`connect`、`disconnect`、`on`、`once`、`off`、`emit`、`timeout`）。在线模式的 `Socket` 与离线模式的 `BleTransport` 均原生满足该接口，全面替换 `useSocket.ts`、`useGameRoom.ts`、`GameRoomSyncStrategy`（`bleSyncStrategy.ts` / `onlineSyncStrategy.ts`）中的 `Socket` 类型依赖，彻底移除 `ble as any` 不安全断言。
+  3. *BleTransport 职责拆解*：将原 1,444 行单一臃肿类抽离为 5 大高内聚低耦合子模块，并集中至 `src/services/ble/`：
+     - `bleStorage.ts` (`BleStorage`)：负责设备 ID、房间脱敏快照与离线待发送动作队列的双重持久化（`localStorage` + 内存降级）；
+     - `bleConnection.ts` (`BleConnectionManager`)：封装 Tauri 原生 BLE 事件监听（`ble://*`）、物理链路状态机、指数退避自动重连与屏幕前后台唤醒刷新；
+     - `bleHandshake.ts` (`BleHandshakeManager`)：管理 20 字节标准 ATT MTU 握手分包、`peerId ↔ userId` 双向席位映射维护与退房 `LEAVE_ACK` 双向协商；
+     - `bleCommandQueue.ts` (`BleCommandQueue`)：管理客机离线动作待发队列、幂等记球操作分类与重试调度、以及在收到权威状态时对已落袋球号的队列剪枝；
+     - `bleStateSync.ts` (`BleStateSync`)：负责下行状态动态分片重组、客机 0ms 本地乐观状态演算（手牌消除、落袋球与 3D 动画）与房主端脱敏定向单播；
+     - `bleTransport.ts` (`BleTransport`)：作为门面协调器（Facade Coordinator）实现 `GameTransport`，协调调度上述子模块，并保持所有对外公共属性与方法对原有 33 项测试 100% 兼容。
+- **最终改动**：
+  - `src/types/transport.ts` — 新增：定义项目统一的 `GameTransport` 与 `TransportEventCallback` 接口。
+  - `src/services/ble/` — 新增：
+    - `types.ts`：BLE 传输层内部事件与选项定义；
+    - `bleStorage.ts`：双层离线持久化模块；
+    - `bleConnection.ts`：连接生命周期与原生事件管理模块；
+    - `bleHandshake.ts`：握手鉴权、MTU 分包与席位映射模块；
+    - `bleCommandQueue.ts`：离线动作待发队列与幂等重试模块；
+    - `bleStateSync.ts`：状态分片重组、乐观状态演进与广播模块；
+    - `index.ts`：子模块统一导出。
+  - `src/services/bleTransport.ts` — 重构：精简为主门面协调器，实现 `GameTransport`，所有存储、连接、握手、队列与同步逻辑委托给专用子模块。
+  - `src/composables/useSocket.ts` — 修改：`socket` 状态类型升级为 `GameTransport | null`，将 `socket.value = ble as any` 替换为安全的 `socket.value = ble`。
+  - `src/composables/sync/types.ts`、`bleSyncStrategy.ts`、`onlineSyncStrategy.ts`、`useGameRoom.ts` — 修改：入参及契约类型统一迁移至 `GameTransport`。
+  - `src/views/GamePage.vue` — 修改：针对地理位置附近桌台发现显式安全收窄在线连接。
+  - `docs/overview.md` & `docs/ble_offline_architecture.md` — 修改：更新离线架构阐述为“房主权威状态＋客机乐观更新＋待发送队列”，澄清 CRDT 模块储备定位，并补全传输层子模块职责拓扑图。
+- **验收**：
+  - `pnpm run test:unit`：29 个测试套件，276 项单元测试全量通过（100% Pass，含 `bleTransport.spec.ts` 全部 33 项高难度异步/锁屏端到端用例）；
+  - `pnpm exec vue-tsc --noEmit`：TypeScript 类型检查通过（0 错误）；
+  - `pnpm run lint`：Biome 静态检查通过（0 错误 0 警告）；
+  - `pnpm run build`：生产环境打包成功。
+
+### 第42轮：BLE 传输层异步取消竞态修复与回归测试补全 [2026-10-23]
+- **输入**：自动化代码审查发现两处异步取消回归问题：
+  1. [P2] 退房后旧握手仍会继续发送：`bleHandshake.ts` 中捕获了调用时的固定状态，等待队列或分片发送期间即使外层退房，检查也不会变化，可能将已退房玩家重新加入房间；
+  2. [P2] 清空队列不能取消正在冲刷的旧指令：`bleCommandQueue.ts` 遍历预先拷贝的 `actionsToSend` 且基于固定调用时状态，退房、断线或清空队列无法中止后续发送，导致退出过程中第二条指令仍可能继续发送并改变牌局。
+- **探索与决策**：
+  1. *实时状态读取（Live Checkers）*：将 `bleHandshake.ts` 与 `bleCommandQueue.ts` 的静态布尔/字符串参数替换为活态读取器（`BleHandshakeCheckers` 与 `BleFlushCheckers`：`isHost`、`isConnected`、`isLeaving`、`getRoomCode`），确保异步队列中每次等待结束、每次分片/指令发送前后均能感知外部最新状态；
+  2. *会话版本令牌（Session Versioning & Invalidation）*：
+     - 在 `BleHandshakeManager` 引入 `sessionVersion` 与 `cancelPendingHandshakes()`，每次退房、断开、重置时自增版本，握手分片循环中比较 `capturedSession !== this.sessionVersion` 即刻中止旧握手；
+     - 在 `BleCommandQueue` 引入 `flushSessionVersion` 与 `cancelFlushing()`，在 `clearActions()`、`reset()`、`leave_room`、`disconnect` 与 `onPeripheralDisconnected` 时触发，并在冲刷循环中增加队列成员校验 `if (!this.pendingOfflineActions.includes(action)) continue;`，确保已清除的动作立即跳过；
+  3. *BleTransport 生命周期联动*：在 `leave_room`、`cleanupOnLeave`、`disconnect` 以及底层 `onPeripheralDisconnected` 事件中，显式调用 `handshake.cancelPendingHandshakes()` 与 `queue.cancelFlushing()`，实现强隔离及时取消。
+- **最终改动**：
+  - `src/services/ble/bleHandshake.ts` — 修改：支持 `sessionVersion` 与 `cancelPendingHandshakes`，分片迭代引入会话版本与活态状态双重检验。
+  - `src/services/ble/bleCommandQueue.ts` — 修改：支持 `flushSessionVersion` 与 `cancelFlushing`，`flushPendingOfflineActions` 引入活态检验、队列实时包含判断与会话版本防穿透。
+  - `src/services/bleTransport.ts` — 修改：在 `leave_room`、`cleanupOnLeave`、`disconnect` 与 `onPeripheralDisconnected` 显式触发取消，并向握手与队列模块传递活态 getter。
+  - `src/__tests__/bleTransport.spec.ts` — 新增：补充 2 项回归单元测试（“握手等待期间退房取消后续握手分片”、“队列发送中退房或清空队列中止后续动作发送”）。
+- **验收**：
+  - `pnpm run test:unit`：29 个测试套件，278 项单元测试全量通过；
+  - `pnpm exec vue-tsc --noEmit`：TypeScript 类型检查通过（0 错误）；
+  - `pnpm run lint`：Biome 静态检查通过（0 错误 0 警告）；
+  - `pnpm run build`：生产环境打包成功。
+
+### 第43轮：传输层命名归一化、历史参数清理与类型强转坏味道消除 [2026-10-23]
+- **输入**：针对第 41~42 轮重构后的代码复审，发现两项代码坏味道：
+  1. 契约类型已换成 `GameTransport`，但策略层、状态层及发现层的方法与参数仍残留 `socket`（如 `canSendAction(socket: GameTransport)`、`setupSocketListeners`、`useNearbyRooms` 强依赖 `Socket`），且 `useGameRoom` 存在历史兼容的 `socket` 参数；
+  2. 虽已引入 `GameTransport`，但在 `GamePage.vue` 中仍存在 `(socket.value as unknown as Socket | null)`，新增的 `bleTransport.spec.ts` 单测中大量使用 `(guest as any)` 与 `as any`，且 `useSocket.ts` 存在将 `GameTransport` 导入后又立即导出的冗余坏味道。
+- **探索与决策**：
+  1. *参数与函数命名规范化，彻底移除历史兼容*：
+     - 将 `src/composables/sync/`（`types.ts`、`bleSyncStrategy.ts`、`onlineSyncStrategy.ts`）中的 `canSendAction` 与 `leaveRoom` 参数名由 `socket` 改为 `transport`；
+     - 将 `src/composables/useGameRoom.ts` 的 `setupSocketListeners` 重构为 `setupTransportListeners(t: GameTransport)`，内部统一使用 `transport.value`；`UseGameRoomOptions` 将 `transport` 设为唯一必选入参，直接剔除历史 `socket` 兼容；
+     - 将 `src/composables/useNearbyRooms.ts` 与 `src/discovery/geolocationProvider.ts` 的入参解耦为 `transport: GameTransport`，解开地理位置附近房间发现对 `socket.io-client` 的类型耦合；
+     - 在 `src/views/GamePage.vue` 中移除 `import type { Socket } from 'socket.io-client'`，直接解构 `const { transport } = useSocket()` 并传入 `useGameRoom` 与 `useNearbyRooms`，消灭 `as unknown as Socket | null`；
+     - 彻底清理导入后再导出的怪异模式：移除 `useSocket.ts` 中的 `export type { GameTransport }`，将 `clearStoredDeviceId` 规范改为直接从 `@/services/ble` 导入，同时移除 `bleTransport.ts` 中对 storage 方法的二次转发导出；
+     - 彻底清除服务端模块残留的二次导出中转：移除 `roomManager.ts` 中的 `export { sanitizeRoomState }`，移除 `roomAuth.ts` 中的 `export { isActionAuthorized, resolveBleActor }`，移除 `gameEngine.ts` 中部突兀的 `import ... export { getPocketedBallNumbers }`，各消费方（`gameRoomService.ts`、`snapshot.ts`、`wecomWebhook.ts` 与对应单测）统一直接从真理源 `@shared/utils/roomRules` 导入。
+  2. *暴露必要公有契约与单测消除强转*：
+     - 在 `BleTransport` 中公开 `sendJoinHandshake(): void` 方法与 `isFlushingActions` 只读 getter；
+     - 在 `src/__tests__/bleTransport.spec.ts` 中通过强类型 `createMockFinishedRoom` 生成合规 `Room` 对象，并直接访问 `guest.currentRoomCode`、`guest.connected`、`guest.cachedRoom`、`guest.sendJoinHandshake()`、`guest.pendingOfflineActions` 与 `guest.isFlushingActions`，配合 `args as { payload?: number[] }` 彻底消灭新增单测中的全部 `(guest as any)` 与 `return {} as any`；
+     - 在 `src/__tests__/geolocationProvider.spec.ts` 中让 `FakeSocket` 显式实现 `GameTransport`，移除全部 `createGeolocationProvider(socket as unknown as Socket)` 强转。
+- **最终改动**：
+  - `src/composables/sync/types.ts`、`bleSyncStrategy.ts`、`onlineSyncStrategy.ts` — 修改：参数命名统一为 `transport: GameTransport | null`。
+  - `src/composables/useGameRoom.ts` — 修改：`setupTransportListeners` 重命名，`UseGameRoomOptions.transport` 设为唯一严格入参，彻底清理 `socket` 兼容项。
+  - `src/composables/useNearbyRooms.ts` & `src/discovery/geolocationProvider.ts` — 修改：全面迁移为 `transport: GameTransport`。
+  - `src/views/GamePage.vue` — 修改：解构并直传 `transport`，移除 `socket.io-client` 依赖与 `as unknown as Socket` 强转。
+  - `src/composables/useSocket.ts` — 修改：内部统一使用 `transport`，直接从 `@/services/ble` 导入 storage 工具，消除 `export type { GameTransport }` 冗余导出。
+  - `src/services/bleTransport.ts` — 修改：开放 `sendJoinHandshake` 与 `isFlushingActions`，移除 storage 函数的重复导出。
+  - `server/roomManager.ts`、`server/roomAuth.ts`、`server/gameEngine.ts` — 修改：移除对 `roomRules` 函数与类型的二次转发导出，`gameEngine.ts` 导入整理至文件头部。
+  - `server/gameRoomService.ts`、`server/hook/snapshot.ts`、`server/wecomWebhook.ts`、`server/__tests__/gameEngine.spec.ts`、`server/__tests__/roomAuth.spec.ts` — 修改：消费方直接从 `shared/utils/roomRules` 导入权威规则函数。
+  - `src/__tests__/bleTransport.spec.ts` & `src/__tests__/geolocationProvider.spec.ts` — 修改：消除新增测试用例及 provider 单测中的全部 `as any` 与 `as unknown`。
+- **验收**：
+  - `pnpm run test:unit`：29 个测试套件，278 项单元测试全量通过；
+  - `pnpm exec vue-tsc --noEmit`：TypeScript 类型检查通过（0 错误）；
+  - `pnpm run lint`：Biome 静态检查通过（0 错误 0 警告）；
+  - `pnpm run build`：生产环境打包成功。

@@ -5,8 +5,6 @@ import { SERVER_TO_CLIENT_EVENTS } from '../shared/types/protocol';
 import { sanitizeRoomState } from '../shared/utils/roomRules';
 import { appConfig } from './config';
 
-export { sanitizeRoomState } from '../shared/utils/roomRules';
-
 export interface SocketSession {
   roomCode: string;
   userId: string;

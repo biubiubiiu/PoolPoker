@@ -15,12 +15,13 @@ import { useNearbyRooms } from '@/composables/useNearbyRooms';
 import { usePlayerProfile } from '@/composables/usePlayerProfile';
 import { useSocket } from '@/composables/useSocket';
 import { useUiPreferences } from '@/composables/useUiPreferences';
+import type { GameTransport } from '@/types/transport';
 import { preloadTableModel } from '@/utils/tableModelLoader';
 
 const { useNewUi } = useUiPreferences();
 const { userId, playerName, getFinalPlayerName } = usePlayerProfile();
 const {
-  socket,
+  transport,
   serverUrl,
   savedServerUrls,
   isBleOfflineMode,
@@ -76,7 +77,7 @@ const {
   handleConfirmRestart,
   handleLeaveRoom,
 } = useGameRoom({
-  socket,
+  transport,
   userId,
   playerName,
   getFinalPlayerName,
@@ -86,8 +87,8 @@ const {
 
 provideBallAppearance();
 
-const onlineSocket = computed(() => (isBleOfflineMode.value ? null : socket.value));
-const nearby = useNearbyRooms(onlineSocket, room, isHost);
+const onlineTransport = computed<GameTransport | null>(() => (isBleOfflineMode.value ? null : transport.value));
+const nearby = useNearbyRooms(onlineTransport, room, isHost);
 
 const busy = computed(() => pendingAction.value || isPresenting.value);
 const activeCards = computed(() => sortedMyCards.value.filter((c) => !isCardDimmed(c)).length);

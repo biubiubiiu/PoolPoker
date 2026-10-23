@@ -1,13 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Card, Player, ServerRoom } from '../../shared/types/game';
-import {
-  addLog,
-  calculateHandScore,
-  checkGameWinners,
-  computeTurnOrder,
-  getPocketedBallNumbers,
-  handleGameFinished,
-} from '../gameEngine';
+import { getPocketedBallNumbers } from '../../shared/utils/roomRules';
+import { addLog, calculateHandScore, checkGameWinners, computeTurnOrder, handleGameFinished } from '../gameEngine';
 
 // Mock sendRoundResultToWecom to avoid making real network requests in unit tests
 vi.mock('../wecomWebhook', () => ({

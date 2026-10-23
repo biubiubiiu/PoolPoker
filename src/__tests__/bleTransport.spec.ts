@@ -1,10 +1,18 @@
 import { invoke } from '@tauri-apps/api/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { computed, ref } from 'vue';
-import { BLE_PROTOCOL_VERSION, BleGameStatus, type BleRoomState } from '../../shared/types/bleProtocol';
+import {
+  BLE_PROTOCOL_VERSION,
+  BleActionType,
+  type BleClientAction,
+  BleGameStatus,
+  BleMessageType,
+  type BleRoomState,
+} from '../../shared/types/bleProtocol';
 import type { Room } from '../../shared/types/game';
-import { ballsToMask } from '../../shared/utils/bleCodec';
-import { BleTransport, resetSharedHostEngine, setStoredDeviceId } from '../services/bleTransport';
+import { ballsToMask, decodeBleAction } from '../../shared/utils/bleCodec';
+import { setStoredDeviceId } from '../services/ble';
+import { BleTransport, resetSharedHostEngine } from '../services/bleTransport';
 
 const mockInvokes: Array<{ cmd: string; args?: any }> = [];
 let eventListeners: Record<string, (event: any) => void> = {};
@@ -24,6 +32,23 @@ vi.mock('@tauri-apps/api/event', () => ({
     };
   }),
 }));
+
+function createMockFinishedRoom(code = '8848'): Room {
+  return {
+    code,
+    status: 'finished',
+    hostUserId: 'host',
+    deckCount: 54,
+    roundCount: 1,
+    turnOrder: [],
+    lastRoundScores: [],
+    logs: [],
+    players: [],
+    pocketedBallNumbers: [],
+    winners: [],
+    settings: { cardsPerPlayer: 5, includeBlackEight: true, maxPlayers: 8 },
+  };
+}
 
 describe('BleTransport Virtual Socket Layer', () => {
   beforeEach(() => {
@@ -1242,5 +1267,96 @@ describe('BleTransport Virtual Socket Layer', () => {
     expect(leaveCb).toHaveBeenCalledWith({ success: true });
     expect((guest as any).cachedRoom).toBeNull();
     expect(mockInvokes.some((i) => i.cmd === 'ble_disconnect_peripheral')).toBe(true);
+  });
+
+  it('should cancel queued join handshake if player leaves room while handshake is waiting to send', async () => {
+    const guest = new BleTransport('guest_leave_during_handshake', '测试退房玩家');
+    await guest.init();
+    guest.currentRoomCode = '8848';
+    guest.connected = true;
+
+    // 阻塞当前的 joinSendQueue，模拟上一项异步任务尚未完成
+    let releaseGate: () => void = () => {};
+    const blocker = new Promise<void>((resolve) => {
+      releaseGate = resolve;
+    });
+    guest.joinSendQueue = blocker;
+
+    // 触发握手，此时握手任务进入 .then() 等待 blocker
+    mockInvokes.length = 0;
+    guest.sendJoinHandshake();
+
+    // 在握手还在排队等待期间，玩家主动退出房间（设置已完结状态避免等待 leave ACK 超时）
+    guest.cachedRoom = createMockFinishedRoom('8848');
+    const leaveCb = vi.fn();
+    await guest.emit('leave_room', {}, leaveCb);
+    expect(leaveCb).toHaveBeenCalledWith({ success: true });
+
+    // 释放阻塞阀门，等待队列推进
+    releaseGate();
+    await guest.joinSendQueue;
+
+    // 验证：退房后，旧握手被 sessionVersion 和 isLeaving/roomCode 检查拦截，没有向房主发送任何握手分片
+    const joinChunks = mockInvokes.filter(
+      (i) => i.cmd === 'ble_send_command_to_host' && i.args?.payload?.[1] === BleMessageType.CLIENT_COMMAND_CHUNK
+    );
+    expect(joinChunks).toHaveLength(0);
+
+    guest.destroy();
+  });
+
+  it('should abort flushing pending offline actions if player leaves room or clears queue mid-flush', async () => {
+    const guest = new BleTransport('guest_queue_abort_tester', '队列中断玩家');
+    await guest.init();
+    guest.currentRoomCode = '9999';
+    guest.connected = true;
+
+    // 向离线队列注入两条指令：第1条出球，第2条罚牌
+    const action1: BleClientAction = {
+      version: BLE_PROTOCOL_VERSION,
+      revision: 1,
+      actionType: BleActionType.POCKET_BALL,
+      ballNumber: 5,
+    };
+    const action2: BleClientAction = {
+      version: BLE_PROTOCOL_VERSION,
+      revision: 2,
+      actionType: BleActionType.DRAW_PENALTY,
+    };
+    guest.pendingOfflineActions = [action1, action2];
+
+    const sentActions: BleClientAction[] = [];
+    vi.mocked(invoke).mockImplementation(async (cmd, args) => {
+      mockInvokes.push({ cmd, args });
+      if (cmd === 'ble_send_command_to_host') {
+        const payloadArgs = args as { payload?: number[] };
+        const payload = new Uint8Array(payloadArgs.payload ?? []);
+        if (payload[1] === BleMessageType.CLIENT_ACTION) {
+          const action = decodeBleAction(payload);
+          sentActions.push(action);
+          // 在第一条指令发送完成时，模拟外部触发退房并清空队列
+          if (action.actionType === BleActionType.POCKET_BALL) {
+            guest.cachedRoom = createMockFinishedRoom('9999');
+            await guest.emit('leave_room', {});
+          }
+        }
+      }
+      return undefined;
+    });
+
+    try {
+      await guest.flushPendingOfflineActions();
+
+      // 验证：第 1 条 POCKET_BALL 被发出，但退房后后续冲刷被立即中止，第 2 条 DRAW_PENALTY 绝不发送
+      expect(sentActions.some((a) => a.actionType === BleActionType.POCKET_BALL)).toBe(true);
+      expect(sentActions.some((a) => a.actionType === BleActionType.DRAW_PENALTY)).toBe(false);
+      expect(guest.isFlushingActions).toBe(false);
+    } finally {
+      guest.destroy();
+      vi.mocked(invoke).mockImplementation(async (cmd: string, args?: unknown) => {
+        mockInvokes.push({ cmd, args });
+        return undefined;
+      });
+    }
   });
 });

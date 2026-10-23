@@ -1,18 +1,32 @@
 import type { NearbyRoom } from '@shared/types/discovery';
-import type { Socket } from 'socket.io-client';
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 import { createGeolocationProvider } from '../discovery/geolocationProvider';
+import type { GameTransport } from '../types/transport';
 
-class FakeSocket {
+class FakeSocket implements GameTransport {
   connected = true;
   handlers = new Map<string, Set<(...args: any[]) => void>>();
   sent: Array<{ event: string; payload: unknown }> = [];
-  on(event: string, fn: (...args: any[]) => void) {
+  connect(): this {
+    this.connected = true;
+    return this;
+  }
+  disconnect(): this {
+    this.connected = false;
+    return this;
+  }
+  on(event: string, fn: (...args: any[]) => void): this {
     if (!this.handlers.has(event)) this.handlers.set(event, new Set());
     this.handlers.get(event)?.add(fn);
+    return this;
   }
-  off(event: string, fn: (...args: any[]) => void) {
-    this.handlers.get(event)?.delete(fn);
+  off(event: string, fn?: (...args: any[]) => void): this {
+    if (fn) {
+      this.handlers.get(event)?.delete(fn);
+    } else {
+      this.handlers.delete(event);
+    }
+    return this;
   }
   receive(event: string, ...args: unknown[]) {
     for (const fn of this.handlers.get(event) ?? []) fn(...args);
@@ -23,6 +37,7 @@ class FakeSocket {
   emit(event: string, payload?: unknown, callback?: (...args: any[]) => void) {
     this.sent.push({ event, payload });
     callback?.(null, { success: true });
+    return this;
   }
 }
 
@@ -67,7 +82,7 @@ describe('geolocation discovery provider lifecycle', () => {
     vi.unstubAllGlobals();
   });
   const start = () => {
-    stop = createGeolocationProvider(socket as unknown as Socket).start('browse', callbacks);
+    stop = createGeolocationProvider(socket).start('browse', callbacks);
   };
 
   it('uploads coarse then better fixes with throttling and stops when accurate', () => {
@@ -108,7 +123,7 @@ describe('geolocation discovery provider lifecycle', () => {
     start();
     fix(100);
     stop?.();
-    const stopHost = createGeolocationProvider(socket as unknown as Socket).start('advertise', callbacks);
+    const stopHost = createGeolocationProvider(socket).start('advertise', callbacks);
     expect(clearWatch).toHaveBeenCalledWith(42);
     expect(socket.sent.filter((s) => s.event === 'discovery_update').slice(-1)[0]?.payload).toMatchObject({
       mode: 'advertise',
@@ -123,7 +138,7 @@ describe('geolocation discovery provider lifecycle', () => {
   });
 
   it('does not locate in a room without a homepage fix', () => {
-    stop = createGeolocationProvider(socket as unknown as Socket).start('advertise', callbacks);
+    stop = createGeolocationProvider(socket).start('advertise', callbacks);
     vi.advanceTimersByTime(120_000);
     expect(locate).not.toHaveBeenCalled();
     expect(watchLocation).not.toHaveBeenCalled();
@@ -133,7 +148,7 @@ describe('geolocation discovery provider lifecycle', () => {
     start();
     fix();
     stop?.();
-    stop = createGeolocationProvider(socket as unknown as Socket).start('advertise', callbacks);
+    stop = createGeolocationProvider(socket).start('advertise', callbacks);
     expect(callbacks.status).toHaveBeenLastCalledWith('附近玩家可发现此房间');
     vi.advanceTimersByTime(62_000);
     expect(watchLocation).toHaveBeenCalledTimes(1);
@@ -158,7 +173,7 @@ describe('geolocation discovery provider lifecycle', () => {
     start();
     expect(watchLocation).toHaveBeenCalledTimes(1);
     stop?.();
-    stop = createGeolocationProvider(socket as unknown as Socket).start('browse', callbacks, { forceLocate: true });
+    stop = createGeolocationProvider(socket).start('browse', callbacks, { forceLocate: true });
     expect(watchLocation).toHaveBeenCalledTimes(2);
     expect(locate.mock.calls[locate.mock.calls.length - 1][2]).toMatchObject({ maximumAge: 0 });
   });

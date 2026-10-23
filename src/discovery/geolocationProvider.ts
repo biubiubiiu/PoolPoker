@@ -2,21 +2,21 @@ import { DISCOVERY, type DiscoveryMode, type DiscoveryPosition, type NearbyRoom 
 import { CLIENT_TO_SERVER_EVENTS, SERVER_TO_CLIENT_EVENTS } from '@shared/types/protocol';
 import type { SocketCallbackResponse } from '@shared/types/socket';
 import { discoveryPositionIssue } from '@shared/utils/discovery';
-import type { Socket } from 'socket.io-client';
+import type { GameTransport } from '@/types/transport';
 import { normalizeGeolocationTimestamp } from './geolocationTimestamp';
 import type { DiscoveryCallbacks, RoomDiscoveryProvider } from './provider';
 
 // Memory only, shared across provider restarts and browse -> advertise transitions.
-const fixes = new WeakMap<Socket, DiscoveryPosition>();
+const fixes = new WeakMap<GameTransport, DiscoveryPosition>();
 const STABLE_ACCURACY_METERS = 50;
 const SETTLE_MS = 10_000;
 const ACQUISITION_MS = 30_000;
 const UPLOAD_MS = 1100;
 
-export function createGeolocationProvider(socket: Socket): RoomDiscoveryProvider {
+export function createGeolocationProvider(transport: GameTransport): RoomDiscoveryProvider {
   return {
     start(mode: DiscoveryMode, callbacks: DiscoveryCallbacks, options) {
-      if (options?.forceLocate && mode === 'browse') fixes.delete(socket);
+      if (options?.forceLocate && mode === 'browse') fixes.delete(transport);
       let active = true;
       let denied = false;
       let sequence = 0;
@@ -43,11 +43,11 @@ export function createGeolocationProvider(socket: Socket): RoomDiscoveryProvider
         clearTimeout(upload);
         upload = undefined;
         callbacks.rooms([]);
-        if (revoke && socket.connected) socket.emit(CLIENT_TO_SERVER_EVENTS.discoveryStop);
+        if (revoke && transport.connected) transport.emit(CLIENT_TO_SERVER_EVENTS.discoveryStop);
       };
       const send = () => {
         upload = undefined;
-        if (!active || !socket.connected || !position || discoveryPositionIssue(position, Date.now())) return;
+        if (!active || !transport.connected || !position || discoveryPositionIssue(position, Date.now())) return;
         const wait = UPLOAD_MS - (Date.now() - lastSentAt);
         if (wait > 0) {
           upload = setTimeout(send, wait);
@@ -55,7 +55,7 @@ export function createGeolocationProvider(socket: Socket): RoomDiscoveryProvider
         }
         lastSentAt = Date.now();
         const request = ++sequence;
-        socket
+        transport
           .timeout(5000)
           .emit(
             CLIENT_TO_SERVER_EVENTS.discoveryUpdate,
@@ -73,7 +73,7 @@ export function createGeolocationProvider(socket: Socket): RoomDiscoveryProvider
           );
       };
       const locate = () => {
-        if (!active || mode !== 'browse' || acquiring || denied || !socket.connected || position) return;
+        if (!active || mode !== 'browse' || acquiring || denied || !transport.connected || position) return;
         if (!window.isSecureContext || !navigator.geolocation) {
           denied = true;
           callbacks.status(!window.isSecureContext ? '定位需要 HTTPS，请使用安全网址打开' : '当前浏览器不支持定位');
@@ -100,7 +100,7 @@ export function createGeolocationProvider(socket: Socket): RoomDiscoveryProvider
           if (position && candidate.accuracy >= position.accuracy) return;
           const improved = !position || candidate.accuracy < position.accuracy * 0.9;
           position = candidate;
-          fixes.set(socket, candidate);
+          fixes.set(transport, candidate);
           if (!upload) send();
           if (candidate.accuracy <= STABLE_ACCURACY_METERS) stopLocation();
           else if (improved) {
@@ -113,7 +113,7 @@ export function createGeolocationProvider(socket: Socket): RoomDiscoveryProvider
           if (error.code === 1) {
             denied = true;
             stopLocation();
-            fixes.delete(socket);
+            fixes.delete(transport);
             ++sequence;
             clear();
             callbacks.status('未获定位权限，请在浏览器设置中允许位置后重试');
@@ -144,12 +144,12 @@ export function createGeolocationProvider(socket: Socket): RoomDiscoveryProvider
         }
       };
       const resume = () => {
-        const cached = fixes.get(socket);
+        const cached = fixes.get(transport);
         if (cached && !discoveryPositionIssue(cached, Date.now())) {
           position = { ...cached, mode };
           send();
         } else {
-          fixes.delete(socket);
+          fixes.delete(transport);
           if (mode === 'browse') locate();
           else callbacks.status('未获取有效位置，房间未公开到附近');
         }
@@ -159,7 +159,7 @@ export function createGeolocationProvider(socket: Socket): RoomDiscoveryProvider
           active &&
           mode === 'browse' &&
           position &&
-          socket.connected &&
+          transport.connected &&
           !discoveryPositionIssue(position, Date.now())
         )
           callbacks.rooms(rooms);
@@ -174,17 +174,17 @@ export function createGeolocationProvider(socket: Socket): RoomDiscoveryProvider
         lastSentAt = -Infinity;
         resume();
       };
-      socket.on(SERVER_TO_CLIENT_EVENTS.nearbyRooms, onRooms);
-      socket.on('connect', onConnect);
-      socket.on('disconnect', onDisconnect);
-      if (socket.connected) resume();
+      transport.on(SERVER_TO_CLIENT_EVENTS.nearbyRooms, onRooms);
+      transport.on('connect', onConnect);
+      transport.on('disconnect', onDisconnect);
+      if (transport.connected) resume();
       else callbacks.status('连接后自动发现附近房间');
       const expiry = setInterval(() => {
         if (position && discoveryPositionIssue(position, Date.now())) {
           ++sequence;
           stopLocation();
           clear();
-          fixes.delete(socket);
+          fixes.delete(transport);
           callbacks.status(mode === 'browse' ? '位置已过期，正在重新定位…' : '位置已过期，已停止向附近公开');
         }
         if (Date.now() >= nextAttemptAt) locate();
@@ -194,9 +194,9 @@ export function createGeolocationProvider(socket: Socket): RoomDiscoveryProvider
         ++sequence;
         stopLocation();
         clearInterval(expiry);
-        socket.off(SERVER_TO_CLIENT_EVENTS.nearbyRooms, onRooms);
-        socket.off('connect', onConnect);
-        socket.off('disconnect', onDisconnect);
+        transport.off(SERVER_TO_CLIENT_EVENTS.nearbyRooms, onRooms);
+        transport.off('connect', onConnect);
+        transport.off('disconnect', onDisconnect);
         clear(!(stopOptions?.retainAdvertisement && mode === 'advertise'));
       };
     },

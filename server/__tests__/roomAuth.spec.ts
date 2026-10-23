@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Player, ServerRoom } from '../../shared/types/game';
-import { isActionAuthorized, type RoomActor, resolveBleActor, resolveHttpActor, resolveSocketActor } from '../roomAuth';
+import { isActionAuthorized, type RoomActor, resolveBleActor } from '../../shared/utils/roomRules';
+import { resolveHttpActor, resolveSocketActor } from '../roomAuth';
 import { registerSocketSession, removeRoom, removeSocketSession, saveRoom } from '../roomManager';
 
 function createDummyPlayer(overrides: Partial<Player>): Player {

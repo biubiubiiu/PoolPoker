@@ -1,15 +1,15 @@
 import type { DiscoveryMode, NearbyRoom } from '@shared/types/discovery';
 import type { Room } from '@shared/types/game';
-import type { Socket } from 'socket.io-client';
 import { computed, getCurrentInstance, onMounted, onUnmounted, type Ref, ref, watch } from 'vue';
 import { createGeolocationProvider } from '@/discovery/geolocationProvider';
 import type { RoomDiscoveryProvider } from '@/discovery/provider';
+import type { GameTransport } from '@/types/transport';
 
 export function useNearbyRooms(
-  socket: Ref<Socket | null>,
+  transport: Ref<GameTransport | null>,
   room: Ref<Room | null>,
   isHost: Ref<boolean>,
-  providerFactory: (socket: Socket) => RoomDiscoveryProvider = createGeolocationProvider
+  providerFactory: (transport: GameTransport) => RoomDiscoveryProvider = createGeolocationProvider
 ) {
   const enabled = ref(
     typeof localStorage !== 'undefined' ? localStorage.getItem('poolpoker_nearby_enabled') !== 'false' : true
@@ -31,7 +31,7 @@ export function useNearbyRooms(
     return isHost.value && (room.value.status === 'waiting' || room.value.status === 'lobby') ? 'advertise' : null;
   });
   let stop: ReturnType<RoomDiscoveryProvider['start']> | undefined;
-  let ownerSocket: Socket | null = null;
+  let ownerTransport: GameTransport | null = null;
   let ownerRoomCode: string | undefined;
   const cleanup = (retainAdvertisement = false) => {
     stop?.({ retainAdvertisement });
@@ -77,13 +77,13 @@ export function useNearbyRooms(
   };
 
   watch(
-    [socket, enabled, visible, mounted, mode, retryVersion, () => room.value?.code],
+    [transport, enabled, visible, mounted, mode, retryVersion, () => room.value?.code],
     () => {
       const retainAdvertisement =
         enabled.value &&
         !visible.value &&
         mode.value === 'advertise' &&
-        ownerSocket === socket.value &&
+        ownerTransport === transport.value &&
         ownerRoomCode === room.value?.code;
       cleanup(retainAdvertisement);
       if (!enabled.value) {
@@ -94,12 +94,12 @@ export function useNearbyRooms(
         status.value = '已暂停定位';
         return;
       }
-      if (!mounted.value || !socket.value || !mode.value) return;
-      ownerSocket = socket.value;
+      if (!mounted.value || !transport.value || !mode.value) return;
+      ownerTransport = transport.value;
       ownerRoomCode = room.value?.code;
       const forceLocate = retryVersion.value !== appliedRetryVersion;
       appliedRetryVersion = retryVersion.value;
-      stop = providerFactory(socket.value).start(
+      stop = providerFactory(transport.value).start(
         mode.value,
         {
           rooms: (rooms) => {

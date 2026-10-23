@@ -1,9 +1,6 @@
 import type { ServerRoom } from '../shared/types/game';
-import { isActionAuthorized, type RoomActionType, type RoomActor, resolveBleActor } from '../shared/utils/roomRules';
+import type { RoomActor } from '../shared/utils/roomRules';
 import { getRoom, getSocketSession } from './roomManager';
-
-export type { RoomActionType, RoomActor };
-export { isActionAuthorized, resolveBleActor };
 
 export interface HttpAuthCredentials {
   userId?: string;

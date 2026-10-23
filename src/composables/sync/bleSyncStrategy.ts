@@ -1,6 +1,6 @@
 import { CLIENT_TO_SERVER_EVENTS } from '@shared/types/protocol';
 import type { SocketCallbackResponse } from '@shared/types/socket';
-import type { Socket } from 'socket.io-client';
+import type { GameTransport } from '@/types/transport';
 import { showAlert } from '@/utils/dialog';
 import type { GameRoomStrategyContext, GameRoomSyncStrategy, StrategyActionCheck } from './types';
 
@@ -9,7 +9,7 @@ const OFFLINE_FEEDBACK = '房主锁屏离线中，已开启离线记牌（随时
 export class BleOfflineSyncStrategy implements GameRoomSyncStrategy {
   readonly name = 'ble' as const;
 
-  canSendAction(_socket: Socket | null): StrategyActionCheck {
+  canSendAction(_transport: GameTransport | null): StrategyActionCheck {
     // 离线面对面模式支持在断开/锁屏状态下乐观记牌，碰面后自动对齐
     return { allowed: true };
   }
@@ -51,10 +51,10 @@ export class BleOfflineSyncStrategy implements GameRoomSyncStrategy {
     }
   }
 
-  async leaveRoom(socket: Socket | null, roomCode: string): Promise<void> {
+  async leaveRoom(transport: GameTransport | null, roomCode: string): Promise<void> {
     const payload = { roomCode };
-    if (socket) {
-      socket.emit(CLIENT_TO_SERVER_EVENTS.leaveRoom, payload, (res: SocketCallbackResponse) => {
+    if (transport) {
+      transport.emit(CLIENT_TO_SERVER_EVENTS.leaveRoom, payload, (res: SocketCallbackResponse) => {
         if (!res?.success) {
           showAlert(res?.message || '退房未获房主确认，请让房主检查席位');
         }
