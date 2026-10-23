@@ -52,8 +52,14 @@ export class OnlineSyncStrategy implements GameRoomSyncStrategy {
     const savedToken = ctx.getSavedSessionToken();
 
     try {
-      const endpoint = getApiUrl(ctx.serverUrl, `/api/rooms/${savedRoomCode}?userId=${encodeURIComponent(ctx.userId)}`);
-      const res = await smartFetch(endpoint);
+      const tokenQuery = savedToken ? `&sessionToken=${encodeURIComponent(savedToken)}` : '';
+      const endpoint = getApiUrl(
+        ctx.serverUrl,
+        `/api/rooms/${savedRoomCode}?userId=${encodeURIComponent(ctx.userId)}${tokenQuery}`
+      );
+      const res = await smartFetch(endpoint, {
+        headers: savedToken ? { 'x-session-token': savedToken } : undefined,
+      });
       if (res.ok) {
         const data = await res.json();
         // 请求期间用户已退房或切换房间，丢弃这次过期响应
@@ -70,6 +76,8 @@ export class OnlineSyncStrategy implements GameRoomSyncStrategy {
           }
           return data.room;
         }
+      } else if (res.status === 401) {
+        console.warn('[HTTP Sync] 凭证校验未通过');
       } else if (res.status === 404) {
         console.warn('[HTTP Sync] 房间不存在或已解散');
         ctx.clearSavedSession();

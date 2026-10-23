@@ -41,23 +41,9 @@ export function addLog(room: ServerRoom, text: string): void {
   }
 }
 
-// 获取当前房间所有已消除的球号列表 (1 ~ 15，按数字大小升序)
-export function getPocketedBallNumbers(room: ServerRoom): number[] {
-  if (!room?.players) return [];
-  const set = new Set<number>();
-  (room.accidentalBalls || []).forEach((b) => {
-    set.add(b);
-  });
-  (room.breakBalls || []).forEach((b) => {
-    set.add(b);
-  });
-  room.players.forEach((p) => {
-    (p.pocketedCards || []).forEach((c) => {
-      set.add(c.ballNumber);
-    });
-  });
-  return Array.from(set).sort((a, b) => a - b);
-}
+import { getPocketedBallNumbers } from '../shared/utils/roomRules';
+
+export { getPocketedBallNumbers };
 
 // 检查是否有玩家满足胜利条件（手牌中未被打进的有效卡牌数为 0）
 export function checkGameWinners(room: ServerRoom): Player[] {

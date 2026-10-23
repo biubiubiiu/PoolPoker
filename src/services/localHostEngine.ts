@@ -4,7 +4,6 @@
  * 纯 TypeScript 实现，直接在前端宿主环境中运行，复用领域层状态机逻辑。
  */
 
-import { getPocketedBallNumbers } from '../../server/gameEngine';
 import { applyGameRoomCommand, type GameRoomCommand } from '../../server/gameRoomService';
 import {
   BLE_PROTOCOL_VERSION,
@@ -21,6 +20,7 @@ import {
   encodeBleRoomState,
   simpleHash8,
 } from '../../shared/utils/bleCodec';
+import { getPocketedBallNumbers, resolveBleActor, sanitizeRoomState } from '../../shared/utils/roomRules';
 
 export type StateUpdateCallback = (targetUserId: string, stateBytes: Uint8Array, clientRoom: Room) => void;
 
@@ -366,8 +366,11 @@ export class LocalHostEngine {
   /**
    * 执行前端业务指令
    */
-  public executeCommand(command: GameRoomCommand, _actorUserId: string): boolean {
+  public executeCommand(command: GameRoomCommand, actorUserId?: string): boolean {
     if (!this.room) return false;
+    if (actorUserId && !command.actorUserId) {
+      command.actorUserId = actorUserId;
+    }
     const res = handleLocalCommand(this.room, command);
     if (res.changed) {
       this.broadcastAll();
@@ -389,7 +392,10 @@ export class LocalHostEngine {
    */
   public executeAction(action: BleClientAction, senderUserId: string, cardId?: string, targetUserId?: string): boolean {
     if (!this.room) return false;
-    const selfUser = senderUserId;
+    const auth = resolveBleActor(this.room, senderUserId);
+    if (!auth.ok) return false;
+
+    const selfUser = auth.actor.userId;
     const resolvedTargetUser =
       action.targetSeatIndex !== undefined && this.room.players[action.targetSeatIndex]
         ? this.room.players[action.targetSeatIndex].userId
@@ -414,13 +420,13 @@ export class LocalHostEngine {
         command = { type: 'draw_penalty', actorUserId: selfUser };
         break;
       case 4: // ACCIDENTAL_POCKET
-        command = { type: 'accidental_pocket', ballNumber: action.ballNumber ?? 0 };
+        command = { type: 'accidental_pocket', actorUserId: selfUser, ballNumber: action.ballNumber ?? 0 };
         break;
       case 5: // BREAK_POCKET
-        command = { type: 'break_pocket', ballNumber: action.ballNumber ?? 0 };
+        command = { type: 'break_pocket', actorUserId: selfUser, ballNumber: action.ballNumber ?? 0 };
         break;
       case 6: // RETRACT_BALL
-        command = { type: 'retract_ball' };
+        command = { type: 'retract_ball', actorUserId: selfUser };
         break;
       case 7: // RESTART_GAME
         command = { type: 'restart_game', actorUserId: selfUser };
@@ -428,13 +434,14 @@ export class LocalHostEngine {
       case 8: // REFEREE_POCKET
         command = {
           type: 'referee_pocket_ball',
+          actorUserId: selfUser,
           actorSocketId: selfUser === this.room.hostUserId ? `ble_host_${selfUser}` : `ble_${selfUser}`,
           targetUserId: tUser,
           ballNumber: action.ballNumber ?? 0,
         };
         break;
       case 9: // REFEREE_PENALTY
-        command = { type: 'referee_draw_penalty', targetUserId: tUser };
+        command = { type: 'referee_draw_penalty', actorUserId: selfUser, targetUserId: tUser };
         break;
       case 10: // UPDATE_SETTINGS
         command = {
@@ -463,45 +470,7 @@ export class LocalHostEngine {
     if (!this.room) {
       throw new Error('Local room is not initialized');
     }
-    const room = this.room;
-    const pocketedBallNumbers = getPocketedBallNumbers(room);
-    const lastHistoryStep =
-      room.gameHistory && room.gameHistory.length > 1 ? room.gameHistory[room.gameHistory.length - 1] : null;
-    const lastActionText = lastHistoryStep?.actionText || null;
-
-    return {
-      code: room.code,
-      revision: room.revision ?? 0,
-      sceneEvent: room.sceneEvent,
-      hostUserId: room.hostUserId,
-      hostSocketId: room.hostSocketId,
-      settings: room.settings,
-      status: room.status,
-      roundCount: room.roundCount,
-      deckCount: room.deck.length,
-      logs: room.logs.slice(-15),
-      winners: room.winners || [],
-      pocketedBallNumbers,
-      turnOrder: room.turnOrder && room.turnOrder.length > 0 ? room.turnOrder : room.players.map((p) => p.userId),
-      players: room.players.map((p) => {
-        const isSelf = p.userId === userId;
-        return {
-          id: p.id,
-          userId: p.userId,
-          name: p.name,
-          isHost: p.userId === room.hostUserId,
-          online: p.online !== false,
-          cardCount: p.cards.length,
-          cards: isSelf || room.status === 'finished' ? [...p.cards] : [],
-          pocketedCards: [...p.pocketedCards],
-          wins: p.wins || 0,
-          isWinner: p.isWinner || false,
-          totalScore: p.totalScore || 0,
-        };
-      }),
-      lastRoundScores: room.lastRoundScores || [],
-      lastActionText,
-    };
+    return sanitizeRoomState(this.room, userId);
   }
 
   /**

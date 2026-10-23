@@ -241,4 +241,27 @@ describe('LocalHostEngine in Front-end', () => {
     expect(engine.getRawRoom()?.players[1].online).toBe(true);
     expect(engine.getRawRoom()?.players[1].cards).toHaveLength(5);
   });
+
+  it('should reject binary actions and commands from unjoined BLE senders', () => {
+    engine.initRoom('host_user', '老球霸', '8848');
+    engine.addPlayer('guest_1', '挑战者1');
+
+    const startAction = encodeBleAction({
+      version: 1,
+      revision: 1,
+      actionType: BleActionType.START_GAME,
+    });
+    engine.executeBinaryAction(startAction, 'host_user');
+
+    // 陌生未入房 BLE 设备尝试登记进球
+    const pocketAction = encodeBleAction({
+      version: 1,
+      revision: 2,
+      actionType: BleActionType.ACCIDENTAL_POCKET,
+      ballNumber: 5,
+    });
+    const result = engine.executeBinaryAction(pocketAction, 'unjoined_attacker');
+    expect(result).toBe(false);
+    expect(engine.getRawRoom()?.accidentalBalls).not.toContain(5);
+  });
 });

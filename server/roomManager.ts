@@ -2,8 +2,10 @@ import crypto from 'node:crypto';
 import type { Server } from 'socket.io';
 import type { Room, ServerRoom } from '../shared/types/game';
 import { SERVER_TO_CLIENT_EVENTS } from '../shared/types/protocol';
+import { sanitizeRoomState } from '../shared/utils/roomRules';
 import { appConfig } from './config';
-import { getPocketedBallNumbers } from './gameEngine';
+
+export { sanitizeRoomState } from '../shared/utils/roomRules';
 
 export interface SocketSession {
   roomCode: string;
@@ -111,45 +113,7 @@ export function checkAndManageRoomCleanup(roomCode: string, customTimeoutMs?: nu
 export function getClientRoomState(roomCode: string, targetUserId?: string): Room | null {
   const room = getRoom(roomCode);
   if (!room) return null;
-
-  const pocketedBallNumbers = getPocketedBallNumbers(room);
-  const lastHistoryStep =
-    room.gameHistory && room.gameHistory.length > 1 ? room.gameHistory[room.gameHistory.length - 1] : null;
-  const lastActionText = lastHistoryStep?.actionText || null;
-
-  return {
-    code: room.code,
-    revision: room.revision ?? 0,
-    sceneEvent: room.sceneEvent,
-    hostUserId: room.hostUserId,
-    hostSocketId: room.hostSocketId,
-    settings: room.settings,
-    status: room.status,
-    roundCount: room.roundCount,
-    deckCount: room.deck.length,
-    logs: room.logs.slice(-15),
-    winners: room.winners || [],
-    pocketedBallNumbers: pocketedBallNumbers,
-    turnOrder: room.turnOrder || [],
-    players: room.players.map((p) => {
-      const isSelf = targetUserId ? p.userId === targetUserId : false;
-      return {
-        id: p.id,
-        userId: p.userId,
-        name: p.name,
-        isHost: p.userId === room.hostUserId,
-        online: p.online !== false,
-        cardCount: p.cards.length,
-        cards: isSelf || room.status === 'finished' ? p.cards : [],
-        pocketedCards: p.pocketedCards,
-        wins: p.wins || 0,
-        isWinner: p.isWinner || false,
-        totalScore: p.totalScore || 0,
-      };
-    }),
-    lastRoundScores: room.lastRoundScores || [],
-    lastActionText,
-  };
+  return sanitizeRoomState(room, targetUserId);
 }
 
 export function broadcastRoomState(io: Server, roomCode: string): void {

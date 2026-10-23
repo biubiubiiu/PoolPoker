@@ -1,6 +1,7 @@
 import type { ServerRoom } from '../shared/types/game';
 import { cardToIndex } from '../shared/utils/bleCodec';
 import { getRandomUUID } from '../shared/utils/crypto';
+import { isActionAuthorized, type RoomActor } from '../shared/utils/roomRules';
 import {
   addLog,
   checkGameWinners,
@@ -16,15 +17,21 @@ export type GameRoomCommand =
   | { type: 'start_game'; actorUserId: string }
   | { type: 'pocket_ball'; actorUserId: string; cardId: string; ballNumber?: number; cardIndex?: number }
   | { type: 'draw_penalty'; actorUserId: string }
-  | { type: 'accidental_pocket'; ballNumber: number }
-  | { type: 'break_pocket'; ballNumber: number }
-  | { type: 'retract_ball'; expectedRevision?: number }
-  | { type: 'referee_pocket_ball'; actorSocketId?: string; targetUserId: string; ballNumber: number }
-  | { type: 'referee_draw_penalty'; targetUserId: string }
+  | { type: 'accidental_pocket'; actorUserId: string; ballNumber: number }
+  | { type: 'break_pocket'; actorUserId: string; ballNumber: number }
+  | { type: 'retract_ball'; actorUserId: string; expectedRevision?: number }
+  | {
+      type: 'referee_pocket_ball';
+      actorUserId: string;
+      actorSocketId?: string;
+      targetUserId: string;
+      ballNumber: number;
+    }
+  | { type: 'referee_draw_penalty'; actorUserId: string; targetUserId: string }
   | { type: 'restart_game'; actorUserId: string }
   | { type: 'update_settings'; actorUserId: string; cardsPerPlayer?: number }
   | { type: 'kick_player'; actorUserId: string; targetUserId: string }
-  | { type: 'request_restart' };
+  | { type: 'request_restart'; actorUserId: string };
 
 export interface GameRoomCommandResult {
   shouldBroadcast: boolean;
@@ -36,13 +43,25 @@ const BROADCAST_ONLY: GameRoomCommandResult = { shouldBroadcast: true, changed: 
 const CHANGED: GameRoomCommandResult = { shouldBroadcast: true, changed: true };
 
 export function applyGameRoomCommand(room: ServerRoom, command: GameRoomCommand): GameRoomCommandResult {
+  const actor: RoomActor = {
+    userId: command.actorUserId,
+    isHost: command.actorUserId === room.hostUserId,
+    isMember: room.players.some((p) => p.userId === command.actorUserId),
+  };
+
+  const targetUserId = 'targetUserId' in command ? command.targetUserId : undefined;
+
+  if (!isActionAuthorized(room, actor, { type: command.type, targetUserId })) {
+    return NO_BROADCAST;
+  }
+
   if (
     command.type === 'retract_ball' &&
     command.expectedRevision !== undefined &&
     command.expectedRevision !== (room.revision ?? 0)
   )
     return BROADCAST_ONLY;
-  const targetUserId =
+  const eventTargetUserId =
     'targetUserId' in command ? command.targetUserId : 'actorUserId' in command ? command.actorUserId : undefined;
   const ballNumber =
     'ballNumber' in command
@@ -58,7 +77,7 @@ export function applyGameRoomCommand(room: ServerRoom, command: GameRoomCommand)
       id: getRandomUUID(),
       kind: command.type,
       revision: room.revision,
-      targetUserId,
+      targetUserId: eventTargetUserId,
       ballNumber,
     };
   }
@@ -80,7 +99,7 @@ function executeGameRoomCommand(room: ServerRoom, command: GameRoomCommand): Gam
     case 'retract_ball':
       return retractLastStep(room);
     case 'referee_pocket_ball':
-      return refereePocketBall(room, command.actorSocketId || '', command.targetUserId, command.ballNumber);
+      return refereePocketBall(room, command.actorUserId, command.targetUserId, command.ballNumber);
     case 'referee_draw_penalty':
       return refereeDrawPenalty(room, command.targetUserId);
     case 'restart_game':
@@ -238,7 +257,7 @@ function retractLastStep(room: ServerRoom): GameRoomCommandResult {
 
 function refereePocketBall(
   room: ServerRoom,
-  actorSocketId: string,
+  actorUserId: string,
   targetUserId: string,
   ballNumber: number
 ): GameRoomCommandResult {
@@ -252,9 +271,7 @@ function refereePocketBall(
   if (cardIndex !== -1) {
     const [pocketedCard] = targetPlayer.cards.splice(cardIndex, 1);
     targetPlayer.pocketedCards.push(pocketedCard);
-    const refereePlayer = room.players.find(
-      (p) => p.id === actorSocketId || p.userId === actorSocketId.replace(/^ble_(host_)?/, '')
-    );
+    const refereePlayer = room.players.find((p) => p.userId === actorUserId);
     const isSelfAction = refereePlayer && refereePlayer.userId === targetPlayer.userId;
     const actionText = isSelfAction
       ? `🎯 ${targetPlayer.name} 打进 ${pocketedCard.ballNumber}号球，消去卡牌 [${pocketedCard.suit}${pocketedCard.rank}]`

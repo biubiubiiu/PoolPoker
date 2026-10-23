@@ -260,7 +260,7 @@ function updateSettings(socketId: string, payload: UpdateSettingsPayload): RoomL
   if (!room) return NO_CHANGE;
 
   const session = getSocketSession(socketId);
-  if (!session || session.userId !== room.hostUserId) return NO_CHANGE;
+  if (!session || session.roomCode !== roomCode || session.userId !== room.hostUserId) return NO_CHANGE;
 
   const settings: Partial<RoomSettings> = { ...payload.settings };
 

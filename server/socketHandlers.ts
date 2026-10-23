@@ -21,9 +21,10 @@ import type {
 } from '../shared/types/socket';
 import { applyGameRoomCommand } from './gameRoomService';
 import { logSocketDisconnect } from './logger';
+import { resolveSocketActor } from './roomAuth';
 import { roomDiscovery } from './roomDiscovery';
 import { applyRoomLifecycleCommand, type RoomLifecycleResult } from './roomLifecycleService';
-import { broadcastRoomState, getRoom, getSocketSession } from './roomManager';
+import { broadcastRoomState } from './roomManager';
 
 function applyLifecycleResult(io: Server, socket: Socket, result: RoomLifecycleResult): void {
   if (result.socketData?.userName) socket.data.userName = result.socketData.userName;
@@ -122,13 +123,10 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   // 4. 开始游戏 / 发牌
   socket.on(CLIENT_TO_SERVER_EVENTS.startGame, (data: StartGamePayload) => {
     const { roomCode } = data;
-    const room = getRoom(roomCode);
-    if (!room) return;
+    const auth = resolveSocketActor(socket.id, roomCode);
+    if (!auth.ok) return;
 
-    const session = getSocketSession(socket.id);
-    if (!session) return;
-
-    const result = applyGameRoomCommand(room, { type: 'start_game', actorUserId: session.userId });
+    const result = applyGameRoomCommand(auth.room, { type: 'start_game', actorUserId: auth.actor.userId });
     if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
   });
 
@@ -137,16 +135,17 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     CLIENT_TO_SERVER_EVENTS.pocketBall,
     (data: PocketBallPayload, callback?: (result: SocketCallbackResponse) => void) => {
       const { roomCode, cardId } = data;
-      const room = getRoom(roomCode);
-      if (!room || getSocketSession(socket.id)?.roomCode !== roomCode) {
-        callback?.({ success: false, message: '请先加入这个房间' });
+      const auth = resolveSocketActor(socket.id, roomCode);
+      if (!auth.ok) {
+        callback?.({ success: false, message: auth.message });
         return;
       }
 
-      const session = getSocketSession(socket.id);
-      if (!session) return;
-
-      const result = applyGameRoomCommand(room, { type: 'pocket_ball', actorUserId: session.userId, cardId });
+      const result = applyGameRoomCommand(auth.room, {
+        type: 'pocket_ball',
+        actorUserId: auth.actor.userId,
+        cardId,
+      });
       if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
       callback?.({ success: result.changed, message: result.changed ? undefined : '牌局已变化，操作未重复记录' });
     }
@@ -155,38 +154,50 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   // 6. 犯规罚抽牌
   socket.on(CLIENT_TO_SERVER_EVENTS.drawPenalty, (data: DrawPenaltyPayload) => {
     const { roomCode } = data;
-    const room = getRoom(roomCode);
-    if (!room) return;
+    const auth = resolveSocketActor(socket.id, roomCode);
+    if (!auth.ok) return;
 
-    const session = getSocketSession(socket.id);
-    if (!session) return;
-
-    const result = applyGameRoomCommand(room, { type: 'draw_penalty', actorUserId: session.userId });
+    const result = applyGameRoomCommand(auth.room, { type: 'draw_penalty', actorUserId: auth.actor.userId });
     if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
   });
 
   // 7. 误进无关球 / 裁判登记球入袋
-  socket.on(CLIENT_TO_SERVER_EVENTS.accidentalPocket, (data: AccidentalPocketPayload) => {
-    const { roomCode, ballNumber } = data;
-    const room = getRoom(roomCode);
-    if (!room) return;
+  socket.on(
+    CLIENT_TO_SERVER_EVENTS.accidentalPocket,
+    (data: AccidentalPocketPayload, callback?: (result: SocketCallbackResponse) => void) => {
+      const { roomCode, ballNumber } = data;
+      const auth = resolveSocketActor(socket.id, roomCode);
+      if (!auth.ok) {
+        callback?.({ success: false, message: auth.message });
+        return;
+      }
 
-    const result = applyGameRoomCommand(room, { type: 'accidental_pocket', ballNumber });
-    if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
-  });
+      const result = applyGameRoomCommand(auth.room, {
+        type: 'accidental_pocket',
+        actorUserId: auth.actor.userId,
+        ballNumber,
+      });
+      if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
+      callback?.({ success: result.changed, message: result.changed ? undefined : '牌局已变化，操作未重复记录' });
+    }
+  );
 
   // 7.1 开球进球 - 记录场上球入袋，不归入任何玩家手牌
   socket.on(
     CLIENT_TO_SERVER_EVENTS.breakPocket,
     (data: BreakPocketPayload, callback?: (result: SocketCallbackResponse) => void) => {
       const { roomCode, ballNumber } = data;
-      const room = getRoom(roomCode);
-      if (!room || getSocketSession(socket.id)?.roomCode !== roomCode) {
-        callback?.({ success: false, message: '请先加入这个房间' });
+      const auth = resolveSocketActor(socket.id, roomCode);
+      if (!auth.ok) {
+        callback?.({ success: false, message: auth.message });
         return;
       }
 
-      const result = applyGameRoomCommand(room, { type: 'break_pocket', ballNumber });
+      const result = applyGameRoomCommand(auth.room, {
+        type: 'break_pocket',
+        actorUserId: auth.actor.userId,
+        ballNumber,
+      });
       if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
       callback?.({ success: result.changed, message: result.changed ? undefined : '牌局已变化，操作未重复记录' });
     }
@@ -197,13 +208,17 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     CLIENT_TO_SERVER_EVENTS.retractBall,
     (data: RetractBallPayload, callback?: (result: SocketCallbackResponse) => void) => {
       const { roomCode } = data;
-      const room = getRoom(roomCode);
-      if (!room || getSocketSession(socket.id)?.roomCode !== roomCode) {
-        callback?.({ success: false, message: '请先加入这个房间' });
+      const auth = resolveSocketActor(socket.id, roomCode);
+      if (!auth.ok) {
+        callback?.({ success: false, message: auth.message });
         return;
       }
 
-      const result = applyGameRoomCommand(room, { type: 'retract_ball', expectedRevision: data.expectedRevision });
+      const result = applyGameRoomCommand(auth.room, {
+        type: 'retract_ball',
+        actorUserId: auth.actor.userId,
+        expectedRevision: data.expectedRevision,
+      });
       if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
       callback?.({ success: result.changed, message: result.changed ? undefined : '牌局已变化，操作未重复记录' });
     }
@@ -214,14 +229,15 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     CLIENT_TO_SERVER_EVENTS.refereePocketBall,
     (data: RefereePocketBallPayload, callback?: (result: SocketCallbackResponse) => void) => {
       const { roomCode, targetUserId, ballNumber } = data;
-      const room = getRoom(roomCode);
-      if (!room || getSocketSession(socket.id)?.roomCode !== roomCode) {
-        callback?.({ success: false, message: '请先加入这个房间' });
+      const auth = resolveSocketActor(socket.id, roomCode);
+      if (!auth.ok) {
+        callback?.({ success: false, message: auth.message });
         return;
       }
 
-      const result = applyGameRoomCommand(room, {
+      const result = applyGameRoomCommand(auth.room, {
         type: 'referee_pocket_ball',
+        actorUserId: auth.actor.userId,
         actorSocketId: socket.id,
         targetUserId,
         ballNumber,
@@ -236,13 +252,17 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     CLIENT_TO_SERVER_EVENTS.refereeDrawPenalty,
     (data: RefereeDrawPenaltyPayload, callback?: (result: SocketCallbackResponse) => void) => {
       const { roomCode, targetUserId } = data;
-      const room = getRoom(roomCode);
-      if (!room || getSocketSession(socket.id)?.roomCode !== roomCode) {
-        callback?.({ success: false, message: '请先加入这个房间' });
+      const auth = resolveSocketActor(socket.id, roomCode);
+      if (!auth.ok) {
+        callback?.({ success: false, message: auth.message });
         return;
       }
 
-      const result = applyGameRoomCommand(room, { type: 'referee_draw_penalty', targetUserId });
+      const result = applyGameRoomCommand(auth.room, {
+        type: 'referee_draw_penalty',
+        actorUserId: auth.actor.userId,
+        targetUserId,
+      });
       if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
       callback?.({ success: result.changed, message: result.changed ? undefined : '牌局已变化，操作未重复记录' });
     }
@@ -251,31 +271,38 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   // 11. 请求重新开始
   socket.on(CLIENT_TO_SERVER_EVENTS.requestRestart, (data: RequestRestartPayload) => {
     const { roomCode } = data;
-    const room = getRoom(roomCode);
-    if (!room) return;
+    const auth = resolveSocketActor(socket.id, roomCode);
+    if (!auth.ok) return;
 
-    const result = applyGameRoomCommand(room, { type: 'request_restart' });
+    const result = applyGameRoomCommand(auth.room, {
+      type: 'request_restart',
+      actorUserId: auth.actor.userId,
+    });
     if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
   });
 
   // 12. 确认重新开始 / 重置房间
   socket.on(CLIENT_TO_SERVER_EVENTS.confirmRestart, (data: ConfirmRestartPayload) => {
     const { roomCode } = data;
-    const room = getRoom(roomCode);
-    if (!room) return;
-    const session = getSocketSession(socket.id);
-    if (!session) return;
-    const result = applyGameRoomCommand(room, { type: 'restart_game', actorUserId: session.userId });
+    const auth = resolveSocketActor(socket.id, roomCode);
+    if (!auth.ok) return;
+
+    const result = applyGameRoomCommand(auth.room, {
+      type: 'restart_game',
+      actorUserId: auth.actor.userId,
+    });
     if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
   });
 
   socket.on(CLIENT_TO_SERVER_EVENTS.restartGame, (data: RestartGamePayload) => {
     const { roomCode } = data;
-    const room = getRoom(roomCode);
-    if (!room) return;
-    const session = getSocketSession(socket.id);
-    if (!session) return;
-    const result = applyGameRoomCommand(room, { type: 'restart_game', actorUserId: session.userId });
+    const auth = resolveSocketActor(socket.id, roomCode);
+    if (!auth.ok) return;
+
+    const result = applyGameRoomCommand(auth.room, {
+      type: 'restart_game',
+      actorUserId: auth.actor.userId,
+    });
     if (result.shouldBroadcast) broadcastRoomState(io, roomCode);
   });
 

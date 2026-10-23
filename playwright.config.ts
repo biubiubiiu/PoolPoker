@@ -6,7 +6,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
-  reporter: 'html',
+  reporter: [['html', { open: 'never' }], ['list']],
   use: {
     baseURL: 'http://127.0.0.1:3000',
     trace: 'on-first-retry',
@@ -22,6 +22,10 @@ export default defineConfig({
     url: 'http://127.0.0.1:3000',
     reuseExistingServer: true,
     timeout: 120000,
+    gracefulShutdown: {
+      signal: 'SIGTERM',
+      timeout: 2000,
+    },
     env: {
       PLAYWRIGHT_TEST: 'true',
       DISABLE_WECOM_PUSH: 'true',

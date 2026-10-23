@@ -1,35 +1,18 @@
-import fs from 'node:fs';
 import http from 'node:http';
-import path from 'node:path';
-import express, { type NextFunction, type Request, type Response } from 'express';
 import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '../shared/types/socket';
-import { appConfig, rootDir } from './config';
+import { createApp } from './app';
+import { appConfig } from './config';
 import { startDiscoveryBroadcast } from './discoveryBroadcast';
 import { handleSystemCrash, initHookSystem } from './hook/eventBus';
-import { hookRouter } from './hook/routes';
 import { logSocketConnect } from './logger';
-import { getClientRoomState } from './roomManager';
 import { registerSocketHandlers } from './socketHandlers';
-import { isWecomPushDisabled, setWecomPushDisabled } from './wecomWebhook';
 
 // 挂载游戏引擎的 Hook 事件分发器与结算事件监听器
 initHookSystem();
 
-const app = express();
+const app = createApp();
 const server = http.createServer(app);
-
-app.use((_req: Request, res: Response, next: NextFunction) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  if (_req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-  next();
-});
-
-app.use(express.json());
 
 const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, {
   cors: {
@@ -39,58 +22,6 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, {
   pingTimeout: 10000,
   pingInterval: 5000,
 });
-
-app.get('/api/rooms/:code', (req: Request, res: Response) => {
-  const roomCode = Array.isArray(req.params.code) ? req.params.code[0] : req.params.code;
-  const userId = req.query.userId as string | undefined;
-
-  const clientRoom = getClientRoomState(roomCode, userId);
-  if (!clientRoom) {
-    return res.status(404).json({ success: false, message: '房间不存在' });
-  }
-
-  res.json({ success: true, room: clientRoom });
-});
-
-// 机器人 Webhook 与 Hook 路由
-app.use(hookRouter);
-
-// 企微机器人推送开关 (供 E2E 测试或动态关停调用)
-app.get('/api/wecom-push/status', (_req: Request, res: Response) => {
-  res.json({ success: true, disabled: isWecomPushDisabled() });
-});
-
-app.post('/api/wecom-push/toggle', (req: Request, res: Response) => {
-  const disabled = req.body?.disabled;
-  if (typeof disabled === 'boolean') {
-    setWecomPushDisabled(disabled);
-  }
-  res.json({ success: true, disabled: isWecomPushDisabled() });
-});
-
-// 追分 / 大金玩法记分板页面（独立路由，独立于 SPA）
-app.get(['/break_and_run', '/break_and_run.html'], (_req: Request, res: Response) => {
-  const distBreakAndRun = path.join(rootDir, 'dist', 'break_and_run.html');
-  const publicBreakAndRun = path.join(rootDir, 'public', 'break_and_run.html');
-  const target = fs.existsSync(distBreakAndRun) ? distBreakAndRun : publicBreakAndRun;
-  if (fs.existsSync(target)) {
-    res.sendFile(target);
-  } else {
-    res.status(404).send('页面不存在');
-  }
-});
-
-// 托管静态资源目录（优先托管打包出来的 dist 目录）
-const distDir = path.join(rootDir, 'dist');
-if (fs.existsSync(distDir)) {
-  app.use(express.static(distDir));
-  app.get('*', (req: Request, res: Response, next: NextFunction) => {
-    if (req.url.startsWith('/socket.io') || req.url.startsWith('/api/')) return next();
-    res.sendFile(path.join(distDir, 'index.html'));
-  });
-} else {
-  console.warn('⚠️ 注意: 未发现 dist 构建目录，请先运行 `pnpm run build` 进行项目构建。');
-}
 
 const stopDiscoveryBroadcast = startDiscoveryBroadcast(io);
 server.on('close', stopDiscoveryBroadcast);
@@ -118,6 +49,16 @@ async function handleCrash(error: unknown, type: string) {
 
 process.on('uncaughtException', (err) => handleCrash(err, 'uncaughtException'));
 process.on('unhandledRejection', (reason) => handleCrash(reason, 'unhandledRejection'));
+
+const shutdown = () => {
+  stopDiscoveryBroadcast();
+  server.close(() => {
+    process.exit(0);
+  });
+  setTimeout(() => process.exit(0), 1500).unref();
+};
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
 
 server.listen(appConfig.port, () => {
   console.log('=================================');

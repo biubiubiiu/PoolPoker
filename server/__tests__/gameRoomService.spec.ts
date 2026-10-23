@@ -155,7 +155,7 @@ describe('gameRoomService', () => {
     recordGameStep(room);
     applyGameRoomCommand(room, { type: 'pocket_ball', actorUserId: 'user-1', cardId: 'c1' });
 
-    const result = applyGameRoomCommand(room, { type: 'retract_ball' });
+    const result = applyGameRoomCommand(room, { type: 'retract_ball', actorUserId: 'user-1' });
 
     expect(result).toEqual({ shouldBroadcast: true, changed: true });
     expect(room.players[0].cards).toEqual([card1, card2]);
@@ -188,11 +188,16 @@ describe('gameRoomService', () => {
 
     const fallback = applyGameRoomCommand(room, {
       type: 'referee_pocket_ball',
+      actorUserId: 'user-1',
       actorSocketId: 'socket-1',
       targetUserId: 'user-2',
       ballNumber: 8,
     });
-    const penalty = applyGameRoomCommand(room, { type: 'referee_draw_penalty', targetUserId: 'user-2' });
+    const penalty = applyGameRoomCommand(room, {
+      type: 'referee_draw_penalty',
+      actorUserId: 'user-1',
+      targetUserId: 'user-2',
+    });
 
     expect(fallback).toEqual({ shouldBroadcast: true, changed: true });
     expect(room.accidentalBalls).toEqual([8]);
@@ -228,6 +233,7 @@ describe('v2 confirmed table events', () => {
     recordGameStep(room);
     const command = {
       type: 'referee_pocket_ball' as const,
+      actorUserId: 'user-1',
       actorSocketId: 'socket-1',
       targetUserId: 'user-1',
       ballNumber: 4,
@@ -250,9 +256,13 @@ describe('v2 confirmed table events', () => {
     recordGameStep(room);
     applyGameRoomCommand(room, { type: 'pocket_ball', actorUserId: 'user-1', cardId: 'four-a' });
     const firstId = room.sceneEvent?.id;
-    expect(applyGameRoomCommand(room, { type: 'retract_ball', expectedRevision: 0 }).changed).toBe(false);
+    expect(
+      applyGameRoomCommand(room, { type: 'retract_ball', actorUserId: 'user-1', expectedRevision: 0 }).changed
+    ).toBe(false);
     expect(room.players[0].cards).toHaveLength(2);
-    expect(applyGameRoomCommand(room, { type: 'retract_ball', expectedRevision: 1 }).changed).toBe(true);
+    expect(
+      applyGameRoomCommand(room, { type: 'retract_ball', actorUserId: 'user-1', expectedRevision: 1 }).changed
+    ).toBe(true);
     expect(room.revision).toBe(2);
     expect(room.sceneEvent?.id).not.toBe(firstId);
     expect(room.players[0].cards).toHaveLength(3);
@@ -317,7 +327,7 @@ describe('v2 public presentation projection', () => {
       expect(view?.players[1].cards).toEqual([]);
       expect(view?.players[1].cardCount).toBe(2);
       expect(view?.sceneEvent?.ballNumber).toBe(4);
-      applyGameRoomCommand(room, { type: 'referee_draw_penalty', targetUserId: 'user-2' });
+      applyGameRoomCommand(room, { type: 'referee_draw_penalty', actorUserId: 'user-1', targetUserId: 'user-2' });
       const afterPenalty = getClientRoomState(room.code, 'user-1');
       expect(afterPenalty?.sceneEvent?.targetUserId).toBe('user-2');
       expect(afterPenalty?.sceneEvent?.ballNumber).toBeUndefined();
@@ -325,5 +335,37 @@ describe('v2 public presentation projection', () => {
     } finally {
       removeRoom(room.code);
     }
+  });
+});
+
+describe('gameRoomService unified permission enforcement', () => {
+  it('rejects commands from non-members', () => {
+    const room = createRoom({
+      status: 'playing',
+      players: [createPlayer({ userId: 'user-1', isHost: true }), createPlayer({ userId: 'user-2', isHost: false })],
+    });
+
+    const res = applyGameRoomCommand(room, {
+      type: 'accidental_pocket',
+      actorUserId: 'attacker',
+      ballNumber: 5,
+    });
+    expect(res).toEqual({ shouldBroadcast: false, changed: false });
+    expect(room.accidentalBalls).not.toContain(5);
+  });
+
+  it('rejects host-only commands from guest members', () => {
+    const room = createRoom({
+      status: 'waiting',
+      players: [createPlayer({ userId: 'user-1', isHost: true }), createPlayer({ userId: 'user-2', isHost: false })],
+    });
+
+    const res = applyGameRoomCommand(room, {
+      type: 'update_settings',
+      actorUserId: 'user-2',
+      cardsPerPlayer: 7,
+    });
+    expect(res).toEqual({ shouldBroadcast: false, changed: false });
+    expect(room.settings.cardsPerPlayer).toBe(2);
   });
 });
