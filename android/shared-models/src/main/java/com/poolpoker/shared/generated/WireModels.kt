@@ -42,6 +42,79 @@ enum class DiscoverySource(val value: String) {
 }
 
 @Serializable
+enum class PresetTemplateId(val value: String) {
+    @SerialName("preset_classic_text") PRESET_CLASSIC_TEXT("preset_classic_text"),
+    @SerialName("preset_game_start_text") PRESET_GAME_START_TEXT("preset_game_start_text"),
+    @SerialName("preset_system_crash_text") PRESET_SYSTEM_CRASH_TEXT("preset_system_crash_text");
+}
+
+@Serializable
+data class RobotConfig (
+    val destinations: List<HookDestination>,
+    val rules: List<HookRule>,
+    val version: Int
+) {
+    companion object
+}
+
+@Serializable
+data class HookDestination (
+    val id: String,
+    val mentionedList: List<String>? = null,
+    val name: String,
+    val type: HookDestinationType,
+    val url: String
+) {
+    companion object
+}
+
+@Serializable
+enum class HookDestinationType(val value: String) {
+    @SerialName("wecom") WECOM("wecom");
+}
+
+@Serializable
+data class HookRule (
+    val actionType: HookActionType? = null,
+    val customTemplate: String? = null,
+    val destinationId: String? = null,
+    val enabled: Boolean,
+    val eventType: GameHookEventType,
+    val id: String,
+    val msgType: HookMessageType,
+    val name: String? = null,
+    val templateType: HookTemplateType
+) {
+    companion object
+}
+
+@Serializable
+enum class HookActionType(val value: String) {
+    @SerialName("send_wecom") SEND_WECOM("send_wecom");
+}
+
+@Serializable
+enum class GameHookEventType(val value: String) {
+    @SerialName("game_round_finished") GAME_ROUND_FINISHED("game_round_finished"),
+    @SerialName("game_start") GAME_START("game_start"),
+    @SerialName("system_crash") SYSTEM_CRASH("system_crash");
+}
+
+@Serializable
+enum class HookMessageType(val value: String) {
+    @SerialName("markdown") MARKDOWN("markdown"),
+    @SerialName("text") TEXT("text");
+}
+
+@Serializable
+enum class HookTemplateType(val value: String) {
+    @SerialName("custom") CUSTOM("custom"),
+    @SerialName("preset_classic_text") PRESET_CLASSIC_TEXT("preset_classic_text"),
+    @SerialName("preset_game_start_text") PRESET_GAME_START_TEXT("preset_game_start_text"),
+    @SerialName("preset_system_crash_text") PRESET_SYSTEM_CRASH_TEXT("preset_system_crash_text");
+}
+
+@Serializable
 data class Room (
     val code: String,
     val currentTurnIndex: Int? = null,

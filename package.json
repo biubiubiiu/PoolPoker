@@ -54,13 +54,16 @@
     "@tauri-apps/plugin-dialog": "~2.8.3",
     "@tauri-apps/plugin-http": "~2.8.3",
     "@types/three": "^0.185.4",
+    "ajv": "^8.20.0",
     "canvas-confetti": "^1.9.4",
     "express": "^4.19.2",
+    "handlebars": "^4.7.10",
     "js-yaml": "^4.1.0",
     "socket.io": "^4.7.5",
     "socket.io-client": "^4.8.3",
     "three": "^0.185.1",
-    "vue": "^3.5.41"
+    "vue": "^3.5.41",
+    "vue-router": "^5.4.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.9",

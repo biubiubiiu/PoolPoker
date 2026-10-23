@@ -6,19 +6,15 @@ import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '../shared/types/socket';
 import { appConfig, rootDir } from './config';
 import { startDiscoveryBroadcast } from './discoveryBroadcast';
-import { setRoundFinishedNotifier } from './gameEngine';
+import { handleSystemCrash, initHookSystem } from './hook/eventBus';
+import { hookRouter } from './hook/routes';
 import { logSocketConnect } from './logger';
-import { getRobotWebhookUrl, setRobotWebhookUrl } from './robotConfig';
 import { getClientRoomState } from './roomManager';
 import { registerSocketHandlers } from './socketHandlers';
-import {
-  isWecomPushDisabled,
-  sendCrashReportToWecom,
-  sendRoundResultToWecom,
-  setWecomPushDisabled,
-} from './wecomWebhook';
+import { isWecomPushDisabled, setWecomPushDisabled } from './wecomWebhook';
 
-setRoundFinishedNotifier(sendRoundResultToWecom);
+// 挂载游戏引擎的 Hook 事件分发器与结算事件监听器
+initHookSystem();
 
 const app = express();
 const server = http.createServer(app);
@@ -56,16 +52,8 @@ app.get('/api/rooms/:code', (req: Request, res: Response) => {
   res.json({ success: true, room: clientRoom });
 });
 
-// 机器人 Webhook 链接：内存读取 / 设置（由 /enter_robot 页面调用）
-app.get('/api/robot-url', (_req: Request, res: Response) => {
-  res.json({ success: true, url: getRobotWebhookUrl() });
-});
-
-app.post('/api/robot-url', (req: Request, res: Response) => {
-  const url = typeof req.body?.url === 'string' ? req.body.url.trim() : '';
-  setRobotWebhookUrl(url);
-  res.json({ success: true, url: getRobotWebhookUrl() });
-});
+// 机器人 Webhook 与 Hook 路由
+app.use(hookRouter);
 
 // 企微机器人推送开关 (供 E2E 测试或动态关停调用)
 app.get('/api/wecom-push/status', (_req: Request, res: Response) => {
@@ -78,16 +66,6 @@ app.post('/api/wecom-push/toggle', (req: Request, res: Response) => {
     setWecomPushDisabled(disabled);
   }
   res.json({ success: true, disabled: isWecomPushDisabled() });
-});
-
-// 机器人链接设置页面（独立路由，独立于 SPA）
-const enterRobotPage = path.join(rootDir, 'public', 'enter_robot.html');
-app.get('/enter_robot', (_req: Request, res: Response) => {
-  if (fs.existsSync(enterRobotPage)) {
-    res.sendFile(enterRobotPage);
-  } else {
-    res.status(404).send('页面不存在');
-  }
 });
 
 // 追分 / 大金玩法记分板页面（独立路由，独立于 SPA）
@@ -130,7 +108,7 @@ async function handleCrash(error: unknown, type: string) {
   isCrashing = true;
 
   try {
-    await Promise.race([sendCrashReportToWecom(error, type), new Promise((resolve) => setTimeout(resolve, 3000))]);
+    await Promise.race([handleSystemCrash(error, type), new Promise((resolve) => setTimeout(resolve, 3000))]);
   } catch (err) {
     console.error('❌ 推送崩溃告警失败:', err);
   } finally {

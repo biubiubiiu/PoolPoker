@@ -1,6 +1,15 @@
 import type { Card, Player, RoundScoreEntry, ServerRoom } from '../shared/types/game';
 import { getRandomHex } from '../shared/utils/crypto';
+import { createRoundFinishedPayload } from './hook/snapshot';
+import type { GameHookEvent } from './hook/types';
 import { shuffle } from './pokerDeck';
+
+export type HookEventDispatcher = (event: GameHookEvent) => void;
+let hookEventDispatcher: HookEventDispatcher | null = null;
+
+export function setHookEventDispatcher(dispatcher: HookEventDispatcher | null): void {
+  hookEventDispatcher = dispatcher;
+}
 
 export type RoundFinishedNotifier = (room: ServerRoom) => void;
 let roundFinishedNotifier: RoundFinishedNotifier | null = null;
@@ -166,9 +175,58 @@ export function handleGameFinished(room: ServerRoom, winners: Player[], actionPl
     .join('，');
   addLog(room, `📊 本局积分结算：${scoreLines}`);
 
-  // 每局胜利结算完成后，触发通知回调（如企业微信机器人）
+  // 触发 Hook 事件总线 (带脱敏不可变快照，强异常隔离)
+  if (hookEventDispatcher) {
+    try {
+      const payload = createRoundFinishedPayload(room);
+      hookEventDispatcher({
+        id: `evt_${Date.now()}_${getRandomHex(3)}`,
+        type: 'game_round_finished',
+        timestamp: Date.now(),
+        payload,
+      });
+    } catch (err) {
+      console.warn(`⚠️ [GameEngine] 构造或发射 Hook 事件失败: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // 每局胜利结算完成后，触发旧版通知回调 (若外部有显式注册，保持向下兼容)
   if (roundFinishedNotifier) {
     roundFinishedNotifier(room);
+  }
+}
+
+export function handleGameStarted(room: ServerRoom): void {
+  if (hookEventDispatcher) {
+    try {
+      const shooterUserId = room.turnOrder?.[0];
+      const shooterPlayer = room.players.find((p) => p.userId === shooterUserId) || room.players[0];
+      const shooter = {
+        userId: shooterPlayer?.userId || '',
+        name: shooterPlayer?.name || '未知玩家',
+      };
+      const count = room.settings.cardsPerPlayer || 5;
+
+      hookEventDispatcher({
+        id: `evt_${Date.now()}_${getRandomHex(3)}`,
+        type: 'game_start',
+        timestamp: Date.now(),
+        payload: {
+          roomCode: room.code,
+          roundNumber: room.roundCount,
+          revision: typeof room.revision === 'number' ? room.revision : Date.now(),
+          cardsPerPlayer: count,
+          playerCount: room.players.length,
+          players: room.players.map((p) => ({ userId: p.userId, name: p.name })),
+          shooter,
+          timestamp: Date.now(),
+        },
+      });
+    } catch (err) {
+      console.warn(
+        `⚠️ [GameEngine] 构造或发射 game_start Hook 事件失败: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
   }
 }
 

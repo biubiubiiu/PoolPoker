@@ -1,7 +1,14 @@
 import type { ServerRoom } from '../shared/types/game';
 import { cardToIndex } from '../shared/utils/bleCodec';
 import { getRandomUUID } from '../shared/utils/crypto';
-import { addLog, checkGameWinners, computeTurnOrder, getPocketedBallNumbers, handleGameFinished } from './gameEngine';
+import {
+  addLog,
+  checkGameWinners,
+  computeTurnOrder,
+  getPocketedBallNumbers,
+  handleGameFinished,
+  handleGameStarted,
+} from './gameEngine';
 import { recordGameStep, undoGameStep } from './gameState';
 import { create54PokerDeck, shuffle } from './pokerDeck';
 
@@ -134,6 +141,7 @@ function startGame(room: ServerRoom, actorUserId: string): GameRoomCommandResult
   recordGameStep(room);
 
   addLog(room, `🎮 第 ${room.roundCount} 局游戏正式开始！每位玩家发牌 ${count} 张`);
+  handleGameStarted(room);
   return CHANGED;
 }
 

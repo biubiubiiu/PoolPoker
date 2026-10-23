@@ -20,6 +20,44 @@ export interface NearbyRoom {
 
 export type DiscoverySource = 'geolocation' | 'bluetooth';
 
+export type PresetTemplateId = 'preset_classic_text' | 'preset_game_start_text' | 'preset_system_crash_text';
+
+export interface RobotConfig {
+  destinations: HookDestination[];
+  rules: HookRule[];
+  version: number;
+}
+
+export interface HookDestination {
+  id: string;
+  mentionedList?: string[];
+  name: string;
+  type: HookDestinationType;
+  url: string;
+}
+
+export type HookDestinationType = 'wecom';
+
+export interface HookRule {
+  actionType?: HookActionType;
+  customTemplate?: string;
+  destinationId?: string;
+  enabled: boolean;
+  eventType: GameHookEventType;
+  id: string;
+  msgType: HookMessageType;
+  name?: string;
+  templateType: HookTemplateType;
+}
+
+export type HookActionType = 'send_wecom';
+
+export type GameHookEventType = 'game_start' | 'game_round_finished' | 'system_crash';
+
+export type HookMessageType = 'text' | 'markdown';
+
+export type HookTemplateType = 'preset_classic_text' | 'preset_game_start_text' | 'preset_system_crash_text' | 'custom';
+
 export interface Room {
   code: string;
   currentTurnIndex?: number;

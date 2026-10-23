@@ -46,6 +46,93 @@ enum DiscoverySource: String, Codable {
     case geolocation = "geolocation"
 }
 
+enum PresetTemplateId: String, Codable {
+    case presetClassicText = "preset_classic_text"
+    case presetGameStartText = "preset_game_start_text"
+    case presetSystemCrashText = "preset_system_crash_text"
+}
+
+// MARK: - RobotConfig
+struct RobotConfig: Codable {
+    var destinations: [HookDestination]
+    var rules: [HookRule]
+    var version: Int
+
+    enum CodingKeys: String, CodingKey {
+        case destinations = "destinations"
+        case rules = "rules"
+        case version = "version"
+    }
+}
+
+// MARK: - HookDestination
+struct HookDestination: Codable {
+    var id: String
+    var mentionedList: [String]?
+    var name: String
+    var type: HookDestinationType
+    var url: String
+
+    enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case mentionedList = "mentionedList"
+        case name = "name"
+        case type = "type"
+        case url = "url"
+    }
+}
+
+enum HookDestinationType: String, Codable {
+    case wecom = "wecom"
+}
+
+// MARK: - HookRule
+struct HookRule: Codable {
+    var actionType: HookActionType?
+    var customTemplate: String?
+    var destinationId: String?
+    var enabled: Bool
+    var eventType: GameHookEventType
+    var id: String
+    var msgType: HookMessageType
+    var name: String?
+    var templateType: HookTemplateType
+
+    enum CodingKeys: String, CodingKey {
+        case actionType = "actionType"
+        case customTemplate = "customTemplate"
+        case destinationId = "destinationId"
+        case enabled = "enabled"
+        case eventType = "eventType"
+        case id = "id"
+        case msgType = "msgType"
+        case name = "name"
+        case templateType = "templateType"
+    }
+}
+
+enum HookActionType: String, Codable {
+    case sendWecom = "send_wecom"
+}
+
+enum GameHookEventType: String, Codable {
+    case gameRoundFinished = "game_round_finished"
+    case gameStart = "game_start"
+    case systemCrash = "system_crash"
+}
+
+enum HookMessageType: String, Codable {
+    case markdown = "markdown"
+    case text = "text"
+}
+
+enum HookTemplateType: String, Codable {
+    case custom = "custom"
+    case presetClassicText = "preset_classic_text"
+    case presetGameStartText = "preset_game_start_text"
+    case presetSystemCrashText = "preset_system_crash_text"
+}
+
 // MARK: - Room
 struct Room: Codable {
     var code: String

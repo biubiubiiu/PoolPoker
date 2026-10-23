@@ -30,6 +30,8 @@ Thumbs.db
 .env
 .env.local
 .robot_url
+.robot_config.json
+.robot_config.json*
 .vscode/
 .idea/
 *.iml

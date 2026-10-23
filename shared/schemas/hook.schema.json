@@ -1,0 +1,116 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://poolpoker.app/schemas/hook.schema.json",
+  "title": "HookSchemaGroup",
+  "definitions": {
+    "GameHookEventType": {
+      "type": "string",
+      "enum": ["game_start", "game_round_finished", "system_crash"]
+    },
+    "HookActionType": {
+      "type": "string",
+      "enum": ["send_wecom"]
+    },
+    "PresetTemplateId": {
+      "type": "string",
+      "enum": ["preset_classic_text", "preset_game_start_text", "preset_system_crash_text"]
+    },
+    "HookDestination": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "HookDestinationType"
+        },
+        "url": {
+          "type": "string"
+        },
+        "mentionedList": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": ["id", "name", "type", "url"],
+      "additionalProperties": false
+    },
+    "HookRule": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "eventType": {
+          "$ref": "GameHookEventType"
+        },
+        "actionType": {
+          "$ref": "HookActionType"
+        },
+        "destinationId": {
+          "type": "string"
+        },
+        "templateType": {
+          "$ref": "HookTemplateType"
+        },
+        "customTemplate": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "msgType": {
+          "$ref": "HookMessageType"
+        }
+      },
+      "required": ["id", "enabled", "eventType", "templateType", "msgType"],
+      "additionalProperties": false
+    },
+    "RobotConfig": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "integer",
+          "enum": [1]
+        },
+        "destinations": {
+          "type": "array",
+          "items": {
+            "$ref": "HookDestination"
+          }
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "$ref": "HookRule"
+          }
+        }
+      },
+      "required": ["version", "destinations", "rules"],
+      "additionalProperties": false
+    },
+    "HookDestinationType": {
+      "type": "string",
+      "enum": ["wecom"]
+    },
+    "HookMessageType": {
+      "type": "string",
+      "enum": ["text", "markdown"]
+    },
+    "HookTemplateType": {
+      "type": "string",
+      "enum": ["preset_classic_text", "preset_game_start_text", "preset_system_crash_text", "custom"]
+    }
+  }
+}
