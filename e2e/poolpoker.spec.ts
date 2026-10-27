@@ -83,6 +83,21 @@ test.describe('PoolPoker (球霸扑克) Comprehensive Integration Test Suite', (
     const backBtn = page.locator('button:has-text("返回大厅")');
     await backBtn.click();
     await expect(page.locator('h1:has-text("PoolPoker · 球霸扑克")')).toBeVisible();
+
+    // 验证离线模式选中时隐藏「设置服务地址」入口
+    const modeBtn = page.locator('button:has-text("在线模式")');
+    await expect(modeBtn).toBeVisible();
+    await expect(settingsBtn).toBeVisible();
+
+    // 切换至离线模式，设置服务地址入口应隐藏
+    await modeBtn.click();
+    await expect(page.locator('button:has-text("离线模式")')).toBeVisible();
+    await expect(settingsBtn).toBeHidden();
+
+    // 切回在线模式，设置服务地址入口应恢复显示
+    await page.locator('button:has-text("离线模式")').click();
+    await expect(page.locator('button:has-text("在线模式")')).toBeVisible();
+    await expect(settingsBtn).toBeVisible();
   });
 
   test('1.2 Game Entry UI Switch: Default Off on Web, Default On on Tauri, Persistence & UI Toggle', async ({

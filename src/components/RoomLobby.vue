@@ -87,6 +87,15 @@ watch(
   { immediate: true }
 );
 
+watch(
+  () => props.isBleOfflineMode,
+  (isBle) => {
+    if (isBle && currentView.value === 'settings') {
+      currentView.value = 'lobby';
+    }
+  }
+);
+
 onUnmounted(() => {
   bleScanner.stop();
 });
@@ -270,8 +279,8 @@ const onJoin = async (customCode?: string, deviceId?: string) => {
         <span>追分记分器</span>
       </a>
 
-      <!-- 右上角设置按钮 (仅在 Tauri 环境或已有自定义配置时显示) -->
-      <button v-if="isTauriEnv || props.serverUrl" @click="currentView = 'settings'" 
+      <!-- 右上角设置按钮 (仅在 Tauri 环境或已有自定义配置且非离线模式时显示) -->
+      <button v-if="(isTauriEnv || props.serverUrl) && !props.isBleOfflineMode" @click="currentView = 'settings'" 
               class="px-3 py-1.5 bg-black/40 hover:bg-black/60 border border-white/10 hover:border-amber-400/50 rounded-xl text-xs text-gray-300 hover:text-amber-300 font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-lg">
         <i class="fa-solid fa-gear text-amber-400"></i>
         <span>设置服务地址</span>
@@ -407,7 +416,7 @@ const onJoin = async (customCode?: string, deviceId?: string) => {
               ></div>
             </div>
           </label>
-          <button v-if="isTauriEnv || props.serverUrl"
+          <button v-if="(isTauriEnv || props.serverUrl) && !props.isBleOfflineMode"
                   @click="currentView = 'settings'" 
                   title="设置服务地址"
                   class="px-2 py-0.5 bg-black/40 hover:bg-black/60 border border-white/10 hover:border-amber-400/50 rounded-lg text-xs text-gray-300 hover:text-amber-300 flex items-center gap-1 transition active:scale-95 cursor-pointer">
