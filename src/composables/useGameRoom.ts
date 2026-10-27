@@ -564,6 +564,8 @@ export function useGameRoom(options: UseGameRoomOptions) {
   };
 
   // 7. 记录进球与记录犯规打开与确认（默认选中当前玩家自己）
+  const isBleOfflineMode = computed(() => activeStrategy.value.name === 'ble');
+
   const openRefereePocket = (targetUserId?: string, ballNum?: number) => {
     refereeTargetUserId.value = targetUserId || currentShooter.value?.userId || userId.value;
     refereeSelectedBallNum.value = ballNum ?? null;
@@ -571,7 +573,12 @@ export function useGameRoom(options: UseGameRoomOptions) {
   };
 
   const openRefereeFoul = (targetUserId?: string) => {
-    refereeTargetUserId.value = targetUserId || currentShooter.value?.userId || userId.value;
+    // 本地离线模式下限制：只允许给自己记牌，锁定为本人 userId
+    if (isBleOfflineMode.value) {
+      refereeTargetUserId.value = userId.value;
+    } else {
+      refereeTargetUserId.value = targetUserId || currentShooter.value?.userId || userId.value;
+    }
     showRefereeFoulModal.value = true;
   };
 
@@ -594,6 +601,11 @@ export function useGameRoom(options: UseGameRoomOptions) {
 
   const handleRefereeFoulConfirm = (targetUserId: string) => {
     if (!room.value) return;
+    // 本地离线模式下限制：只允许给自己记牌，不允许给他人记牌
+    if (isBleOfflineMode.value && targetUserId !== userId.value) {
+      showAlert('本地模式下仅允许为自己记录犯规');
+      return;
+    }
     sendAction(CLIENT_TO_SERVER_EVENTS.refereeDrawPenalty, {
       targetUserId,
     });

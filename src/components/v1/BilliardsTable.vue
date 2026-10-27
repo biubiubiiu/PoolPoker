@@ -6,6 +6,7 @@ const props = defineProps<{
   room: Room;
   userId: string;
   turnOrderPlayers: Player[];
+  isBleOfflineMode?: boolean;
 }>();
 
 const getBallClass = (ballNum: number) => {
@@ -134,7 +135,8 @@ const emit = defineEmits<{
                       class="bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-600/50 px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-0.5 active:scale-95 cursor-pointer">
                 <i class="fa-solid fa-gavel"></i> 进球
               </button>
-              <button @click="emit('open-referee-foul', p.userId)"
+              <button v-if="!props.isBleOfflineMode || p.userId === userId"
+                      @click="emit('open-referee-foul', p.userId)"
                       title="记录该玩家犯规"
                       class="bg-red-950/80 hover:bg-red-900 text-red-300 border border-red-700/50 px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-0.5 active:scale-95 cursor-pointer">
                 <i class="fa-solid fa-triangle-exclamation text-amber-400"></i> 犯规

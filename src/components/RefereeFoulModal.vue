@@ -6,6 +6,7 @@ const props = defineProps<{
   show: boolean;
   players: Player[];
   defaultUserId?: string;
+  lockedUserId?: string;
 }>();
 
 const emit = defineEmits<{
@@ -21,21 +22,20 @@ watch(
     if (newShow) {
       if (newDefaultUser && props.players.some((p) => p.userId === newDefaultUser)) {
         selectedUserId.value = newDefaultUser;
-      } else if (props.players.length > 0) {
-        selectedUserId.value = props.players[0].userId;
+      } else {
+        selectedUserId.value = props.players[0]?.userId ?? '';
       }
     }
   },
   { immediate: true }
 );
 
-const targetPlayer = computed(() => {
-  return props.players.find((p) => p.userId === selectedUserId.value) || null;
-});
+const targetUserId = computed(() => props.lockedUserId ?? selectedUserId.value);
+const targetPlayer = computed(() => props.players.find((p) => p.userId === targetUserId.value) ?? null);
 
 const onConfirm = () => {
-  if (selectedUserId.value) {
-    emit('confirm', selectedUserId.value);
+  if (targetPlayer.value) {
+    emit('confirm', targetPlayer.value.userId);
   }
 };
 </script>
@@ -55,11 +55,11 @@ const onConfirm = () => {
       </div>
 
       <p class="text-xs text-gray-300 text-left leading-relaxed">
-        请选择犯规的玩家，确认后将为其从牌库自动<b>罚抽 1 张扑克牌</b>：
+        {{ lockedUserId ? '确认记录犯规后' : '请选择犯规的玩家，确认后' }}将为其从牌库自动<b>罚抽 1 张扑克牌</b>：
       </p>
 
-      <!-- 步骤1: 选择犯规玩家 -->
-      <div class="space-y-1.5 text-left">
+      <!-- 未锁定目标时允许选择犯规玩家 -->
+      <div v-if="!lockedUserId" class="space-y-1.5 text-left">
         <label class="text-[11px] font-bold text-red-300 flex items-center gap-1">
           <i class="fa-solid fa-user-xmark"></i> 选择犯规玩家：
         </label>
@@ -67,7 +67,7 @@ const onConfirm = () => {
           <button v-for="p in players" :key="p.userId"
                   @click="selectedUserId = p.userId"
                   :class="['w-full p-2.5 rounded-xl border text-xs font-bold flex items-center justify-between transition-all cursor-pointer',
-                           selectedUserId === p.userId
+                           targetUserId === p.userId
                              ? 'bg-red-950/60 border-red-500 text-amber-300 shadow-md ring-1 ring-red-500/50'
                              : 'bg-black/40 border-white/10 text-gray-300 hover:border-white/30']">
             <div class="flex items-center space-x-2">
@@ -92,7 +92,7 @@ const onConfirm = () => {
                 class="flex-1 py-2.5 bg-gray-800/80 hover:bg-gray-700 text-xs font-bold text-gray-300 rounded-xl border border-white/10 transition active:scale-95 cursor-pointer">
           取消
         </button>
-        <button @click="onConfirm" :disabled="!selectedUserId"
+        <button @click="onConfirm" :disabled="!targetPlayer"
                 class="flex-1 py-2.5 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-xs font-black text-white rounded-xl shadow-lg transition active:scale-95 disabled:opacity-40 cursor-pointer">
           确认记录犯规
         </button>

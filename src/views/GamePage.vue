@@ -199,6 +199,7 @@ onMounted(() => {
       :sortedMyCards="sortedMyCards"
       :turnOrderPlayers="turnOrderPlayers"
       :isCardDimmed="isCardDimmed"
+      :isBleOfflineMode="isBleOfflineMode"
       @open-rules="showRulesModal = true"
       @confirm-pocket="handleConfirmPocket"
       @retract="handleRetract"
@@ -220,6 +221,7 @@ onMounted(() => {
     <RefereeFoulModal :show="showRefereeFoulModal"
                       :players="room?.players || []"
                       :defaultUserId="refereeTargetUserId"
+                      :lockedUserId="isBleOfflineMode ? userId : undefined"
                       @close="showRefereeFoulModal = false"
                       @confirm="handleRefereeFoulConfirm" />
 

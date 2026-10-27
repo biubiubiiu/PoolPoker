@@ -11,6 +11,7 @@ defineProps<{
   sortedMyCards: Card[];
   turnOrderPlayers: Player[];
   isCardDimmed: (card: Card) => boolean;
+  isBleOfflineMode?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -94,6 +95,7 @@ const emit = defineEmits<{
       :room="room"
       :userId="userId"
       :turnOrderPlayers="turnOrderPlayers"
+      :isBleOfflineMode="isBleOfflineMode"
       @open-referee-pocket="emit('open-referee-pocket', $event)"
       @open-referee-foul="emit('open-referee-foul', $event)"
     />
