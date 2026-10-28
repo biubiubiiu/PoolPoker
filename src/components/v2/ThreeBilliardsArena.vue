@@ -5,7 +5,7 @@ import { useBallAppearance } from '@/composables/useBallAppearance';
 import { useGameAudio } from '@/composables/useGameAudio';
 import { getBallOrigin } from '@/utils/ballLayout';
 import { createBallTextureCanvas } from '@/utils/ballTexture';
-import { loadTableGLTF } from '@/utils/tableModelLoader';
+import { loadTableGLTF, resetTableModelLoader } from '@/utils/tableModelLoader';
 
 const props = defineProps<{
   pocketedBallNumbers: number[];
@@ -27,8 +27,11 @@ const textureLoader = new THREE.TextureLoader();
 let renderer: THREE.WebGLRenderer | undefined;
 let scene: THREE.Scene;
 let camera: THREE.PerspectiveCamera;
-let observer: ResizeObserver;
+let observer: ResizeObserver | undefined;
+let intersectionObserver: IntersectionObserver | null = null;
 let frame = 0;
+let renderRequested = false;
+let isVisibleInViewport = true;
 let environment: THREE.WebGLRenderTarget | undefined;
 let disposed = false;
 let pockets = [-1, 1].flatMap((x) =>
@@ -57,7 +60,7 @@ function ballTexture(n: number) {
         tex.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 8);
       }
       tex.needsUpdate = true;
-      draw();
+      requestRender();
     },
     undefined,
     () => {
@@ -67,7 +70,7 @@ function ballTexture(n: number) {
       texture.image = canvas as unknown as HTMLImageElement;
       texture.colorSpace = THREE.SRGBColorSpace;
       texture.needsUpdate = true;
-      draw();
+      requestRender();
     }
   );
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -183,7 +186,62 @@ async function build() {
   ready.value = true;
   observer = new ResizeObserver(resize);
   observer.observe(host.value);
+  if (typeof window !== 'undefined' && 'IntersectionObserver' in window) {
+    intersectionObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          isVisibleInViewport = entry.isIntersecting;
+          if (isVisibleInViewport) {
+            requestRender();
+          } else {
+            cancelAnimationFrame(frame);
+            renderRequested = false;
+          }
+        }
+      },
+      { threshold: 0.05 }
+    );
+    intersectionObserver.observe(host.value);
+  }
   resize();
+}
+
+function updateLabels() {
+  if (!renderer || !host.value || !camera) return;
+  const w = host.value.clientWidth;
+  const h = host.value.clientHeight;
+  if (!w || !h) return;
+  labels.value = balls.map((b) => {
+    const world = b.mesh.getWorldPosition(new THREE.Vector3());
+    const p = world.clone().project(camera);
+    const edge = world
+      .clone()
+      .addScaledVector(new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0), 0.5 * b.mesh.scale.x)
+      .project(camera);
+    return {
+      diameter: Math.abs(edge.x - p.x) * w,
+      number: b.number,
+      x: ((p.x + 1) * w) / 2,
+      y: ((1 - p.y) * h) / 2,
+      visible: b.mesh.visible && !b.dropped,
+    };
+  });
+}
+
+function requestRender() {
+  if (
+    renderRequested ||
+    !renderer ||
+    !host.value ||
+    disposed ||
+    failed.value ||
+    document.hidden ||
+    !isVisibleInViewport
+  ) {
+    return;
+  }
+  renderRequested = true;
+  frame = requestAnimationFrame(renderFrame);
 }
 
 function sync(animate: boolean) {
@@ -203,8 +261,10 @@ function sync(animate: boolean) {
       b.mesh.quaternion.copy(b.restRotation);
     }
   }
-  draw();
+  updateLabels();
+  requestRender();
 }
+
 function resize() {
   if (!renderer || !host.value) return;
   const { clientWidth: w, clientHeight: h } = host.value;
@@ -250,14 +310,16 @@ function resize() {
     if (b.start === null) b.mesh.quaternion.copy(b.restRotation);
   }
   renderer.setSize(w, h);
-  draw();
+  updateLabels();
+  requestRender();
 }
-function draw() {
-  cancelAnimationFrame(frame);
-  if (!renderer || !host.value || disposed || failed.value || document.hidden) return;
+
+function renderFrame() {
+  renderRequested = false;
+  if (!renderer || !host.value || disposed || failed.value || document.hidden || !isVisibleInViewport) return;
   const now = performance.now();
   let moving = false;
-  for (const b of balls)
+  for (const b of balls) {
     if (b.start !== null) {
       const t = Math.min(1, (now - b.start) / 650);
       const roll = Math.min(1, t / 0.74);
@@ -279,9 +341,12 @@ function draw() {
       if (t === 1) {
         b.start = null;
         b.mesh.visible = false;
-      } else moving = true;
+      } else {
+        moving = true;
+      }
     }
-  const ringOpacity = 0.75 + 0.2 * Math.sin(now * 0.005);
+  }
+
   for (const b of balls) {
     b.pendingRing.visible =
       b.mesh.visible &&
@@ -289,39 +354,36 @@ function draw() {
       props.pendingBallNumbers.includes(b.number) &&
       !props.pocketedBallNumbers.includes(b.number);
     if (b.pendingRing.visible) {
-      b.pendingRing.material.opacity = ringOpacity;
+      b.pendingRing.material.opacity = 0.85;
     }
   }
+
   renderer.render(scene, camera);
-  const w = host.value.clientWidth,
-    h = host.value.clientHeight;
-  labels.value = balls.map((b) => {
-    const world = b.mesh.getWorldPosition(new THREE.Vector3());
-    const p = world.clone().project(camera);
-    const edge = world
-      .clone()
-      .addScaledVector(new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0), 0.5 * b.mesh.scale.x)
-      .project(camera);
-    return {
-      diameter: Math.abs(edge.x - p.x) * w,
-      number: b.number,
-      x: ((p.x + 1) * w) / 2,
-      y: ((1 - p.y) * h) / 2,
-      visible: b.mesh.visible && !b.dropped,
-    };
-  });
-  if (moving) frame = requestAnimationFrame(draw);
+
+  if (moving) {
+    renderRequested = true;
+    frame = requestAnimationFrame(renderFrame);
+  } else {
+    updateLabels();
+  }
 }
 function onContextLost(e: Event) {
   e.preventDefault();
   failed.value = true;
   ready.value = false;
   cancelAnimationFrame(frame);
+  renderRequested = false;
 }
+
 function visibility() {
-  if (document.hidden) cancelAnimationFrame(frame);
-  else sync(false);
+  if (document.hidden) {
+    cancelAnimationFrame(frame);
+    renderRequested = false;
+  } else if (isVisibleInViewport) {
+    sync(false);
+  }
 }
+
 watch(
   () => [props.pocketedBallNumbers, props.animationId, props.resetKey] as const,
   (next, old) => {
@@ -329,7 +391,7 @@ watch(
     sync(next[1] !== old[1] && next[2] === old[2] && !document.hidden);
   }
 );
-watch(() => props.pendingBallNumbers, draw);
+watch(() => props.pendingBallNumbers, requestRender);
 watch(
   () => appearance.theme,
   () => {
@@ -338,12 +400,16 @@ watch(
       b.mesh.material.map = ballTexture(b.number);
       b.mesh.material.needsUpdate = true;
     });
-    draw();
+    requestRender();
   }
 );
 function cleanupScene() {
   cancelAnimationFrame(frame);
+  renderRequested = false;
   observer?.disconnect();
+  observer = undefined;
+  intersectionObserver?.disconnect();
+  intersectionObserver = null;
   renderer?.domElement.removeEventListener('webglcontextlost', onContextLost);
   scene?.traverse((object: THREE.Object3D) => {
     if (object instanceof THREE.Mesh) {
@@ -367,6 +433,7 @@ function retryBuild() {
   if (disposed) return;
   failed.value = false;
   ready.value = false;
+  resetTableModelLoader();
   cleanupScene();
   build().catch(() => {
     failed.value = true;

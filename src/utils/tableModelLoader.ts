@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { type GLTF, GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 export const TABLE_MODEL_URL = '/models/billiards_table.glb';
@@ -8,6 +10,36 @@ THREE.Cache.enabled = true;
 
 let bufferPromise: Promise<ArrayBuffer | null> | null = null;
 let cachedBuffer: ArrayBuffer | null = null;
+let sharedDracoLoader: DRACOLoader | null = null;
+
+export function resetTableModelLoader(): void {
+  if (sharedDracoLoader) {
+    try {
+      sharedDracoLoader.dispose();
+    } catch (e) {
+      console.warn('[tableModelLoader] Failed to dispose sharedDracoLoader:', e);
+    }
+    sharedDracoLoader = null;
+  }
+  bufferPromise = null;
+  cachedBuffer = null;
+  THREE.Cache.clear();
+}
+
+function getDracoLoader(): DRACOLoader {
+  if (!sharedDracoLoader) {
+    sharedDracoLoader = new DRACOLoader();
+    const basePath = typeof import.meta.env?.BASE_URL === 'string' ? import.meta.env.BASE_URL : '/';
+    const decoderPath = `${basePath.endsWith('/') ? basePath : `${basePath}/`}draco/gltf/`;
+    sharedDracoLoader.setDecoderPath(decoderPath);
+  }
+  return sharedDracoLoader;
+}
+
+function configureLoader(loader: GLTFLoader): void {
+  loader.setDRACOLoader(getDracoLoader());
+  loader.setMeshoptDecoder(MeshoptDecoder);
+}
 
 /**
  * 在后台前置预加载球台 GLB 二进制数据，保存在内存中
@@ -40,14 +72,21 @@ export function preloadTableModel(): Promise<ArrayBuffer | null> {
  */
 export async function loadTableGLTF(): Promise<GLTF> {
   const loader = new GLTFLoader();
-  if (cachedBuffer) {
-    return loader.parseAsync(cachedBuffer.slice(0), '');
-  }
-  if (bufferPromise) {
-    const buffer = await bufferPromise;
-    if (buffer) {
-      return loader.parseAsync(buffer.slice(0), '');
+  configureLoader(loader);
+  try {
+    if (cachedBuffer) {
+      return await loader.parseAsync(cachedBuffer.slice(0), '');
     }
+    if (bufferPromise) {
+      const buffer = await bufferPromise;
+      if (buffer) {
+        return await loader.parseAsync(buffer.slice(0), '');
+      }
+    }
+    return await loader.loadAsync(TABLE_MODEL_URL);
+  } catch (error) {
+    // 解码或网络加载失败时，重置共享解码器与缓存，避免重试时复用内部已处于 rejected 态的 Promise
+    resetTableModelLoader();
+    throw error;
   }
-  return loader.loadAsync(TABLE_MODEL_URL);
 }

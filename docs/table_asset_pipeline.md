@@ -37,4 +37,5 @@ Blender 使用 Z-up，glTF 导出自动转成 Three.js 的 Y-up。台呢高度�
 - PBR 材质分别控制木漆、旧黄铜、台呢、皮革与绳网，无需自定义整套 shader。
 - 网页使用顶棚反射、主光投影、较弱桌沿补光和透明接影地面（透出页面绿色渐变）。
 - 摄影机保留横屏较低、竖屏较高的角度，DOM 热区继续跟随球的投影。
-- 本轮资源约 3.4 MB、7.3 万三角面；手机浏览器尺寸检查不能代替 iOS/Android 真机帧率测试。
+- 采用 Draco 几何压缩与 WebP 纹理压缩（保留 6 个 `PocketTarget_*` 锚点），运行时资源从约 3.4 MB 降至约 393 KB；Three.js 配合 DRACOLoader / MeshoptDecoder 本地解码。
+- 手机浏览器尺寸检查不能代替 iOS/Android 真机帧率测试。

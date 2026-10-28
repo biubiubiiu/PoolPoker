@@ -12,7 +12,8 @@
       "!!**/node_modules",
       "!!**/playwright-report",
       "!!**/test-results",
-      "!!**/tauri.conf.json"
+      "!!**/tauri.conf.json",
+      "!!public/draco"
     ]
   },
   "formatter": {
