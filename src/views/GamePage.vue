@@ -16,7 +16,6 @@ import { usePlayerProfile } from '@/composables/usePlayerProfile';
 import { useSocket } from '@/composables/useSocket';
 import { useUiPreferences } from '@/composables/useUiPreferences';
 import type { GameTransport } from '@/types/transport';
-import { preloadTableModel } from '@/utils/tableModelLoader';
 
 const { useNewUi } = useUiPreferences();
 const { userId, playerName, getFinalPlayerName } = usePlayerProfile();
@@ -102,8 +101,9 @@ const showControlDrawer = ref(false);
 
 onMounted(() => {
   // 当开启新版界面时，利用空闲时间静默预加载 3D 球台组件与 3.38MB GLB 模型，消除开局等待
-  const idlePreload = () => {
+  const idlePreload = async () => {
     import('@/components/v2/ThreeBilliardsArena.vue');
+    const { preloadTableModel } = await import('@/utils/tableModelLoader');
     preloadTableModel();
   };
   if (typeof window !== 'undefined') {

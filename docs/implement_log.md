@@ -947,3 +947,25 @@ iPhone 实际 Tauri 模拟器包在原有 Build Rust Code 阶段失败；关闭�
   - `pnpm exec vue-tsc --noEmit`：TypeScript 类型检查通过（0 错误）；
   - `pnpm run lint`：Biome 静态检查通过（0 错误 0 警告）；
   - `pnpm run build`：生产环境打包成功。
+
+### 第44轮：Vite 构建分包调优与 Swift Codegen 语法校验闭环 [2026-10-30]
+- **输入**：针对生产打包与跨端模型代码生成健壮性进行工程优化：
+  1. Three.js 与大依赖分包策略：在 `vite.config.ts` 中配置 `build.rollupOptions.output.manualChunks`，将 `three`、`socket.io-client` 拆分为独立 vendor chunk，保证玩家进入 2D 房间大厅或设置页时无需提前加载庞大的 3D 渲染内核，利用浏览器对 vendor chunk 的长期强缓存加速重复访问；
+  2. 三端 Codegen 语法校验闭环：为跨端代码生成脚本增加 Swift 语法编译检查（`swiftc -parse`），在本地检验中及时阻断 Swift 编译敏感词错误。
+- **探索与决策**：
+  1. *Vite 构建分包与静态依赖断链*：
+     - 在 `vite.config.ts` 中配置 `build.rollupOptions.output.manualChunks(id)`，精准将 `three` 及其实例分片归入 `vendor-three`，将 `socket.io-client` 及其底层协议库（`engine.io-client`、`socket.io-parser` 等）归入 `vendor-socketio`，并相应提高 `chunkSizeWarningLimit` 消除 >500kB 警报；
+     - 发现 `src/views/GamePage.vue` 顶部静态引入了 `preloadTableModel`，导致整个 `Three.js` 内核即使在 2D 大厅状态下仍被主页面静态引入。将 `GamePage.vue` 中的预加载改为在 `requestIdleCallback` 中动态导入 `await import('@/utils/tableModelLoader')`，彻底斩断 2D 大厅对 `vendor-three` 的同步导入链。首屏主 chunk 由 526kB 缩减至 193kB；设置页 `WebhookSettingsPage` 彻底摆脱 `three` 与 `socket.io` 依赖；
+  2. *Codegen 语法校验闭环*：
+     - 在 `scripts/codegen-models.mjs` 中实现 `verifySwiftSyntax(filePath)`，通过 `swiftc -parse` 对生成的 `WireModels.swift` 进行轻量级抽象语法树解析；
+     - 在 `codegen:check`（一致性检查）与 `codegen:models`（全量生成）流程中嵌入该校验，若存在 Swift 关键字冲突或语法错误立即阻断并输出详细编译器错误信息；无 Swift 环境时友好降级警报；统一复用 `codegen:check` 完成跨端统一校验，不增加多余琐碎脚本。
+- **最终改动**：
+  - `vite.config.ts` — 修改：配置 `manualChunks` 函数与 `chunkSizeWarningLimit: 800`。
+  - `src/views/GamePage.vue` — 修改：移除 `preloadTableModel` 的顶层静态引入，改由 `idlePreload` 异步动态加载。
+  - `scripts/codegen-models.mjs` — 修改：新增 `verifySwiftSyntax` 并集成至 `--check` 和生成闭环中。
+  - `docs/implement_log.md` — 修改：追加本轮实现记录。
+- **验收**：
+  - `pnpm run codegen:check`：三端模型一致性检查与 `swiftc -parse` 语法编译检查全部通过；
+  - `pnpm run test:unit`：29 个测试套件，278 项单元测试全量通过；
+  - `pnpm run lint`：Biome 静态规范检查通过；
+  - `pnpm run build`：生产构建通过，成功生成 `vendor-three` (632.86 kB)、`vendor-socketio` (41.17 kB) 独立 vendor chunk，`GamePage` 减至 193.50 kB，`WebhookSettingsPage` 完全无 3D/Socket 冗余。

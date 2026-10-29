@@ -11,6 +11,27 @@ export default defineConfig({
       '@shared': path.resolve(import.meta.dirname, './shared'),
     },
   },
+  build: {
+    chunkSizeWarningLimit: 800,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/three')) {
+            return 'vendor-three';
+          }
+          if (
+            id.includes('node_modules/socket.io-client') ||
+            id.includes('node_modules/engine.io-client') ||
+            id.includes('node_modules/socket.io-parser') ||
+            id.includes('node_modules/engine.io-parser') ||
+            id.includes('node_modules/@socket.io/')
+          ) {
+            return 'vendor-socketio';
+          }
+        },
+      },
+    },
+  },
   server: {
     host: true,
     port: 5173,

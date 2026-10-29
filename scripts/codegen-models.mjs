@@ -90,6 +90,39 @@ function formatWithBiome(filePath) {
   }
 }
 
+function verifySwiftSyntax(filePath) {
+  const result = spawnSync('swiftc', ['-parse', filePath], {
+    encoding: 'utf8',
+  });
+
+  if (result.error) {
+    if (result.error.code === 'ENOENT') {
+      if (process.env.CI_REQUIRE_SWIFT === 'true') {
+        console.error('❌ swiftc command not found in environment, but CI_REQUIRE_SWIFT is enabled.');
+        return false;
+      }
+      console.warn('⚠️ swiftc not found in PATH; skipped Swift syntax parse check.');
+      return true;
+    }
+    console.error('❌ Failed to invoke swiftc:', result.error.message);
+    return false;
+  }
+
+  if (result.status !== 0) {
+    console.error(`❌ Swift syntax compilation error in ${filePath}:`);
+    if (result.stderr) {
+      console.error(result.stderr.trim());
+    }
+    if (result.stdout) {
+      console.error(result.stdout.trim());
+    }
+    return false;
+  }
+
+  console.log('✅ Swift wire models syntax check passed (swiftc -parse).');
+  return true;
+}
+
 async function main() {
   console.log('📦 Reading schemas from shared/schemas/ ...');
   const schemaInput = await loadSchemas();
@@ -161,6 +194,12 @@ async function main() {
       hasDiff = true;
     }
 
+    if (!hasDiff && fs.existsSync(SWIFT_OUT_PATH)) {
+      if (!verifySwiftSyntax(SWIFT_OUT_PATH)) {
+        hasDiff = true;
+      }
+    }
+
     if (hasDiff) {
       console.error('Please run "pnpm run codegen:models" to update generated wire models.');
       process.exit(1);
@@ -178,6 +217,10 @@ async function main() {
   fs.writeFileSync(SWIFT_OUT_PATH, generatedSwift, 'utf8');
   console.log(`✅ Wrote Swift wire models to ${SWIFT_OUT_PATH}`);
   console.log(`✅ Wrote Kotlin wire models to ${KT_OUT_PATH}`);
+
+  if (!verifySwiftSyntax(SWIFT_OUT_PATH)) {
+    process.exit(1);
+  }
 }
 
 main().catch((err) => {
