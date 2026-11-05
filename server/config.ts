@@ -14,6 +14,13 @@ export interface AppConfig {
 
 const rootDir = path.resolve(import.meta.dirname, '..');
 
+// 原生加载根目录 .env 配置（若存在）
+try {
+  process.loadEnvFile?.(path.join(rootDir, '.env'));
+} catch {
+  // .env 文件不存在时安全跳过
+}
+
 let appConfig: AppConfig = {
   port: 3000,
   room: {

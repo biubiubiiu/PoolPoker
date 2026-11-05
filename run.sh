@@ -22,7 +22,7 @@ fi
 
 # 2. 检查 Node.js 环境
 if ! command -v node &> /dev/null; then
-    echo "❌ 错误: 未安装 Node.js，请先安装 Node.js (推荐 v24+)"
+    echo "❌ 错误: 未安装 Node.js，请先安装 Node.js (推荐 v26+)"
     exit 1
 fi
 

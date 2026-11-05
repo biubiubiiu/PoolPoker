@@ -22,7 +22,7 @@
 
 ### 必选基础环境（Web & 服务端开发）
 
-- **Node.js**: `>= 24.0.0`（仓库根目录提供 `.nvmrc`，执行 `nvm use` 即可切换）
+- **Node.js**: `>= 26.0.0`（仓库根目录提供 `.nvmrc`，执行 `nvm use` 即可切换）
 - **pnpm**: `>= 12.6.0`（项目使用 `pnpm pipeline` 任务编排器，请勿使用 `npm install` 或 `yarn`）
   ```bash
   nvm use

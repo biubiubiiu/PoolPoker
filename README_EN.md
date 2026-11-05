@@ -62,10 +62,10 @@ Switch freely between the **v2 Immersive 3D View** and the **v1 Classic 2D View*
 
 ### 1. Prerequisites
 
-Running the Web app and backend server only requires **Node.js >= 24** and **pnpm >= 12.6.0**:
+Running the Web app and backend server only requires **Node.js >= 26** and **pnpm >= 12.6.0**:
 
 ```bash
-# Switch to the Node.js version specified in .nvmrc (Node 24)
+# Switch to the Node.js version specified in .nvmrc (Node 26)
 nvm use
 
 # Enable pnpm via corepack if not already installed

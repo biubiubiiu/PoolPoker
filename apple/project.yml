@@ -129,7 +129,7 @@ targets:
           mkdir -p "$TARGET_DIR"
 
           if ! command -v pnpm >/dev/null 2>&1; then
-            echo "error: [PoolPoker iOS] 未检测到 pnpm 工具。iOS 客户端构建依赖 Node.js (>=24) 及 pnpm (>=12.6)。请确保已安装并在 PATH 中配置（如执行 corepack enable 或 brew install pnpm）。" >&2
+            echo "error: [PoolPoker iOS] 未检测到 pnpm 工具。iOS 客户端构建依赖 Node.js (>=26) 及 pnpm (>=12.6)。请确保已安装并在 PATH 中配置（如执行 corepack enable 或 brew install pnpm）。" >&2
             exit 1
           fi
 

@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 import { Server } from 'socket.io';
 
 // Reuse production command handlers; the fixture never sends external notifications.
@@ -14,7 +14,7 @@ const child = spawn(
   'swift',
   ['test', '--package-path', 'apple/WatchTests', '--scratch-path', '/tmp/poolpoker-watch-tests'],
   {
-    cwd: fileURLToPath(new URL('..', import.meta.url)),
+    cwd: path.resolve(import.meta.dirname, '..'),
     stdio: 'inherit',
     env: {
       ...process.env,

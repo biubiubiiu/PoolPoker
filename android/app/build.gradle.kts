@@ -118,7 +118,7 @@ listOf("Debug", "Release").forEach { variantName ->
             val shellScript = """
                 if [ -s "${'$'}HOME/.nvm/nvm.sh" ]; then
                     . "${'$'}HOME/.nvm/nvm.sh"
-                    nvm use 24 >/dev/null 2>&1 || nvm use >/dev/null 2>&1 || true
+                    nvm use 26 >/dev/null 2>&1 || nvm use >/dev/null 2>&1 || true
                 fi
                 exec $cmdStr
             """.trimIndent()

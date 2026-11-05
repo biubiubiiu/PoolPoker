@@ -22,7 +22,7 @@ Thank you for contributing to **PoolPoker (球霸扑克)**! This guide provides 
 
 ### Required Prerequisites (Web & Backend Development)
 
-- **Node.js**: `>= 24.0.0` (A `.nvmrc` file is provided in the repository root; run `nvm use` to switch automatically)
+- **Node.js**: `>= 26.0.0` (A `.nvmrc` file is provided in the repository root; run `nvm use` to switch automatically)
 - **pnpm**: `>= 12.6.0` (The project utilizes `pnpm pipeline` as a task orchestrator; please do not use `npm install` or `yarn`)
   ```bash
   nvm use

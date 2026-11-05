@@ -1,12 +1,9 @@
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { InputData, JSONSchemaInput, JSONSchemaStore, quicktype } from 'quicktype-core';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const rootDir = path.resolve(__dirname, '..');
+const rootDir = path.resolve(import.meta.dirname, '..');
 
 const SCHEMAS_DIR = path.join(rootDir, 'shared/schemas');
 const TS_OUT_PATH = path.join(rootDir, 'shared/types/generated/wire-models.ts');
